@@ -1,0 +1,31 @@
+I'll help restructure and clarify this content in markdown format:
+
+# Azure Monitoring & Grafana Architecture Design
+
+## Current State
+- Single cluster connected to single Azure Monitor workspace
+- Central Grafana instances for visualization
+
+## Design Considerations
+
+### Azure Monitor Workspace Strategy
+- Evaluate workspace consolidation options
+- Optimize central Grafana placement for latency reduction
+
+### App RBAC Requirements
+- Grafana SAMI need Monitoring Reader role on Azure Monitor Workspace
+- Automate RBAC assignment process if possible
+
+### User RBAC Requirements
+- Required role: Grafana Viewer
+- Create dedicated BBS groups to prevent AKS role pullution via SWCI
+- Consider user licensing costs ($6/user)
+
+### Implementation
+- Existing CI/CD pipeline handles Grafana dashboard deployment
+
+## Questions to Address
+1. Optimal Azure Monitor workspace consolidation strategy?
+2. Best placement for central Grafana instances?
+3. Chargeback model for Grafana user?
+4. Additional automation requirements?

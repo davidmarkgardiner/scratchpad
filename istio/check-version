@@ -1,0 +1,95 @@
+#!/bin/bash
+
+echo "=== Checking resources in at[numeric] namespaces ==="
+echo
+
+# Get list of namespaces starting with at followed by numbers
+NAMESPACES=$(kubectl get namespaces | grep "^at[0-9]" | awk '{print $1}')
+
+if [ -z "$NAMESPACES" ]; then
+    echo "No namespaces found starting with 'at' followed by numbers"
+    exit 1
+fi
+
+# Function to extract and analyze version numbers
+analyze_version() {
+    local version=$1
+    if [[ $version =~ asm-([0-9]+)-([0-9]+) ]]; then
+        echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}" 
+    fi
+}
+
+# Function to get the expected next version
+get_next_version() {
+    local current_version=$1
+    if [[ $current_version =~ asm-([0-9]+)-([0-9]+) ]]; then
+        local major="${BASH_REMATCH[1]}"
+        local minor="${BASH_REMATCH[2]}"
+        echo "asm-${major}-$((minor + 1))"
+    fi
+}
+
+echo "1. Resources with istio.io/rev versions:"
+count=0
+for ns in $NAMESPACES; do
+    ns_count=$(kubectl get all -n "$ns" --show-labels 2>/dev/null | grep -E "istio.io/rev=asm-[0-9]+-[0-9]+" | wc -l)
+    count=$((count + ns_count))
+done
+echo "$count resources total"
+echo
+
+echo "2. Version distribution in namespaces:"
+for ns in $NAMESPACES; do
+    resources=$(kubectl get all -n "$ns" --show-labels 2>/dev/null | grep -E "istio.io/rev=asm-[0-9]+-[0-9]+")
+    if [ ! -z "$resources" ]; then
+        echo "Namespace: $ns"
+        echo "Current versions:"
+        echo "$resources" | grep -o 'istio.io/rev=asm-[0-9]\+-[0-9]\+' | sort | uniq | while read -r version; do
+            current_ver=${version#istio.io/rev=}
+            next_ver=$(get_next_version "$current_ver")
+            echo "  $current_ver (should be updated to $next_ver)"
+        done
+        echo
+    fi
+done
+
+# Save detailed info to a log file
+echo
+echo "=== Saving detailed information to istio_labels_check.log ==="
+{
+    echo "Timestamp: $(date)"
+    echo
+    echo "=== Checking only namespaces starting with 'at' followed by numbers ==="
+    echo "Namespaces being checked:"
+    echo "$NAMESPACES" | tr ' ' '\n'
+    echo
+
+    echo "=== Detailed resource analysis ==="
+    for ns in $NAMESPACES; do
+        echo "Namespace: $ns"
+        resources=$(kubectl get all -n "$ns" --show-labels 2>/dev/null | grep -E "istio.io/rev=asm-[0-9]+-[0-9]+")
+        if [ ! -z "$resources" ]; then
+            echo "Resources with istio.io/rev labels:"
+            echo "$resources"
+            echo
+            echo "Version analysis:"
+            echo "$resources" | grep -o 'istio.io/rev=asm-[0-9]\+-[0-9]\+' | sort | uniq | while read -r version; do
+                current_ver=${version#istio.io/rev=}
+                next_ver=$(get_next_version "$current_ver")
+                echo "  Current: $current_ver"
+                echo "  Should be updated to: $next_ver"
+                echo
+            done
+        else
+            echo "No resources with istio.io/rev labels found"
+        fi
+        echo "----------------------------------------"
+    done
+
+    echo
+    echo "=== Summary ==="
+    echo "Total resources with istio.io/rev labels: $count"
+    
+} > istio_labels_check.log
+
+echo "Done! Check istio_labels_check.log for detailed information."

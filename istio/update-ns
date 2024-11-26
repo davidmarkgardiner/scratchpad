@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# Create a timestamp for the report
+timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
+report_file="namespace_modifications_${timestamp}.log"
+
+# Initialize the report file
+echo "Kubernetes Namespace Label Modification Report" > $report_file
+echo "Generated on: $(date)" >> $report_file
+echo "Only processing namespaces starting with 'at'" >> $report_file
+echo "----------------------------------------" >> $report_file
+
+# Function to check if label exists
+check_label() {
+    namespace=$1
+    label=$2
+    kubectl get namespace $namespace -o jsonpath="{.metadata.labels.$label}" 2>/dev/null
+}
+
+# Function to increment the version number
+increment_version() {
+    local rev="$1"
+    if [[ $rev =~ asm-([0-9]+)-([0-9]+) ]]; then
+        local major="${BASH_REMATCH[1]}"
+        local minor="${BASH_REMATCH[2]}"
+        new_minor=$((minor + 1))
+        echo "asm-${major}-${new_minor}"
+    else
+        echo "asm-1-23"  # Default version if pattern doesn't match
+    fi
+}
+
+# Get all namespaces starting with 'at'
+namespaces=$(kubectl get namespaces -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep '^at' || true)
+
+if [ -z "$namespaces" ]; then
+    echo "No namespaces found starting with 'at'"
+    echo "No namespaces found starting with 'at'" >> $report_file
+    exit 0
+fi
+
+# Initialize counters
+success_count=0
+error_count=0
+
+# Loop through each namespace
+for namespace in $namespaces; do
+    echo "Processing namespace: $namespace"
+    echo -e "\nNamespace: $namespace" >> $report_file
+    
+    # Store initial state
+    initial_rev=$(check_label $namespace "istio.io/rev")
+    
+    echo "Initial state:" >> $report_file
+    echo "  istio.io/rev: ${initial_rev:-not set}" >> $report_file
+    
+    # Update or add istio.io/rev label
+    if [ ! -z "$initial_rev" ]; then
+        # Increment existing version
+        new_rev=$(increment_version "$initial_rev")
+        if kubectl label namespace $namespace istio.io/rev=$new_rev --overwrite 2>>$report_file; then
+            echo "✓ Successfully updated istio.io/rev from $initial_rev to $new_rev" >> $report_file
+            ((success_count++))
+        else
+            echo "✗ Failed to update istio.io/rev" >> $report_file
+            ((error_count++))
+        fi
+    else
+        # Add new label with default version
+        if kubectl label namespace $namespace istio.io/rev=asm-1-23 2>>$report_file; then
+            echo "✓ Successfully added istio.io/rev=asm-1-23" >> $report_file
+            ((success_count++))
+        else
+            echo "✗ Failed to add istio.io/rev" >> $report_file
+            ((error_count++))
+        fi
+    fi
+    
+    # Store final state
+    final_rev=$(check_label $namespace "istio.io/rev")
+    
+    echo "Final state:" >> $report_file
+    echo "  istio.io/rev: ${final_rev:-not set}" >> $report_file
+    echo "----------------------------------------" >> $report_file
+done
+
+# Add summary to report
+echo -e "\nSummary:" >> $report_file
+echo "Total namespaces processed: $(echo $namespaces | wc -w)" >> $report_file
+echo "Successful operations: $success_count" >> $report_file
+echo "Failed operations: $error_count" >> $report_file
+echo "Only processed namespaces starting with 'at'" >> $report_file
+
+echo "Script completed! Report saved to: $report_file"
+cat $report_file

@@ -1,13 +1,24 @@
 #!/bin/bash
 
-# Function to increment the version number
+# Function to increment the version number, capped at 1-23
 increment_version() {
     local rev="$1"
     if [[ $rev =~ asm-([0-9]+)-([0-9]+) ]]; then
         local major="${BASH_REMATCH[1]}"
         local minor="${BASH_REMATCH[2]}"
-        new_minor=$((minor + 1))
-        echo "asm-${major}-${new_minor}"
+        
+        # If current version is already at or beyond 1-23, keep it at 1-23
+        if [[ "$major" -gt 1 || ("$major" -eq 1 && "$minor" -ge 23) ]]; then
+            echo "asm-1-23"
+        else
+            # If incrementing would exceed 1-23, set to 1-23
+            new_minor=$((minor + 1))
+            if [[ "$major" -eq 1 && "$new_minor" -gt 23 ]]; then
+                echo "asm-1-23"
+            else
+                echo "asm-${major}-${new_minor}"
+            fi
+        fi
     else
         echo "Invalid version format: $rev"
         return 1
@@ -69,8 +80,9 @@ process_file() {
 # Main script
 echo "Starting to process kustomization files..."
 
-# Find and process all kustomization.yaml files
-find . -name "kustomization.yaml" | while read -r file; do
+# Find and process all kustomization.yaml files in nested directories only
+# Using mindepth 2 to skip files in the current directory
+find . -mindepth 2 -name "kustomization.yaml" | while read -r file; do
     process_file "$file"
 done
 

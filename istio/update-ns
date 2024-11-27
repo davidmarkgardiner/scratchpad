@@ -17,14 +17,25 @@ check_label() {
     kubectl get namespace $namespace -o jsonpath="{.metadata.labels.$label}" 2>/dev/null
 }
 
+# Function to check if label prefix exists
+check_label_prefix() {
+    namespace=$1
+    prefix=$2
+    kubectl get namespace $namespace -o jsonpath="{.metadata.labels}" | grep -o "\"$prefix[^\"]*\"" 2>/dev/null
+}
+
 # Function to increment the version number
 increment_version() {
     local rev="$1"
     if [[ $rev =~ asm-([0-9]+)-([0-9]+) ]]; then
         local major="${BASH_REMATCH[1]}"
         local minor="${BASH_REMATCH[2]}"
-        new_minor=$((minor + 1))
-        echo "asm-${major}-${new_minor}"
+        if [[ "$major" -eq 1 && "$minor" -lt 23 ]]; then
+            new_minor=$((minor + 1))
+            echo "asm-${major}-${new_minor}"
+        else
+            echo "asm-1-23"  # Cap at 1-23
+        fi
     else
         echo "asm-1-23"  # Default version if pattern doesn't match
     fi
@@ -32,7 +43,6 @@ increment_version() {
 
 # Get all namespaces starting with 'at'
 namespaces=$(kubectl get namespaces -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep '^at' || true)
-
 if [ -z "$namespaces" ]; then
     echo "No namespaces found starting with 'at'"
     echo "No namespaces found starting with 'at'" >> $report_file
@@ -50,9 +60,25 @@ for namespace in $namespaces; do
     
     # Store initial state
     initial_rev=$(check_label $namespace "istio.io/rev")
+    initial_tags=$(check_label_prefix $namespace "istio.io/tag")
     
     echo "Initial state:" >> $report_file
     echo "  istio.io/rev: ${initial_rev:-not set}" >> $report_file
+    echo "  istio.io/tag labels: ${initial_tags:-none}" >> $report_file
+    
+    # Remove any istio.io/tag labels if they exist
+    if [ ! -z "$initial_tags" ]; then
+        echo "Removing istio.io/tag labels..." >> $report_file
+        for tag in $(kubectl get namespace $namespace -o jsonpath="{.metadata.labels}" | grep -o "istio.io/tag[^\"]*"); do
+            if kubectl label namespace $namespace "$tag-" 2>>$report_file; then
+                echo "✓ Successfully removed label: $tag" >> $report_file
+                ((success_count++))
+            else
+                echo "✗ Failed to remove label: $tag" >> $report_file
+                ((error_count++))
+            fi
+        done
+    fi
     
     # Update or add istio.io/rev label
     if [ ! -z "$initial_rev" ]; then
@@ -78,9 +104,11 @@ for namespace in $namespaces; do
     
     # Store final state
     final_rev=$(check_label $namespace "istio.io/rev")
+    final_tags=$(check_label_prefix $namespace "istio.io/tag")
     
     echo "Final state:" >> $report_file
     echo "  istio.io/rev: ${final_rev:-not set}" >> $report_file
+    echo "  istio.io/tag labels: ${final_tags:-none}" >> $report_file
     echo "----------------------------------------" >> $report_file
 done
 

@@ -1,0 +1,26 @@
+Yes, for the Azure CLI, here are the key commands to check private DNS zones:
+
+1. To list all private DNS zones in a subscription:
+```bash
+az network private-dns zone list --output table
+```
+
+2. To list private DNS zones in a specific resource group:
+```bash
+az network private-dns zone list -g <resource-group-name> --output table
+```
+
+3. To check for a specific zone:
+```bash
+az network private-dns zone show -g <resource-group-name> -n <zone-name>
+```
+
+The `--output table` flag makes the output more readable in a table format, but you can also use:
+- `--output json` for detailed JSON output
+- `--output tsv` for tab-separated values
+- `--output yaml` for YAML format
+
+If you need to query for specific information, you can combine these with JMESPath queries using `--query`. For example:
+```bash
+az network private-dns zone list --query "[].{Name:name, ResourceGroup:resourceGroup}"
+```

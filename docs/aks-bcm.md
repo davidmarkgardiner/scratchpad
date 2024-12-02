@@ -4,6 +4,8 @@ This document outlines the design and implementation of Business Continuity Mana
 
 ## Architecture Overview
 
+![AKS BCM Architecture](images/aks-bcm-architecture.svg)
+
 The architecture consists of multiple layers:
 
 1. External Layer

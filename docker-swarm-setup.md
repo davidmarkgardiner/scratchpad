@@ -1,0 +1,1 @@
+The content of the artifact above

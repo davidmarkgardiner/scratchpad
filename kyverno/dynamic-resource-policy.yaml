@@ -1,0 +1,88 @@
+# Dynamic Resource Policies
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: app-specific-resource-limits
+spec:
+  rules:
+  - name: set-limits-by-app-metrics
+    match:
+      resources:
+        kinds:
+        - Pod
+      selector:
+        matchLabels:
+          app-type: "dynamic-scaling"
+    context:
+    - name: requestRate
+      apiCall:
+        urlPath: "/api/v1/query"
+        service:
+          name: prometheus-server
+          namespace: monitoring
+          port: 9090
+        jmesPath: "data.result[0].value[1]"
+        method: GET
+        queryParams:
+          query: "sum(rate(http_requests_total{job='my-app'}[5m]))"
+    mutate:
+      patchStrategicMerge:
+        spec:
+          containers:
+          - name: "*"
+            resources:
+              limits:
+                cpu: "{{ multiply (divideFloat requestRate.value 100) '1000m' }}"
+                memory: "{{ multiply (divideFloat requestRate.value 10) '256Mi' }}"
+              requests:
+                cpu: "{{ multiply (divideFloat requestRate.value 200) '1000m' }}"
+                memory: "{{ multiply (divideFloat requestRate.value 20) '256Mi' }}"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-quota-safety
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+  - name: check-resource-quotas
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Container resource limits exceed allowed quotas"
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            resources:
+              limits:
+                cpu: "<= 4000m"    # 4 cores max
+                memory: "<= 8Gi"   # 8GB max
+              requests:
+                cpu: ">= 100m"     # Minimum 0.1 core
+                memory: ">= 128Mi" # Minimum 128MB
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kyverno-prometheus-rules
+  namespace: monitoring
+data:
+  kyverno.rules: |
+    groups:
+    - name: kyverno.rules
+      rules:
+      - record: kyverno_policy_results_total
+        expr: sum(kyverno_policy_results) by (policy, rule, status)
+      - alert: KyvernoPolicyFailures
+        expr: sum(rate(kyverno_policy_results{status="fail"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kyverno policy failures detected"
+          description: "Policy {{ $labels.policy }} has failed {{ $value }} times in the last 5 minutes"

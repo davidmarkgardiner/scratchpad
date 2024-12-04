@@ -1,0 +1,115 @@
+# Service Account with Azure Workload Identity
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloudability
+  namespace: metrics-agent
+  labels:
+    azure.workload.identity/use: "true"
+  annotations:
+    azure.workload.identity/client-id: "${AZURE_CLIENT_ID}"    # Replace with your managed identity client ID
+    azure.workload.identity/tenant-id: "${AZURE_TENANT_ID}"    # Replace with your Azure tenant ID
+
+---
+# Cluster Role and Binding remain the same
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloudability
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloudability
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cloudability
+subjects:
+  - kind: ServiceAccount
+    name: cloudability
+    namespace: metrics-agent
+
+---
+# Deployment configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-agent
+  namespace: metrics-agent
+  labels:
+    app: metrics-agent
+spec:
+  replicas: 2  # Adjust the number of replicas as needed
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: metrics-agent
+  template:
+    metadata:
+      labels:
+        app: metrics-agent
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: cloudability
+      containers:
+      - name: metrics-agent
+        image: cloudability/metrics-agent:latest
+        imagePullPolicy: Always
+        env:
+        - name: CLOUDABILITY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: cloudability-api-key
+              key: api-key
+        - name: CLOUDABILITY_CLUSTER_NAME
+          value: "${CLUSTER_NAME}"
+        - name: AZURE_CLIENT_ID
+          value: "${AZURE_CLIENT_ID}"
+        - name: STORAGE_ACCOUNT_NAME
+          value: "${STORAGE_ACCOUNT_NAME}"
+        - name: CONTAINER_NAME
+          value: "${CONTAINER_NAME}"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+      # Optional: Add node affinity/anti-affinity rules if needed
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - metrics-agent
+              topologyKey: "kubernetes.io/hostname"
+      volumes:
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys

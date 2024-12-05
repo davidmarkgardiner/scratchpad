@@ -1,0 +1,18 @@
+# Create managed identity
+az identity create \
+  -g myResourceGroup \
+  -n myapp-cloudability-identity
+
+# Set up federation
+az identity federated-credential create \
+  --name myapp-cloudability-federated-identity \
+  --identity-name myapp-cloudability-identity \
+  --resource-group myResourceGroup \
+  --issuer $(az aks show -n myAKSCluster -g myResourceGroup --query "oidcIssuerProfile.issuerUrl" -o tsv) \
+  --subject system:serviceaccount:myapp-dev-cloudability:cloudability
+
+# Assign roles
+az role assignment create \
+  --role "Storage Blob Data Contributor" \
+  --assignee-object-id $(az identity show -n myapp-cloudability-identity -g myResourceGroup --query principalId -o tsv) \
+  --scope /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Storage/storageAccounts/mystorageaccount

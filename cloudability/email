@@ -44,3 +44,20 @@ Best regards,
 [Your name]
 
 P.S. I can prepare a more detailed technical comparison if helpful for the discussion.
+
+
+Title: Monitoring Reader Role Assignment for Deployer Service Principal
+Requirement:
+The deployer service principal needs Monitoring Reader access to all Azure Monitor workspaces, both existing and future ones.
+Why it's important:
+
+Critical for testing functionality
+Tests will fail without proper role binding
+Prevents testing interruptions
+
+Proposed Solution:
+Instead of manually binding roles for each new cluster, assign the Monitoring Reader role at the UK8s management group level. This will:
+
+Automatically apply to all current clusters
+Apply to any future clusters
+Eliminate ongoing operational overhead

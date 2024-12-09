@@ -24,47 +24,98 @@ func handleAddOrModify(config *Config) error {
 		log.Printf("%s: %v", t.Field(i).Name, v.Field(i).Interface())
 	}
 
-	// Handle kustomization files based on conditions
-	if config.FullDomainName != "" && strings.HasPrefix(config.GitLabRepoURL, "devcloud.ubs.net") {
-		// Case 3: Both conditions met - create git-gate file
+	// Handle kustomization files based on conditions - only create one
+	var sourceKustomizationFile string
+	var destKustomizationFile string
+
+	if config.FullDomainName != "" && strings.HasPrefix(config.GitLabRepoURL, "sdgois`hbff") {
+		// Case 1: Both conditions met - create git-gate file
+		sourceKustomizationFile = "kustomization-git-gate.yaml"
+		destKustomizationFile = "kustomization.yaml"
 		log.Println("Creating kustomization-git-gate.yml (FullDomainName and GitLab repo condition)")
-		gitGateSource := filepath.Join(kustomizeDir, "kustomization-gitrepo.yaml")
-		if err := processFile(gitGateSource, dir, "kustomization-git-gate.yml", config); err != nil {
-			return fmt.Errorf("failed to process git-gate file: %v", err)
-		}
+	} else if config.FullDomainName != "" {
+		// Case 2: Only FullDomainName present
+		sourceKustomizationFile = "kustomization-gateway.yaml"
+		destKustomizationFile = "kustomization.yaml"
+		log.Println("Creating kustomization.yaml from gateway source (FullDomainName provided)")
+	} else if strings.HasPrefix(config.GitLabRepoURL, "sfs`dfdf") {
+		// Case 3: Only GitLabRepoURL matches
+		sourceKustomizationFile = "kustomization-gitrepo.yaml"
+		destKustomizationFile = "kustomization.yaml"
+		log.Println("Creating kustomization.yaml from gitrepo source (GitLab repo condition)")
+	} else if strings.Contains(config.Suffix, "ob-test") {
+		// Case 4: ob-test suffix
+		sourceKustomizationFile = "kustomization-apptest.yaml"
+		destKustomizationFile = "kustomization.yaml"
+		log.Println("Creating kustomization.yaml from apptest source (ob-test condition)")
+	} else {
+		// Default case
+		sourceKustomizationFile = "kustomization.yaml"
+		destKustomizationFile = "kustomization.yaml"
+		log.Println("Creating kustomization.yaml from default source")
 	}
-	
-	if config.FullDomainName != "" {
-		// Case 1: FullDomainName present
-		log.Println("Creating kustomization-gateway.yaml (FullDomainName provided)")
-		gatewaySource := filepath.Join(kustomizeDir, "kustomization-gateway.yaml")
-		if err := processFile(gatewaySource, dir, "kustomization-gateway.yaml", config); err != nil {
-			return fmt.Errorf("failed to process gateway file: %v", err)
-		}
+
+	// Process the selected kustomization file
+	sourceFile := filepath.Join(kustomizeDir, sourceKustomizationFile)
+	log.Printf("Processing kustomization file: %s", sourceFile)
+	if err := processFile(sourceFile, dir, destKustomizationFile, config); err != nil {
+		return fmt.Errorf("failed to process kustomization file: %v", err)
 	}
-	
-	if strings.HasPrefix(config.GitLabRepoURL, "") {
-		// Case 2: GitLabRepoURL matches
-		log.Println("Creating kustomization-gitrepo.yaml (GitLab repo condition)")
-		gitRepoSource := filepath.Join(kustomizeDir, "kustomization-gitrepo.yaml")
-		if err := processFile(gitRepoSource, dir, "kustomization-gitrepo.yaml", config); err != nil {
-			return fmt.Errorf("failed to process gitrepo file: %v", err)
+
+	// Process other files
+	files, err := filepath.Glob(filepath.Join(kustomizeDir, "*.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to glob files: %v", err)
+	}
+	log.Printf("Found %d YAML files in kustomize overlay directory", len(files))
+
+	for _, file := range files {
+		baseFileName := filepath.Base(file)
+
+		// Skip all kustomization files
+		if strings.HasPrefix(baseFileName, "kustomization") {
+			log.Printf("Skipping kustomization file: %s", baseFileName)
+			continue
+		}
+
+		// Process gateway.yaml only when FullDomainName is provided
+		if baseFileName == "gateway.yaml" {
+			if config.FullDomainName != "" {
+				log.Printf("Processing gateway.yaml (FullDomainName provided)")
+				if err := processFile(file, dir, baseFileName, config); err != nil {
+					return err
+				}
+			} else {
+				log.Printf("Skipping gateway.yaml (no FullDomainName provided)")
+			}
+			continue
+		}
+
+		// Process app.yaml only for ob-test
+		if baseFileName == "app.yaml" {
+			if strings.Contains(config.Suffix, "ob-test") {
+				log.Printf("Processing app.yaml for ob-test case")
+				if err := processFile(file, dir, baseFileName, config); err != nil {
+					return err
+				}
+			} else {
+				log.Printf("Skipping app.yaml for non-ob-test case")
+			}
+			continue
+		}
+
+		log.Printf("Processing non-kustomization file: %s", baseFileName)
+		if err := processFile(file, dir, baseFileName, config); err != nil {
+			return err
 		}
 	}
 
-	if config.FullDomainName == "" && !strings.HasPrefix(config.GitLabRepoURL, "devcloud.ubs.net") {
-		// Default case: Neither condition met
-		if strings.Contains(config.Suffix, "ob-test") {
-			sourceFile := filepath.Join(kustomizeDir, "kustomization-apptest.yaml")
-			log.Println("Creating kustomization.yaml from apptest source (ob-test condition)")
-			if err := processFile(sourceFile, dir, "kustomization.yaml", config); err != nil {
-				return fmt.Errorf("failed to process apptest file: %v", err)
-			}
-		} else {
-			sourceFile := filepath.Join(kustomizeDir, "kustomization.yaml")
-			log.Println("Creating kustomization.yaml from default source")
-			if err := processFile(sourceFile, dir, "kustomization.yaml", config); err != nil {
-				return fmt.Errorf("failed to process default file: %v", err)
-			}
-		}
+	// Final check
+	files, _ = filepath.Glob(filepath.Join(dir, "kustomization*.yaml"))
+	log.Printf("Number of kustomization files in target directory: %d", len(files))
+	for _, file := range files {
+		log.Printf("Kustomization file in target directory: %s", filepath.Base(file))
 	}
+
+	return nil
+}

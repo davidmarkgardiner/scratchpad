@@ -1,0 +1,97 @@
+- task: Go@0
+  displayName: 'Validate Data'
+  inputs:
+    command: 'test'
+    arguments: '-v validation_test.go'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/validation'
+  script: |
+    echo "##[section]Starting Data Validation Tests"
+    echo "##vso[task.setprogress value=0;]Initializing validation tests..."
+    
+    # Before test execution
+    echo "##[command]Running validation tests: go test -v validation_test.go"
+    echo "##vso[task.logissue type=debug]Starting validation in $(System.DefaultWorkingDirectory)/validation"
+    
+    # Run the actual test command
+    if ! go test -v validation_test.go; then
+      echo "##vso[task.logissue type=error;sourcepath=validation_test.go]Validation tests failed"
+      echo "##vso[task.complete result=Failed;]Data validation failed"
+      exit 1
+    fi
+    
+    echo "##vso[task.setprogress value=100;]Validation completed"
+    echo "##vso[task.setvariable variable=ValidationStatus;]Passed"
+
+- task: Go@0
+  displayName: 'Create manifest files'
+  inputs:
+    command: 'run'
+    arguments: 'createFiles.go'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/createFiles'
+  script: |
+    echo "##[section]Starting Manifest File Creation"
+    echo "##vso[task.setprogress value=0;]Initializing manifest creation..."
+    
+    echo "##[command]Running: go run createFiles.go"
+    if ! go run createFiles.go; then
+      echo "##vso[task.logissue type=error;sourcepath=createFiles.go]Failed to create manifest files"
+      echo "##vso[task.complete result=Failed;]Manifest creation failed"
+      exit 1
+    fi
+    
+    echo "##vso[task.setprogress value=100;]Manifest files created successfully"
+    echo "##vso[task.setvariable variable=ManifestStatus;]Created"
+
+- task: Go@0
+  displayName: 'Get dependencies for updateKust'
+  inputs:
+    command: 'get'
+    arguments: '-d'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/updateKust'
+  script: |
+    echo "##[section]Fetching Dependencies"
+    echo "##vso[task.setprogress value=0;]Starting dependency resolution..."
+    
+    echo "##[command]Running: go get -d"
+    if ! go get -d; then
+      echo "##vso[task.logissue type=warning;sourcepath=go.mod]Some dependencies might not be resolved"
+    fi
+    
+    echo "##vso[task.setprogress value=100;]Dependencies resolved"
+
+- task: Go@0
+  displayName: 'Update Kustomization with folder name'
+  inputs:
+    command: 'run'
+    arguments: 'updateKust.go'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/updateKust'
+  script: |
+    echo "##[section]Updating Kustomization"
+    echo "##vso[task.setprogress value=0;]Starting kustomization update..."
+    
+    echo "##[command]Running: go run updateKust.go"
+    if ! go run updateKust.go; then
+      echo "##vso[task.logissue type=error;sourcepath=updateKust.go]Failed to update kustomization"
+      echo "##vso[task.complete result=Failed;]Kustomization update failed"
+      exit 1
+    fi
+    
+    echo "##vso[task.setprogress value=100;]Kustomization updated successfully"
+    echo "##vso[task.setvariable variable=KustomizeStatus;]Updated"
+
+# Final status check
+- script: |
+    echo "##[section]Pipeline Execution Summary"
+    echo "Validation Status: $(ValidationStatus)"
+    echo "Manifest Status: $(ManifestStatus)"
+    echo "Kustomize Status: $(KustomizeStatus)"
+    
+    if [ "$(ValidationStatus)" != "Passed" ] || [ "$(ManifestStatus)" != "Created" ] || [ "$(KustomizeStatus)" != "Updated" ]; then
+      echo "##vso[task.logissue type=error]One or more steps failed"
+      echo "##vso[task.complete result=Failed;]Pipeline failed with errors"
+      exit 1
+    else
+      echo "##vso[task.complete result=Succeeded;]Pipeline completed successfully"
+    fi
+  displayName: 'Check Pipeline Status'
+  condition: always()

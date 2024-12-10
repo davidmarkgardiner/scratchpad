@@ -1,0 +1,144 @@
+- task: AzureCLI@2
+  displayName: 'Setup Alert Helper Function'
+  inputs:
+    azureSubscription: ${{ parameters.serviceConnectionName }}
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      # Function to send alert to Action Group
+      send_alert() {
+        local severity="$1"
+        local errorMessage="$2"
+        local componentName="$3"
+        
+        echo "##[command]Sending alert to Action Group"
+        
+        # Format the alert payload
+        alertPayload=$(cat <<EOF
+        {
+          "data": {
+            "essentials": {
+              "alertId": "/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.Alert/alerts/$(uuidgen)",
+              "alertRule": "Pipeline Failure Alert",
+              "severity": "$severity",
+              "signalType": "Event",
+              "monitorCondition": "Fired",
+              "monitoringService": "Pipeline",
+              "alertTargetIDs": ["$(System.TeamProject)"],
+              "configurationItems": ["$(Build.BuildNumber)"],
+              "originAlertId": "$(Build.BuildId)",
+              "firedDateTime": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+              "description": "Pipeline failure in $componentName: $errorMessage",
+              "essentialsVersion": "1.0"
+            },
+            "alertContext": {
+              "properties": {
+                "pipeline": "$(System.TeamProject)/$(Build.DefinitionName)",
+                "runUrl": "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)",
+                "error": "$errorMessage"
+              }
+            }
+          }
+        }
+EOF
+        )
+        
+        # Get the Action Group resource ID
+        actionGroupId="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$ACTION_GROUP_RG/providers/Microsoft.Insights/actionGroups/$ACTION_GROUP_NAME"
+        
+        # Trigger the Action Group
+        az monitor alert create \
+          --action $actionGroupId \
+          --condition "ErrorOccurred" \
+          --description "$errorMessage" \
+          --name "Pipeline-Failure-$(Build.BuildId)" \
+          --resource-group "$ACTION_GROUP_RG" \
+          --target-resource "$(Build.BuildId)" \
+          --custom-properties "$alertPayload" || {
+            echo "##vso[task.logissue type=warning]Failed to send alert to Action Group"
+          }
+      }
+      
+      # Export the function so it's available to other tasks
+      export -f send_alert
+
+- task: PowerShell@2
+  displayName: 'Send Payload to Dev Function App'
+  inputs:
+    filePath: 'rbacRoleBinding/rbacRoleBinding.ps1'
+    azureSubscription: ${{ parameters.serviceConnectionName }}
+    addSpnToEnvironment: false
+    errorActionPreference: 'Stop'
+  env:
+    SCOPE_ID: ''
+  scriptBlock: |
+    Write-Host "##[section]Starting Dev Function App Payload Delivery"
+    try {
+        . $PSScriptRoot/rbacRoleBinding.ps1
+        if ($LASTEXITCODE -ne 0) {
+            $errorMsg = "Script execution failed with exit code: $LASTEXITCODE"
+            Write-Host "##vso[task.logissue type=error;sourcepath=rbacRoleBinding.ps1]$errorMsg"
+            
+            # Trigger alert
+            bash -c "send_alert 'Critical' '$errorMsg' 'Dev Function App'"
+            
+            exit 1
+        }
+        Write-Host "##vso[task.setvariable variable=DevPayloadStatus;]Success"
+    }
+    catch {
+        $errorMsg = $_.Exception.Message
+        Write-Host "##vso[task.logissue type=error]$errorMsg"
+        
+        # Trigger alert
+        bash -c "send_alert 'Critical' '$errorMsg' 'Dev Function App'"
+        
+        exit 1
+    }
+
+- task: AzureCLI@2
+  displayName: 'Send Payload to Prod RBAC Pipeline'
+  inputs:
+    azureSubscription: ${{ parameters.serviceConnectionName }}
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    addSpnToEnvironment: true
+    inlineScript: |
+      echo "##[section]Starting Prod RBAC Pipeline Payload Delivery"
+      
+      # Error handling with alerts
+      if [ -z "${{ parameters.action }}" ] || [ -z "${{ parameters.aksclusterresourceid }}" ]; then
+        errorMsg="Required parameters are missing"
+        send_alert "Critical" "$errorMsg" "RBAC Pipeline"
+        echo "##vso[task.logissue type=error]$errorMsg"
+        exit 1
+      fi
+      
+      # ... (previous payload preparation code) ...
+      
+      # API call with error handling and alerts
+      response=$(curl -L -X POST -d "$body" \
+                     -H "Content-Type: application/json" \
+                     -H "Authorization: Bearer $token" \
+                     -w "\n%{http_code}" \
+                     "$url") || {
+        errorMsg="Failed to make API request"
+        send_alert "Critical" "$errorMsg" "RBAC Pipeline"
+        echo "##vso[task.logissue type=error]$errorMsg"
+        exit 1
+      }
+      
+      statusCode=$(echo "$response" | tail -n1)
+      if [ "$statusCode" -ne 200 ]; then
+        errorMsg="API request failed with status code: $statusCode"
+        send_alert "Critical" "$errorMsg" "RBAC Pipeline"
+        echo "##vso[task.logissue type=error]$errorMsg"
+        exit 1
+      fi
+
+# Pipeline variables
+variables:
+  - name: ACTION_GROUP_RG
+    value: 'your-resource-group'  # Resource group containing the Action Group
+  - name: ACTION_GROUP_NAME
+    value: 'your-action-group'    # Name of your Action Group

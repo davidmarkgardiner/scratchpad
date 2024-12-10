@@ -1,0 +1,157 @@
+- task: PowerShell@2
+  displayName: 'Send Payload to Dev Function App'
+  inputs:
+    filePath: 'rbacRoleBinding/rbacRoleBinding.ps1'
+    azureSubscription: ${{ parameters.serviceConnectionName }}
+    addSpnToEnvironment: false
+    errorActionPreference: 'Stop'
+    failOnStderr: true
+    ignoreLASTEXITCODE: false
+  env:
+    SCOPE_ID: ''
+  scriptBlock: |
+    Write-Host "##[section]Starting Dev Function App Payload Delivery"
+    Write-Host "##vso[task.setprogress value=0;]Initializing payload delivery..."
+
+    try {
+        Write-Host "##[command]Executing rbacRoleBinding.ps1"
+        Write-Host "##vso[task.logissue type=debug]Script path: rbacRoleBinding/rbacRoleBinding.ps1"
+        
+        # Execute the main script
+        . $PSScriptRoot/rbacRoleBinding.ps1
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "##vso[task.logissue type=error;sourcepath=rbacRoleBinding.ps1]Script execution failed with exit code: $LASTEXITCODE"
+            Write-Host "##vso[task.complete result=Failed;]Payload delivery failed"
+            exit 1
+        }
+        
+        Write-Host "##vso[task.setprogress value=100;]Payload delivered successfully"
+        Write-Host "##vso[task.setvariable variable=DevPayloadStatus;]Success"
+    }
+    catch {
+        Write-Host "##vso[task.logissue type=error;sourcepath=rbacRoleBinding.ps1]$($_.Exception.Message)"
+        Write-Host "##vso[task.complete result=Failed;]Exception during payload delivery"
+        exit 1
+    }
+
+- task: AzureCLI@2
+  displayName: 'Send Payload to Prod RBAC Pipeline'
+  inputs:
+    azureSubscription: ${{ parameters.serviceConnectionName }}
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    addSpnToEnvironment: true
+    inlineScript: |
+      echo "##[section]Starting Prod RBAC Pipeline Payload Delivery"
+      echo "##vso[task.setprogress value=0;]Initializing RBAC payload..."
+
+      # Function to log errors
+      log_error() {
+        echo "##vso[task.logissue type=error;]$1"
+        echo "##vso[task.complete result=Failed;]$1"
+        exit 1
+      }
+
+      # Function to log warnings
+      log_warning() {
+        echo "##vso[task.logissue type=warning;]$1"
+      }
+
+      echo "##[command]Preparing variables and payload"
+      echo "##vso[task.setprogress value=25;]Preparing payload..."
+
+      # Validate required parameters
+      if [ -z "${{ parameters.action }}" ] || [ -z "${{ parameters.aksclusterresourceid }}" ]; then
+        log_error "Required parameters are missing"
+      }
+
+      # Prepare variables JSON
+      variables=$(cat <<EOF
+        {
+          "action": "${{ parameters.action }}",
+          "aksresid": "${{ parameters.aksclusterresourceid }}",
+          "mg": "${{ parameters.opEnvironment }}",
+          "namespacename": "${{ parameters.namespacename }}"
+        }
+EOF
+      )
+
+      echo "##vso[task.setprogress value=50;]Building request body..."
+
+      # Prepare request body
+      body=$(cat <<EOF
+        {
+          "resources": {
+            "repositories": {
+              "self": {
+                "refName": "master"
+              }
+            }
+          },
+          "templateParameters": $variables,
+          "variables": {}
+        }
+EOF
+      )
+
+      echo "##[command]Getting Azure access token"
+      echo "##vso[task.setprogress value=75;]Acquiring authentication token..."
+
+      # Get access token
+      token=$(az account get-access-token --resource "" | jq -r '.accessToken') || {
+        log_error "Failed to acquire access token"
+      }
+
+      url=''
+      if [ -z "$url" ]; then
+        log_warning "API URL is empty"
+      fi
+
+      echo "##[command]Sending API request"
+      echo "##vso[task.setprogress value=90;]Sending request to RBAC pipeline..."
+
+      # Make API call with error handling
+      response=$(curl -L -X POST -d "$body" \
+                     -H "Content-Type: application/json" \
+                     -H "Authorization: Bearer $token" \
+                     -w "\n%{http_code}" \
+                     "$url") || {
+        log_error "Failed to make API request"
+      }
+
+      # Extract status code and response body
+      statusCode=$(echo "$response" | tail -n1)
+      responseBody=$(echo "$response" | sed '$d')
+
+      echo "##vso[task.setprogress value=100;]Request completed"
+
+      # Process response
+      if [ "$statusCode" -eq 200 ]; then
+        echo "##[section]API Request Successful"
+        echo "$responseBody"
+        echo "##vso[task.setvariable variable=RbacPipelineStatus;]Success"
+        echo "##vso[task.complete result=Succeeded;]RBAC pipeline request completed successfully"
+      else 
+        echo "##vso[task.logissue type=error;]API request failed with status code: $statusCode"
+        echo "$responseBody"
+        echo "##vso[task.setvariable variable=RbacPipelineStatus;]Failed"
+        echo "##vso[task.complete result=Failed;]RBAC pipeline request failed"
+        exit 1
+      fi
+
+# Final status check
+- script: |
+    echo "##[section]Pipeline Status Summary"
+    echo "Dev Payload Status: $(DevPayloadStatus)"
+    echo "RBAC Pipeline Status: $(RbacPipelineStatus)"
+    
+    if [ "$(DevPayloadStatus)" != "Success" ] || [ "$(RbacPipelineStatus)" != "Success" ]; then
+      echo "##vso[task.logissue type=error]One or more steps failed"
+      echo "##vso[task.complete result=Failed;]Pipeline failed with errors"
+      exit 1
+    else
+      echo "##vso[task.complete result=Succeeded;]Pipeline completed successfully"
+    fi
+  displayName: 'Verify Pipeline Execution'
+  condition: always()

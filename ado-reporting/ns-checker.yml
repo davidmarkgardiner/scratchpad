@@ -1,0 +1,181 @@
+- task: AzureCLI@2
+  displayName: 'Setup Alert Helper Function'
+  inputs:
+    azureSubscription: ${{ parameters.serviceConnectionName }}
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      # Import the alert helper function (from previous example)
+      source "$(System.DefaultWorkingDirectory)/scripts/alert-helper.sh"
+
+- task: AzureCLI@2
+  displayName: 'Namespace Health Check'
+  inputs:
+    azureSubscription: ${{ parameters.serviceConnectionName }}
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    addSpnToEnvironment: true
+    inlineScript: |
+      echo "##[section]Starting Namespace Health Check"
+      echo "##vso[task.setprogress value=0;]Initializing namespace verification..."
+
+      # Enhanced error handling function
+      handle_error() {
+        local error_msg="$1"
+        local error_type="$2"
+        local component="$3"
+        
+        echo "##vso[task.logissue type=error]$error_msg"
+        
+        # Send alert with different severity based on error type
+        case "$error_type" in
+          "timeout")
+            send_alert "Warning" "$error_msg" "$component"
+            ;;
+          "auth")
+            send_alert "Critical" "Authentication failure: $error_msg" "$component"
+            ;;
+          "prometheus")
+            send_alert "Error" "Prometheus query failed: $error_msg" "$component"
+            ;;
+          *)
+            send_alert "Error" "$error_msg" "$component"
+            ;;
+        esac
+      }
+
+      # Enhanced logging function
+      log_status() {
+        local status="$1"
+        local message="$2"
+        local progress="$3"
+        
+        echo "##vso[task.setprogress value=$progress;]$message"
+        echo "##[command]$message"
+      }
+
+      # Variables with validation
+      NAMESPACE_NAME="${NAMESPACE_NAME:?'Namespace name is required'}"
+      PROMETHEUS_URL="${PROMETHEUS_ENDPOINT:?'Prometheus endpoint is required'}"
+      CLUSTER_NAME="${CLUSTERNAME:?'Cluster name is required'}"
+      MAX_ATTEMPTS=10
+      DELAY=30
+      TIMEOUT=10  # Curl timeout in seconds
+
+      # Prometheus query function with enhanced error handling
+      check_namespace() {
+        log_status "progress" "Getting Azure Monitor token" "25"
+        
+        ACCESS_TOKEN=$(az account get-access-token --resource="https://prometheus.monitor.azure.com" --query accessToken -o tsv) || {
+          handle_error "Failed to get Azure Monitor token" "auth" "Prometheus"
+          return 1
+        }
+
+        QUERY="kube_namespace_status_phase{namespace=\"${NAMESPACE_NAME}\",cluster=\"${CLUSTER_NAME}\",phase=\"Active\"}"
+        
+        log_status "progress" "Querying Prometheus for namespace status" "50"
+        
+        # Enhanced curl error handling
+        RESPONSE=$(curl -s -G \
+          -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+          --data-urlencode "query=${QUERY}" \
+          --connect-timeout $TIMEOUT \
+          --max-time $((TIMEOUT * 2)) \
+          "${PROMETHEUS_URL}/api/v1/query") || {
+          handle_error "Prometheus API request failed" "prometheus" "Prometheus"
+          return 1
+        }
+
+        # Validate response format
+        if ! echo "$RESPONSE" | jq -e '.data.result' >/dev/null; then
+          handle_error "Invalid Prometheus response format" "prometheus" "Prometheus"
+          return 1
+        }
+
+        echo "$RESPONSE"
+      }
+
+      # Enhanced status reporting
+      set_status() {
+        local status=$1
+        local message=$2
+        local alert_type=$3
+        
+        # Update pipeline variables
+        echo "##vso[task.setvariable variable=NAMESPACE_STATUS;isOutput=true]$status"
+        echo "##vso[task.setvariable variable=NAMESPACE_MESSAGE;isOutput=true]$message"
+        
+        # Send status to monitoring systems
+        if [ "$status" = "success" ]; then
+          echo "##vso[task.complete result=Succeeded;]$message"
+          
+          # Send success metrics to Azure Monitor
+          az monitor metrics alert create \
+            --name "Namespace-Creation-Success-${NAMESPACE_NAME}" \
+            --resource-group "$MONITOR_RG" \
+            --condition "Namespace Active" \
+            --description "$message" \
+            --evaluation-frequency 5m \
+            --window-size 5m || true
+        else
+          echo "##vso[task.complete result=Failed;]$message"
+          send_alert "$alert_type" "$message" "Namespace Check"
+        fi
+
+        # Callback if URL is provided
+        if [ ! -z "$CALLBACK_URL" ]; then
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"status\": \"$status\", \"message\": \"$message\", \"timestamp\": \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"}" \
+            "$CALLBACK_URL" || log_status "warning" "Callback notification failed" "75"
+        fi
+      }
+
+      # Main execution loop with progress tracking
+      log_status "progress" "Starting namespace verification" "0"
+      
+      for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+        progress=$((i * 100 / MAX_ATTEMPTS))
+        log_status "progress" "Attempt $i of $MAX_ATTEMPTS" "$progress"
+        
+        RESPONSE=$(check_namespace)
+        if [ $? -ne 0 ]; then
+          continue
+        }
+        
+        VALUE=$(echo "$RESPONSE" | jq -r '.data.result[0].value[1]' 2>/dev/null)
+        
+        if [ "$VALUE" = "1" ]; then
+          success_msg="Namespace ${NAMESPACE_NAME} is active and healthy"
+          log_status "success" "$success_msg" "100"
+          set_status "success" "$success_msg" "Info"
+          
+          # Create monitoring alert for namespace health
+          az monitor metrics alert create \
+            --name "Namespace-Health-${NAMESPACE_NAME}" \
+            --resource-group "$MONITOR_RG" \
+            --scopes "$AKS_CLUSTER_ID" \
+            --condition "namespace_status_phase > 0" \
+            --window-size 5m \
+            --evaluation-frequency 1m || true
+          
+          exit 0
+        fi
+        
+        if [ $i -lt $MAX_ATTEMPTS ]; then
+          log_status "progress" "Waiting ${DELAY}s before next attempt..." "$progress"
+          sleep $DELAY
+        fi
+      done
+
+      # Handle timeout failure
+      failure_msg="Namespace ${NAMESPACE_NAME} creation failed or timed out after $((MAX_ATTEMPTS * DELAY)) seconds"
+      set_status "failure" "$failure_msg" "Critical"
+      exit 1
+
+# Add monitoring variables
+variables:
+  - name: MONITOR_RG
+    value: 'your-monitor-resource-group'
+  - name: AKS_CLUSTER_ID
+    value: '$(aksclusterresourceid)'

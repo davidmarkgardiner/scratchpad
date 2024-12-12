@@ -72,3 +72,67 @@ spec:
 * Pod Security Admission (PSA) is the recommended approach for modern Kubernetes clusters
 * Node selectors can be enforced using admission controllers or mutating webhooks
 * AKS supports both methods of node selection
+
+
+
+
+```
+
+Yes, you can use Node Affinity instead, which is the more modern and flexible approach. Here are two ways to do it:
+
+1. Using Required Node Affinity (hard requirement):
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: your-namespace
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: worker
+            operator: In
+            values:
+            - "true"
+```
+
+2. Using Preferred Node Affinity (soft requirement):
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: your-namespace
+spec:
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        preference:
+          matchExpressions:
+          - key: worker
+            operator: In
+            values:
+            - "true"
+```
+
+However, if you want to enforce node selection at the namespace level, you might want to consider using a `LimitRange` or `ResourceQuota`:
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: node-selector-quota
+  namespace: your-namespace
+spec:
+  hard:
+    pods: "0"
+  scopeSelector:
+    matchExpressions:
+    - operator: NotIn
+      scopeName: Node
+      values: ["worker=true"]
+```
+
+You could also use a Mutating Admission Webhook to automatically add node selectors to pods in specific namespaces. Would you like me to provide an example of how to implement that?

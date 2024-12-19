@@ -1,3 +1,47 @@
+# Main Kyverno admission webhook service
+service:
+  port: 443
+  type: ClusterIP
+  selector:
+    app: kyverno
+    component: admission-webhook
+    instance: primary
+
+# Background Controller service
+backgroundController:
+  enabled: true
+  service:
+    port: 443
+    type: ClusterIP
+    selector:
+      app: kyverno
+      component: background-controller
+      instance: worker
+
+# Reports Controller service
+reportsController:
+  enabled: true
+  service:
+    port: 443
+    type: ClusterIP
+    selector:
+      app: kyverno
+      component: reports-controller
+      instance: reporter
+
+# Cleanup Controller service
+cleanupController:
+  enabled: true
+  service:
+    port: 443
+    type: ClusterIP
+    selector:
+      app: kyverno
+      component: cleanup-controller
+      instance: cleaner
+
+---
+
 # Common configurations
 commonLabels:
   app.kubernetes.io/part-of: kyverno

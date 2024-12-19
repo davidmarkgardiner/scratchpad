@@ -1,3 +1,38 @@
+admissionController:
+  service:
+    selector:
+      app.kubernetes.io/component: admission-controller
+      service-type: webhook
+  metricsService:
+    selector:
+      app.kubernetes.io/component: admission-controller
+      service-type: metrics
+
+backgroundController:
+  metricsService:
+    selector:
+      app.kubernetes.io/component: background-controller
+      service-type: metrics
+
+cleanupController:
+  service:
+    selector:
+      app.kubernetes.io/component: cleanup-controller
+      service-type: webhook
+  metricsService:
+    selector:
+      app.kubernetes.io/component: cleanup-controller
+      service-type: metrics
+
+reportsController:
+  metricsService:
+    selector:
+      app.kubernetes.io/component: reports-controller
+      service-type: metrics
+
+---
+
+
 # Main Kyverno admission webhook service
 service:
   port: 443

@@ -1,0 +1,127 @@
+# Common configurations
+commonLabels:
+  app.kubernetes.io/part-of: kyverno
+  app.kubernetes.io/managed-by: helm
+
+# Main service configuration
+replicaCount: 1
+priorityClassName: system-cluster-critical
+
+# Common security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 3000
+  fsGroup: 2000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  readOnlyRootFilesystem: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Resource configuration
+resources:
+  limits:
+    memory: 384Mi
+    cpu: 500m
+  requests:
+    memory: 128Mi
+    cpu: 100m
+
+# Main service
+service:
+  port: 443
+  type: ClusterIP
+  selector:
+    app: kyverno
+    component: webhook
+    tier: controller
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9443"
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /health/liveness
+    port: 9443
+    scheme: HTTPS
+  initialDelaySeconds: 15
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/readiness
+    port: 9443
+    scheme: HTTPS
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Background Controller configuration
+backgroundController:
+  enabled: true
+  rbac:
+    create: true
+  service:
+    port: 443
+    type: ClusterIP
+    selector:
+      app: kyverno
+      component: background-scan
+      tier: controller
+  resources:
+    limits:
+      memory: 256Mi
+      cpu: 300m
+    requests:
+      memory: 128Mi
+      cpu: 100m
+  securityContext:
+    <<: *securityContext
+  podSecurityContext:
+    <<: *podSecurityContext
+  livenessProbe:
+    <<: *livenessProbe
+  readinessProbe:
+    <<: *readinessProbe
+
+# Reports Controller configuration
+reportsController:
+  enabled: true
+  rbac:
+    create: true
+  service:
+    port: 443
+    type: ClusterIP
+    selector:
+      app: kyverno
+      component: reports
+      tier: controller
+  resources:
+    limits:
+      memory: 256Mi
+      cpu: 300m
+    requests:
+      memory: 128Mi
+      cpu: 100m
+  securityContext:
+    <<: *securityContext
+  podSecurityContext:
+    <<: *podSecurityContext
+  livenessProbe:
+    <<: *livenessProbe
+  readinessProbe:
+    <<: *readinessProbe
+
+# Cleanup Controller config

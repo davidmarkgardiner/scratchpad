@@ -1,3 +1,7 @@
+kubectl get svc -o custom-columns='NAME:.metadata.name,SELECTORS:.spec.selector'
+# For each service, run:
+kubectl get svc <service-name> -o jsonpath='{.spec.selector}'
+
 admissionController:
   service:
     selector:

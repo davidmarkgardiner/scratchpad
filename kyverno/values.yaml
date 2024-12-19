@@ -1,3 +1,81 @@
+# Global settings
+fullnameOverride: "kyverno"
+
+admissionController:
+  service:
+    selector:
+      app.kubernetes.io/component: admission-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: webhook
+  
+  metricsService:
+    selector:
+      app.kubernetes.io/component: admission-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: metrics
+
+backgroundController:
+  metricsService:
+    selector:
+      app.kubernetes.io/component: background-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: metrics
+
+cleanupController:
+  service:
+    selector:
+      app.kubernetes.io/component: cleanup-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: webhook
+  
+  metricsService:
+    selector:
+      app.kubernetes.io/component: cleanup-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: metrics
+
+reportsController:
+  metricsService:
+    selector:
+      app.kubernetes.io/component: reports-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: metrics
+
+# Override deployment selectors to match
+admissionController:
+  podLabels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    service-type: webhook
+
+backgroundController:
+  podLabels:
+    app.kubernetes.io/component: background-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    service-type: metrics
+
+cleanupController:
+  podLabels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    service-type: webhook
+
+reportsController:
+  podLabels:
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    service-type: metrics
+---
 kubectl get svc -o custom-columns='NAME:.metadata.name,SELECTORS:.spec.selector'
 # For each service, run:
 kubectl get svc <service-name> -o jsonpath='{.spec.selector}'

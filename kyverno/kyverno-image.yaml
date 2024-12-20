@@ -1,0 +1,31 @@
+global:
+  image:
+    registry: myregistry
+
+admissionController:
+  container:
+    image:
+      repository: kyverno/kyverno
+      tag: v1.13.2
+
+backgroundController:
+  image:
+    repository: kyverno/kyverno
+    tag: v1.13.2
+
+cleanupController:
+  image:
+    repository: kyverno/kyverno
+    tag: v1.13.2
+
+reportsController:
+  image:
+    repository: kyverno/kyverno
+    tag: v1.13.2
+
+# For the CRD migration job
+crds:
+  migration:
+    image:
+      repository: kyverno/kyverno
+      tag: v1.13.2

@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-csi-storage
+  annotations:
+    policies.kyverno.io/title: Required CSI Storage
+    policies.kyverno.io/category: Storage
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy ensures that StorageClasses use Container Storage Interface (CSI) drivers.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: validate-csi-driver
+      match:
+        any:
+        - resources:
+            kinds:
+              - StorageClass
+      validate:
+        message: "StorageClass must use a CSI provisioner"
+        pattern:
+          provisioner: "*csi*" 

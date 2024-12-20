@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: unique-service-selectors
+  annotations:
+    policies.kyverno.io/title: Unique Service Selectors
+    policies.kyverno.io/category: Service Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy ensures that Kubernetes services use unique selectors to prevent
+      overlapping service endpoints.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-unique-selectors
+      match:
+        any:
+        - resources:
+            kinds:
+              - Service
+      validate:
+        message: "Services must have unique selectors. Add a 'purpose' label to distinguish between services."
+        pattern:
+          spec:
+            selector:
+              purpose: "?*" 

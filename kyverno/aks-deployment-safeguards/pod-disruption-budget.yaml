@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-pod-disruption-budget
+  annotations:
+    policies.kyverno.io/title: Required Pod Disruption Budget
+    policies.kyverno.io/category: Availability
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy ensures that workloads have appropriate Pod Disruption Budgets
+      configured for high availability during voluntary disruptions.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: generate-pdb
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+              - StatefulSet
+      generate:
+        apiVersion: policy/v1
+        kind: PodDisruptionBudget
+        name: "{{request.object.metadata.name}}-pdb"
+        namespace: "{{request.object.metadata.namespace}}"
+        synchronize: true
+        data:
+          spec:
+            maxUnavailable: 1
+            selector:
+              matchLabels:
+                app: "{{request.object.metadata.labels.app}}" 

@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-prestop-hook
+  annotations:
+    policies.kyverno.io/title: Required PreStop Hook
+    policies.kyverno.io/category: Pod Lifecycle
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy ensures that containers have a preStop hook configured
+      for graceful termination.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-prestop-hook
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+              - StatefulSet
+              - ReplicationController
+              - ReplicaSet
+      validate:
+        message: "Containers must have a preStop hook configured"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                - lifecycle:
+                    preStop:
+                      exec:
+                        command: ["*"] 

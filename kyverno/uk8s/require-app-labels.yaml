@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: Required Application Labels
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy ensures all Pods have the required Kubernetes recommended labels
+      for better resource management and observability.
+spec:
+  validationFailureAction: audit
+  rules:
+    - name: require-labels
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: "The following labels are required: 'app.kubernetes.io/name'"
+        pattern:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "?*" 

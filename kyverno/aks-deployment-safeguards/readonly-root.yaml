@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-readonly-root
+  annotations:
+    policies.kyverno.io/title: Read-Only Root Filesystem
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      This policy ensures that containers have a read-only root filesystem
+      to prevent modifications to the container's root filesystem.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-readonly-root
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      mutate:
+        patchStrategicMerge:
+          spec:
+            containers:
+              - (name): "*"
+                securityContext:
+                  +(readOnlyRootFilesystem): true 

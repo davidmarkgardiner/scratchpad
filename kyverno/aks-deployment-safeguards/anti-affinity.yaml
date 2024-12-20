@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-anti-affinity
+  annotations:
+    policies.kyverno.io/title: Required Anti-Affinity Rules
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy ensures that Deployments, StatefulSets, and ReplicaSets
+      have anti-affinity rules configured to prevent scheduling multiple
+      pods on the same node.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-anti-affinity
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+              - StatefulSet
+              - ReplicaSet
+      validate:
+        message: "Pod anti-affinity rules are required for high availability"
+        pattern:
+          spec:
+            template:
+              spec:
+                affinity:
+                  podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                      - weight: ">0"
+                        podAffinityTerm:
+                          topologyKey: "kubernetes.io/hostname" 

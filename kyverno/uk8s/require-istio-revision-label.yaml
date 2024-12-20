@@ -1,0 +1,45 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-istio-revision-label
+  annotations:
+    policies.kyverno.io/title: Required Istio Revision Label
+    policies.kyverno.io/category: Istio
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy ensures namespaces starting with 'at' have the required Istio revision label
+      for proper sidecar injection. The label istio.io/rev=asm-1-23 is required
+      for Istio to know which version of the sidecar to inject.
+spec:
+  mutateExistingOnPolicyUpdate: true
+  validationFailureAction: audit
+  background: true
+  rules:
+    - name: add-istio-revision-label
+      match:
+        any:
+        - resources:
+            kinds:
+              - Namespace
+            name: "at*"
+      mutate:
+        targets:
+          - apiVersion: v1
+            kind: Namespace
+        patchStrategicMerge:
+          metadata:
+            labels:
+              istio.io/rev: asm-1-23
+    - name: check-istio-revision-label
+      match:
+        any:
+        - resources:
+            kinds:
+              - Namespace
+            name: "at*"
+      validate:
+        message: "Namespaces starting with 'at' must have the label istio.io/rev=asm-1-23 for proper Istio sidecar injection"
+        pattern:
+          metadata:
+            labels:
+              istio.io/rev: asm-1-23

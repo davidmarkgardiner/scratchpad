@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: allowed-image-registries
+  annotations:
+    policies.kyverno.io/title: Allowed Image Registries
+    policies.kyverno.io/category: Container Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      This policy ensures that container images are only pulled from allowed registries.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: validate-registries
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: "Container images must be from approved registries"
+        pattern:
+          spec:
+            containers:
+            - image: "{{ regex_match('(mcr.microsoft.com/|*.azurecr.io/|docker.io/library/)', image) }}"
+            initContainers:
+            - image: "{{ regex_match('(mcr.microsoft.com/|*.azurecr.io/|docker.io/library/)', image) }}" 

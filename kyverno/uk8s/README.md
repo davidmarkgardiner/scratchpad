@@ -39,6 +39,17 @@ This directory contains Kubernetes policies enforced by Kyverno.
 - **Enforces:** Requires `istio.io/rev=asm-1-23` label on all namespaces
 - **Mode:** Audit
 
+### 6. Required Node Selectors (`require-node-selectors.yaml`)
+- **Category:** Best Practices
+- **Severity:** Medium
+- **Description:** Ensures proper node selection for workload placement
+- **Enforces:** Requires either `spot` or `worker` node selector for all workloads
+- **Mode:** Audit
+- **Applies to:** 
+  - Namespaces: Only those starting with "at-"
+  - Resources: Pods, Deployments, StatefulSets, and DaemonSets
+- **Excludes:** kube-system and kyverno namespaces
+- 
 ## Usage
 
 ### Apply All Policies

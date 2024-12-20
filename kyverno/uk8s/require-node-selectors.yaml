@@ -1,0 +1,60 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-node-selectors
+  annotations:
+    policies.kyverno.io/title: Require Node Selectors
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      This policy ensures that all Pods have appropriate node selectors for either spot or worker nodes.
+      This helps in proper workload distribution and cost optimization.
+spec:
+  validationFailureAction: audit
+  background: true
+  rules:
+    - name: check-node-selectors
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+            namespaces:
+              - "at-*"
+      exclude:
+        any:
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      validate:
+        message: "Pod must have either spot or worker node selector"
+        pattern:
+          spec:
+            nodeSelector:
+              kubernetes.io/role: "?(spot|worker)"
+    - name: check-deployment-node-selectors
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+              - StatefulSet
+              - DaemonSet
+            namespaces:
+              - "at-*"
+      exclude:
+        any:
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      validate:
+        message: "Workload must have either spot or worker node selector"
+        pattern:
+          spec:
+            template:
+              spec:
+                nodeSelector:
+                  kubernetes.io/role: "?(spot|worker)" 

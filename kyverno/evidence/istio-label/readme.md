@@ -1,238 +1,106 @@
-#!/bin/bash
+# Require Istio Revision Label Policy
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+This policy ensures that namespaces starting with 'at' have the required Istio revision label for proper sidecar injection.
 
-# Cleanup function
-cleanup() {
-    echo -e "\n${BLUE}Cleaning up...${NC}"
-    
-    # Delete deployments first
-    echo -e "${YELLOW}Deleting deployments...${NC}"
-    kubectl delete deployment -n quota-requests nginx-deployment --force --grace-period=0 2>/dev/null || true
-    kubectl delete deployment -n quota-limits nginx-deployment --force --grace-period=0 2>/dev/null || true
-    
-    # Delete pods
-    echo -e "${YELLOW}Deleting pods...${NC}"
-    kubectl delete pod -n quota-requests stress-pod-1 stress-pod-2 stress-pod-3 --force --grace-period=0 2>/dev/null || true
-    kubectl delete pod -n quota-limits stress-pod --force --grace-period=0 2>/dev/null || true
-    
-    # Delete namespaces
-    echo -e "${YELLOW}Deleting namespaces...${NC}"
-    kubectl delete namespace quota-requests quota-limits --wait=false
-    
-    # Remove finalizers
-    echo -e "${YELLOW}Removing finalizers...${NC}"
-    for ns in quota-requests quota-limits; do
-        kubectl get namespace $ns -o json 2>/dev/null | jq '.spec.finalizers = []' | kubectl replace --raw "/api/v1/namespaces/$ns/finalize" -f - || true
-    done
-    
-    # Reset context to default namespace
-    echo -e "${YELLOW}Resetting context to default namespace...${NC}"
-    kubectl config set-context --current --namespace=default
-    
-    echo -e "${GREEN}Cleanup complete!${NC}"
-}
+### Policy Details
 
-# Set trap for script interruption
-trap cleanup EXIT
+- **File**: `require-istio-revision-label.yaml`
+- **Type**: ClusterPolicy
+- **Action**: Mutate and Validate
+- **Target**: Namespaces starting with 'at'
+- **Required Label**: `istio.io/rev=asm-1-23`
 
-echo -e "${BLUE}=== Demo 1: Resource Requests vs Usage ===${NC}"
-echo -e "${YELLOW}This demo will show:${NC}"
-echo -e "${YELLOW}1. Pods can exceed their requests if resources are available${NC}"
-echo -e "${YELLOW}2. Namespace quota still limits total requests${NC}"
+### Testing Procedure
 
-# Create requests namespace
-echo -e "\n${BLUE}Creating namespace with requests quota...${NC}"
-kubectl create namespace quota-requests
+#### Prerequisites
+- Access to the Kubernetes cluster
+- kubectl CLI tool
+- Kyverno installed in the cluster
 
-# Create PolicyException for quota-requests namespace
-echo -e "${YELLOW}Creating PolicyException for quota-requests namespace...${NC}"
-cat <<EOF | kubectl apply -f -
-apiVersion: kyverno.io/v2beta1
-kind: PolicyException
-metadata:
-  name: quota-demo-exception
-  namespace: quota-requests
-spec:
-  exceptions:
-  - policyName: enforce-readonly-root
-    ruleNames: 
-    - check-readonly-root
-  - policyName: optimize-resources
-    ruleNames:
-    - validate-resource-limits
-  - policyName: require-labels
-    ruleNames:
-    - require-labels
-  - policyName: require-health-probes
-    ruleNames:
-    - check-probes
-  - policyName: require-prestop-hook
-    ruleNames:
-    - check-prestop-hook
-  match:
-    any:
-    - resources:
-        kinds:
-        - Pod
-        - Deployment
-EOF
+#### 1. Pre-Implementation Testing
 
-# Create ResourceQuota
-echo -e "\n${YELLOW}Creating ResourceQuota (1 CPU total requests)...${NC}"
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ResourceQuota
-metadata:
-  name: requests-quota
-  namespace: quota-requests
-spec:
-  hard:
-    requests.cpu: "1"
-    requests.memory: "1Gi"
-EOF
+```bash
+# Create test namespaces
+kubectl create ns at-test-1
+kubectl create ns test-normal  # Control namespace
 
-# Create first pod
-echo -e "\n${YELLOW}Creating first pod (requests: 400m CPU)...${NC}"
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: stress-pod-1
-  namespace: quota-requests
-spec:
-  containers:
-  - name: stress
-    image: polinux/stress
-    command: ["stress"]
-    args: ["--cpu", "2", "--timeout", "300s"]
-    resources:
-      requests:
-        cpu: "400m"
-        memory: "100Mi"
-EOF
+# Verify initial state
+kubectl get ns at-test-1 --show-labels
+kubectl get ns test-normal --show-labels
+```
 
-echo -e "\n${YELLOW}Creating second pod (requests: 400m CPU)...${NC}"
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: stress-pod-2
-  namespace: quota-requests
-spec:
-  containers:
-  - name: stress
-    image: polinux/stress
-    command: ["stress"]
-    args: ["--cpu", "2", "--timeout", "300s"]
-    resources:
-      requests:
-        cpu: "400m"
-        memory: "100Mi"
-EOF
+#### 2. Apply the Policy
 
-echo -e "\n${GREEN}Waiting for pods to start...${NC}"
-sleep 10
+```bash
+# Apply the Kyverno policy
+kubectl apply -f require-istio-revision-label.yaml
 
-echo -e "\n${BLUE}Current quota usage (800m/1000m CPU):${NC}"
-kubectl describe resourcequota -n quota-requests
+# Wait for Kyverno to process
+sleep 5
+```
 
-echo -e "\n${BLUE}Pod CPU usage (notice they can use more than 400m each):${NC}"
-kubectl top pod -n quota-requests
+#### 3. Post-Implementation Testing
 
-echo -e "\n${YELLOW}Trying to create third pod (requests: 400m CPU)...${NC}"
-echo -e "${RED}This should fail because total requests would exceed quota${NC}"
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: stress-pod-3
-  namespace: quota-requests
-spec:
-  containers:
-  - name: stress
-    image: polinux/stress
-    command: ["stress"]
-    args: ["--cpu", "2", "--timeout", "300s"]
-    resources:
-      requests:
-        cpu: "400m"
-        memory: "100Mi"
-EOF
+```bash
+# Check if label was added to matching namespace
+kubectl get ns at-test-1 --show-labels
 
-echo -e "\n${BLUE}=== Demo 2: Limits Enforcement ===${NC}"
-echo -e "${YELLOW}This demo will show that pods cannot exceed their limits${NC}"
+# Verify non-matching namespace wasn't modified
+kubectl get ns test-normal --show-labels
 
-# Create limits namespace
-echo -e "\n${BLUE}Creating namespace with limits...${NC}"
-kubectl create namespace quota-limits
+# Create a new matching namespace to test real-time enforcement
+kubectl create ns at-test-2
 
-# Create PolicyException for quota-limits namespace
-echo -e "${YELLOW}Creating PolicyException for quota-limits namespace...${NC}"
-cat <<EOF | kubectl apply -f -
-apiVersion: kyverno.io/v2beta1
-kind: PolicyException
-metadata:
-  name: quota-demo-exception
-  namespace: quota-limits
-spec:
-  exceptions:
-  - policyName: enforce-readonly-root
-    ruleNames: 
-    - check-readonly-root
-  - policyName: optimize-resources
-    ruleNames:
-    - validate-resource-limits
-  - policyName: require-labels
-    ruleNames:
-    - require-labels
-  - policyName: require-health-probes
-    ruleNames:
-    - check-probes
-  - policyName: require-prestop-hook
-    ruleNames:
-    - check-prestop-hook
-  match:
-    any:
-    - resources:
-        kinds:
-        - Pod
-        - Deployment
-EOF
+# Verify label was added automatically
+kubectl get ns at-test-2 --show-labels
 
-# Create pod with limits
-echo -e "\n${YELLOW}Creating pod with CPU limit (200m limit)...${NC}"
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: stress-pod
-  namespace: quota-limits
-spec:
-  containers:
-  - name: stress
-    image: polinux/stress
-    command: ["stress"]
-    args: ["--cpu", "2", "--timeout", "60s"]
-    resources:
-      requests:
-        cpu: "100m"
-        memory: "100Mi"
-      limits:
-        cpu: "200m"
-        memory: "200Mi"
-EOF
+# Test label persistence by attempting removal
+kubectl label ns at-test-1 istio.io/rev-
+```
 
-echo -e "\n${GREEN}Pod in limits namespace cannot exceed its CPU limit:${NC}"
-echo -e "${YELLOW}Waiting for pod to start...${NC}"
-sleep 10
-echo -e "\n${BLUE}Pod CPU usage (should not exceed 200m limit):${NC}"
-kubectl top pod -n quota-limits stress-pod
+#### Expected Results
 
-echo -e "\n${BLUE}Pod logs showing throttling:${NC}"
-kubectl logs -n quota-limits stress-pod 
+1. Before policy:
+   - `at-test-1` should have no Istio revision label
+   - `test-normal` should have no Istio revision label
+
+2. After policy:
+   - `at-test-1` should have `istio.io/rev=asm-1-23`
+   - `test-normal` should remain unchanged
+   - `at-test-2` should automatically get `istio.io/rev=asm-1-23`
+   - The label should be automatically restored if removed
+
+#### Cleanup
+
+```bash
+# Remove test resources
+kubectl delete ns at-test-1
+kubectl delete ns at-test-2
+kubectl delete ns test-normal
+kubectl delete -f require-istio-revision-label.yaml
+```
+
+### Troubleshooting
+
+If the policy doesn't work as expected:
+
+1. Check Kyverno logs:
+```bash
+kubectl logs -n kyverno -l app=kyverno
+```
+
+2. Verify policy status:
+```bash
+kubectl get clusterpolicy require-istio-revision-label -o yaml
+```
+
+3. Check if the namespace matches the policy rules:
+```bash
+kubectl describe ns <namespace-name>
+```
+
+### Additional Notes
+
+- The policy runs in audit mode (`validationFailureAction: audit`)
+- Existing namespaces will be mutated when the policy is updated (`mutateExistingOnPolicyUpdate: true`)
+- Background scanning is enabled (`background: true`)

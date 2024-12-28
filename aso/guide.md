@@ -115,12 +115,11 @@ configMapGenerator:
 
 ## Validation Steps
 
-1. Install kubeval for Kubernetes manifest validation:
+1. Install https://github.com/yannh/kubeconform for Kubernetes manifest validation:
 ```bash
 # Install kubeval
-brew install kubeval  # macOS
-# or
-wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz  # Linux
+brew install kubeconform  # macOS
+
 ```
 
 2. Create validation script:

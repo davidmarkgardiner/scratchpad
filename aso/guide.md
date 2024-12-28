@@ -117,7 +117,7 @@ configMapGenerator:
 
 1. Install https://github.com/yannh/kubeconform for Kubernetes manifest validation:
 ```bash
-# Install kubeval
+# Install kubeconform
 brew install kubeconform  # macOS
 
 ```
@@ -136,7 +136,7 @@ yamllint .
 echo "Running Kustomize build validation..."
 for env in dev prod; do
   echo "Validating $env environment..."
-  kustomize build clusters/$env | kubeval --ignore-missing-schemas
+  kustomize build clusters/$env | kubeconform --ignore-missing-schemas
 done
 
 echo "Checking for ASO CRD validation..."

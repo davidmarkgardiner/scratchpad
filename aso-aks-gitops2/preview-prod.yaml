@@ -1,0 +1,193 @@
+apiVersion: v1
+data:
+  ADDONS_KEYVAULT_ROTATION_INTERVAL: 2m
+  ADDONS_MONITORING_WORKSPACE_ID: ""
+  ADMIN_GROUP_ID: ""
+  AUTO_UPGRADE_CHANNEL: stable
+  AUTO_UPGRADE_NODE_OS_CHANNEL: SecurityPatch
+  CLUSTER_NAME: aks-cluster
+  DNS_PREFIX: aks
+  K8S_VERSION: 1.28.3
+  LOCATION: westus2
+  NETWORK_DNS_SERVICE_IP: 10.0.0.10
+  NETWORK_POD_CIDR: 10.244.0.0/16
+  NETWORK_SERVICE_CIDR: 10.0.0.0/16
+  RESOURCE_GROUP: rg-aks
+  SECURITY_IMAGE_CLEANER_INTERVAL: "168"
+  SUBSCRIPTION_ID: ""
+  USER_ASSIGNED_IDENTITY_NAME: ""
+  variables.yaml: |
+    CLUSTER_NAME: "prod-aks-01"
+    LOCATION: "eastus2"
+    SUBSCRIPTION_ID: "your-sub-id"
+    RESOURCE_GROUP: "rg-aks-prod"
+    DNS_PREFIX: "prod-aks-01"
+    K8S_VERSION: "1.28.3"
+    USER_ASSIGNED_IDENTITY_NAME: "prod-aks-identity"
+    ADMIN_GROUP_ID: "your-admin-group-id"
+
+    SYSTEM_NODEPOOL:
+      VM_SIZE: "Standard_D8s_v3"
+      COUNT: 3
+      MIN_COUNT: 3
+      MAX_COUNT: 5
+      MAX_PODS: 30
+      AVAILABILITY_ZONES: ["1", "2", "3"]
+
+    USER_NODEPOOL:
+      VM_SIZE: "Standard_D16s_v3"
+      COUNT: 3
+      MIN_COUNT: 3
+      MAX_COUNT: 10
+      MAX_PODS: 30
+      AVAILABILITY_ZONES: ["1", "2", "3"]
+
+    ADDONS:
+      KEYVAULT:
+        ENABLED: true
+        SECRET_ROTATION: true
+        ROTATION_INTERVAL: "2m"
+      AZURE_POLICY:
+        ENABLED: true
+      MONITORING:
+        ENABLED: true
+        WORKSPACE_ID: "/subscriptions/sub-id/resourceGroups/rg-monitoring-prod/providers/Microsoft.OperationalInsights/workspaces/law-aks-prod"
+
+    AUTO_UPGRADE:
+      CHANNEL: "stable"
+      NODE_OS_CHANNEL: "SecurityPatch"
+
+    SECURITY:
+      DEFENDER_ENABLED: true
+      WORKLOAD_IDENTITY: true
+      IMAGE_CLEANER:
+        ENABLED: true
+        INTERVAL: 168
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: azure-service-operator
+    criticality: high
+    environment: production
+  name: prod-cluster-vars
+  namespace: azureserviceoperator-system
+---
+apiVersion: containerservice.azure.com/v1api20240901
+kind: ManagedCluster
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: azure-service-operator
+    criticality: high
+    environment: production
+  name: prod-aks-cluster
+  namespace: azureserviceoperator-system
+spec:
+  aadProfile:
+    # adminGroupObjectIDs:
+    # - ${ADMIN_GROUP_ID}
+    enableAzureRBAC: true
+    managed: true
+  addonProfiles:
+    azureKeyvaultSecretsProvider:
+      config:
+        enableSecretRotation: "false"
+        rotationPollInterval: 2m
+      enabled: true
+    azurepolicy:
+      enabled: false
+    omsagent:
+      config:
+        logAnalyticsWorkspaceResourceID: ""
+      enabled: false
+  agentPoolProfiles:
+  - availabilityZones:
+    - "1"
+    count: 1
+    enableAutoScaling: true
+    maxCount: 1
+    maxPods: 30
+    minCount: 1
+    mode: System
+    name: sysnpl1
+    nodeTaints:
+    - CriticalAddonsOnly=true:NoSchedule
+    osDiskSizeGB: 128
+    osDiskType: Managed
+    osSKU: Ubuntu
+    osType: Linux
+    vmSize: Standard_D2s_v3
+  - availabilityZones:
+    - "1"
+    count: 1
+    enableAutoScaling: true
+    maxCount: 1
+    maxPods: 30
+    minCount: 1
+    mode: User
+    name: usrnpl1
+    nodeLabels:
+      kubernetes.azure.com/scalesetpriority: spot
+    nodeTaints:
+    - kubernetes.azure.com/scalesetpriority=spot:NoSchedule
+    osDiskSizeGB: 128
+    osDiskType: Managed
+    osSKU: Ubuntu
+    osType: Linux
+    vmSize: Standard_D2s_v3
+  apiServerAccessProfile:
+    enablePrivateCluster: true
+    enablePrivateClusterPublicFQDN: true
+  autoUpgradeProfile:
+    nodeOSUpgradeChannel: SecurityPatch
+    upgradeChannel: stable
+  disableLocalAccounts: true
+  dnsPrefix: aks
+  enableRBAC: true
+  identity:
+    type: UserAssigned
+    userAssignedIdentities:
+    - reference:
+        armId: /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${USER_ASSIGNED_IDENTITY_NAME}
+  kubernetesVersion: 1.28.3
+  location: westus2
+  networkProfile:
+    dnsServiceIP: 10.0.0.10
+    ipFamilies:
+    - IPv4
+    loadBalancerSku: standard
+    networkDataplane: cilium
+    networkPlugin: azure
+    networkPluginMode: overlay
+    networkPolicy: cilium
+    podCidr: 10.244.0.0/16
+    serviceCidr: 10.0.0.0/16
+  owner:
+    name: rg-aks
+  properties:
+    addons:
+      azureKeyvaultSecretsProvider:
+        enabled: true
+      azurePolicy:
+        enabled: true
+    apiServerAccessProfile:
+      authorizedIPRanges:
+      - 10.0.0.0/8
+      enablePrivateCluster: true
+      privateDNSZone: aks.private.contoso.com
+    networkProfile:
+      dnsServiceIP: 10.240.0.10
+      serviceCidr: 10.240.0.0/16
+    securityProfile:
+      azureKeyVaultKms:
+        enabled: true
+        keyId: https://kv-aks-prod.vault.azure.net/keys/aks-encryption/version
+      defender:
+        enabled: true
+        logAnalyticsWorkspaceResourceId: /subscriptions/xxx/resourceGroups/rg-security/providers/Microsoft.OperationalInsights/workspaces/law-prod
+  resourceGroupName: rg-aks-prod
+  securityProfile:
+    defender:
+      securityMonitoring:
+        enabled: false
+    workloadIdentity:
+      enabled: true

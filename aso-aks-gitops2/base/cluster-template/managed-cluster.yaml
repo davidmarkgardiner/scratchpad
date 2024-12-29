@@ -1,0 +1,91 @@
+apiVersion: containerservice.azure.com/v1api20240901
+kind: ManagedCluster
+metadata:
+  name: placeholder-name
+  namespace: azureserviceoperator-system
+spec:
+  location: placeholder-location
+  owner:
+    name: placeholder-rg
+  dnsPrefix: placeholder-prefix
+  kubernetesVersion: placeholder-k8s-version
+  # identity:
+  #   type: UserAssigned
+  #   userAssignedIdentities:
+  #     - reference:
+  #         armId: placeholder-identity
+  aadProfile:
+    enableAzureRBAC: true
+    managed: true
+    adminGroupObjectIDs: ["placeholder-admin-group"]
+  enableRBAC: true
+  disableLocalAccounts: true
+  networkProfile:
+    networkPlugin: azure
+    networkPluginMode: overlay
+    networkPolicy: cilium
+    networkDataplane: cilium
+    serviceCidr: placeholder-service-cidr
+    dnsServiceIP: placeholder-dns-ip
+    podCidr: placeholder-pod-cidr
+    ipFamilies: ["IPv4"]
+    loadBalancerSku: standard
+  apiServerAccessProfile:
+    enablePrivateCluster: true
+    enablePrivateClusterPublicFQDN: true
+  agentPoolProfiles:
+    - name: sysnpl1
+      mode: System
+      count: 1
+      minCount: 1
+      maxCount: 1
+      enableAutoScaling: true
+      vmSize: placeholder-system-vmsize
+      availabilityZones:
+        - "1"
+      osDiskType: Managed
+      osDiskSizeGB: 128
+      osType: Linux
+      osSKU: Ubuntu
+      maxPods: 30
+      nodeTaints:
+        - CriticalAddonsOnly=true:NoSchedule
+    - name: usrnpl1
+      mode: User
+      count: 1
+      minCount: 1
+      maxCount: 1
+      enableAutoScaling: true
+      vmSize: placeholder-user-vmsize
+      availabilityZones:
+        - "1"
+      osDiskType: Managed
+      osDiskSizeGB: 128
+      osType: Linux
+      osSKU: Ubuntu
+      maxPods: 30
+      nodeLabels:
+        kubernetes.azure.com/scalesetpriority: spot
+      nodeTaints:
+        - kubernetes.azure.com/scalesetpriority=spot:NoSchedule
+  addonProfiles:
+    azureKeyvaultSecretsProvider:
+      enabled: true
+      config:
+        enableSecretRotation: false
+        rotationPollInterval: placeholder-rotation-interval
+    azurepolicy:
+      enabled: false
+    omsagent:
+      enabled: false
+      config:
+        logAnalyticsWorkspaceResourceID: placeholder-workspace-id
+  autoUpgradeProfile:
+    upgradeChannel: placeholder-upgrade-channel
+    nodeOSUpgradeChannel: placeholder-os-channel
+  securityProfile:
+    defender:
+      securityMonitoring:
+        enabled: false
+    workloadIdentity:
+      enabled: true

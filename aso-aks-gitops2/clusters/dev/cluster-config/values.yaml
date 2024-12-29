@@ -1,0 +1,36 @@
+# Basic Settings
+CLUSTER_NAME: dev-aks-01
+LOCATION: eastus2
+SUBSCRIPTION_ID: your-sub-id
+RESOURCE_GROUP: rg-aks-dev
+DNS_PREFIX: dev-aks-01
+K8S_VERSION: 1.28.3
+USER_ASSIGNED_IDENTITY_NAME: dev-aks-identity
+ADMIN_GROUP_ID: your-admin-group-id
+
+# Network Settings
+NETWORK_SERVICE_CIDR: 172.16.0.0/16
+NETWORK_DNS_SERVICE_IP: 172.16.0.10
+NETWORK_POD_CIDR: 10.244.0.0/16
+
+# System Nodepool Settings
+SYSTEM_NODEPOOL_VM_SIZE: Standard_D4s_v3
+SYSTEM_NODEPOOL_COUNT: 1
+SYSTEM_NODEPOOL_MIN_COUNT: 1
+SYSTEM_NODEPOOL_MAX_COUNT: 2
+SYSTEM_NODEPOOL_MAX_PODS: 30
+
+# User Nodepool Settings
+USER_NODEPOOL_VM_SIZE: Standard_D4s_v3
+USER_NODEPOOL_COUNT: 1
+USER_NODEPOOL_MIN_COUNT: 1
+USER_NODEPOOL_MAX_COUNT: 3
+USER_NODEPOOL_MAX_PODS: 30
+
+# Addon Settings
+ADDONS_KEYVAULT_ROTATION_INTERVAL: 2m
+ADDONS_MONITORING_WORKSPACE_ID: /subscriptions/sub-id/resourceGroups/rg-monitoring-dev/providers/Microsoft.OperationalInsights/workspaces/law-aks-dev
+
+# Auto-upgrade Settings
+AUTO_UPGRADE_CHANNEL: patch
+AUTO_UPGRADE_NODE_OS_CHANNEL: SecurityPatch 

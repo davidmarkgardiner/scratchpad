@@ -1,0 +1,279 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: azureserviceoperator-system
+namePrefix: prod-
+
+resources:
+  - ../../base/cluster-template
+
+configMapGenerator:
+  - name: cluster-config
+    files:
+      - cluster-config/values.yaml
+
+replacements:
+  # Basic cluster settings
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.CLUSTER_NAME
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - metadata.name
+          - spec.dnsPrefix
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.LOCATION
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.location
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.RESOURCE_GROUP
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.owner.name
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.K8S_VERSION
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.kubernetesVersion
+
+  # Identity and Admin settings
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.USER_ASSIGNED_IDENTITY_NAME
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.identity.userAssignedIdentities[0].reference.name
+
+  # - source:
+  #     kind: ConfigMap
+  #     name: cluster-config
+  #     fieldPath: data.ADMIN_GROUP_ID
+  #   targets:
+  #     - select:
+  #         kind: ManagedCluster
+  #       fieldPaths:
+  #         - spec.aadProfile.adminGroupObjectIDs[0]
+
+  # Network settings
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.NETWORK.SERVICE_CIDR
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.networkProfile.serviceCidr
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.NETWORK.DNS_SERVICE_IP
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.networkProfile.dnsServiceIP
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.NETWORK.POD_CIDR
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.networkProfile.podCidr
+
+  # System nodepool settings
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL.VM_SIZE
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=sysnpl1].vmSize
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL.COUNT
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=sysnpl1].count
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL.MIN_COUNT
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=sysnpl1].minCount
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL.MAX_COUNT
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=sysnpl1].maxCount
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL.MAX_PODS
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=sysnpl1].maxPods
+
+  # User nodepool settings
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.USER_NODEPOOL.VM_SIZE
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=usrnpl1].vmSize
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.USER_NODEPOOL.COUNT
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=usrnpl1].count
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.USER_NODEPOOL.MIN_COUNT
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=usrnpl1].minCount
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.USER_NODEPOOL.MAX_COUNT
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=usrnpl1].maxCount
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.USER_NODEPOOL.MAX_PODS
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[name=usrnpl1].maxPods
+
+  # Addon settings
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADDONS.KEYVAULT.ROTATION_INTERVAL
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.addonProfiles.azureKeyvaultSecretsProvider.config.rotationPollInterval
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADDONS.MONITORING.WORKSPACE_ID
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.addonProfiles.omsagent.config.logAnalyticsWorkspaceResourceID
+
+  # Auto-upgrade settings
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.AUTO_UPGRADE.CHANNEL
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.autoUpgradeProfile.upgradeChannel
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.AUTO_UPGRADE.NODE_OS_CHANNEL
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.autoUpgradeProfile.nodeOSUpgradeChannel
+
+patches:
+  - patch: |-
+      apiVersion: containerservice.azure.com/v1api20240901
+      kind: ManagedCluster
+      metadata:
+        name: aks-cluster
+      spec:
+        apiServerAccessProfile:
+          enablePrivateCluster: true
+          enablePrivateClusterPublicFQDN: false
+        securityProfile:
+          defender:
+            securityMonitoring:
+              enabled: true
+        addonProfiles:
+          azurepolicy:
+            enabled: true
+          omsagent:
+            enabled: true
+    target:
+      kind: ManagedCluster
+      name: aks-cluster
+
+labels:
+  - pairs:
+      environment: production

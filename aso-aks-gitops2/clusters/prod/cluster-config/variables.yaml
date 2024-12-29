@@ -1,0 +1,46 @@
+CLUSTER_NAME: "prod-aks-01"
+LOCATION: "eastus2"
+SUBSCRIPTION_ID: "your-sub-id"
+RESOURCE_GROUP: "rg-aks-prod"
+DNS_PREFIX: "prod-aks-01"
+K8S_VERSION: "1.28.3"
+USER_ASSIGNED_IDENTITY_NAME: "prod-aks-identity"
+ADMIN_GROUP_ID: "your-admin-group-id"
+
+SYSTEM_NODEPOOL:
+  VM_SIZE: "Standard_D8s_v3"
+  COUNT: 3
+  MIN_COUNT: 3
+  MAX_COUNT: 5
+  MAX_PODS: 30
+  AVAILABILITY_ZONES: ["1", "2", "3"]
+
+USER_NODEPOOL:
+  VM_SIZE: "Standard_D16s_v3"
+  COUNT: 3
+  MIN_COUNT: 3
+  MAX_COUNT: 10
+  MAX_PODS: 30
+  AVAILABILITY_ZONES: ["1", "2", "3"]
+
+ADDONS:
+  KEYVAULT:
+    ENABLED: true
+    SECRET_ROTATION: true
+    ROTATION_INTERVAL: "2m"
+  AZURE_POLICY:
+    ENABLED: true
+  MONITORING:
+    ENABLED: true
+    WORKSPACE_ID: "/subscriptions/sub-id/resourceGroups/rg-monitoring-prod/providers/Microsoft.OperationalInsights/workspaces/law-aks-prod"
+
+AUTO_UPGRADE:
+  CHANNEL: "stable"
+  NODE_OS_CHANNEL: "SecurityPatch"
+
+SECURITY:
+  DEFENDER_ENABLED: true
+  WORKLOAD_IDENTITY: true
+  IMAGE_CLEANER:
+    ENABLED: true
+    INTERVAL: 168

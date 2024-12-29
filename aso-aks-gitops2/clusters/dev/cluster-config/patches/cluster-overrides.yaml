@@ -1,0 +1,17 @@
+apiVersion: containerservice.azure.com/v1api20240901
+kind: ManagedCluster
+metadata:
+  name: aks-cluster
+spec:
+  networkProfile:
+    serviceCidr: 172.16.0.0/16
+    dnsServiceIP: 172.16.0.10
+  apiServerAccessProfile:
+    enablePrivateCluster: false  # Direct boolean
+  securityProfile:
+    defender:
+      securityMonitoring:
+        enabled: false  # Direct boolean
+  addonProfiles:
+    azurepolicy:
+      enabled: false  # Direct boolean

@@ -1,0 +1,37 @@
+CLUSTER_NAME: prod-aks-01
+LOCATION: westus2
+SUBSCRIPTION_ID: your-prod-sub-id
+RESOURCE_GROUP: rg-aks-prod
+DNS_PREFIX: prod-aks-01
+K8S_VERSION: 1.28.3
+USER_ASSIGNED_IDENTITY_NAME: prod-aks-identity
+ADMIN_GROUP_ID: your-prod-admin-group-id
+
+NETWORK:
+  SERVICE_CIDR: 172.17.0.0/16
+  DNS_SERVICE_IP: 172.17.0.10
+  POD_CIDR: 10.245.0.0/16
+
+SYSTEM_NODEPOOL:
+  VM_SIZE: Standard_D4s_v3
+  COUNT: 3
+  MIN_COUNT: 3
+  MAX_COUNT: 5
+  MAX_PODS: 30
+
+USER_NODEPOOL:
+  VM_SIZE: Standard_D4s_v3
+  COUNT: 3
+  MIN_COUNT: 3
+  MAX_COUNT: 7
+  MAX_PODS: 30
+
+ADDONS:
+  KEYVAULT:
+    ROTATION_INTERVAL: 2m
+  MONITORING:
+    WORKSPACE_ID: /subscriptions/sub-id/resourceGroups/rg-monitoring-prod/providers/Microsoft.OperationalInsights/workspaces/law-aks-prod
+
+AUTO_UPGRADE:
+  CHANNEL: stable
+  NODE_OS_CHANNEL: SecurityPatch 

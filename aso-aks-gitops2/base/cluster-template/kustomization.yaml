@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - managed-cluster.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: cluster-config
+    literals:
+      - CLUSTER_NAME=placeholder
+      - LOCATION=placeholder
+      - RESOURCE_GROUP=placeholder
+      - K8S_VERSION=placeholder
+      - USER_ASSIGNED_IDENTITY_NAME=placeholder-identity
+      - ADMIN_GROUP_ID=placeholder
+
+labels:
+  - pairs:
+      app.kubernetes.io/managed-by: azure-service-operator

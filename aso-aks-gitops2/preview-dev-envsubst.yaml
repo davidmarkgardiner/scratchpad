@@ -1,0 +1,94 @@
+apiVersion: containerservice.azure.com/v1api20240901
+kind: ManagedCluster
+metadata:
+  name: 
+  namespace: azureserviceoperator-system
+spec:
+  location: 
+  owner:
+    name: 
+  dnsPrefix: 
+  kubernetesVersion: ""
+  identity:
+    type: UserAssigned
+    userAssignedIdentities:
+      - reference:
+          armId: "/subscriptions//resourceGroups//providers/Microsoft.ManagedIdentity/userAssignedIdentities/"
+  # aadProfile:
+  #   enableAzureRBAC: true
+  #   managed: true
+  #   adminGroupObjectIDs: [""]
+  enableRBAC: true
+  disableLocalAccounts: true
+  networkProfile:
+    networkPlugin: azure
+    networkPluginMode: overlay
+    networkPolicy: cilium
+    networkDataplane: cilium
+    serviceCidr: 
+    dnsServiceIP: 
+    podCidr: 
+    ipFamilies: ["IPv4"]
+    loadBalancerSku: standard
+  apiServerAccessProfile:
+    enablePrivateCluster: true
+    enablePrivateClusterPublicFQDN: true
+  agentPoolProfiles:
+    - name: sysnpl1
+      mode: System
+      count: 1
+      minCount: 1
+      maxCount: 1
+      enableAutoScaling: true
+      vmSize: Standard_D2s_v3
+      availabilityZones:
+        - "1"
+      osDiskType: Managed
+      osDiskSizeGB: 128
+      osType: Linux
+      osSKU: Ubuntu
+      maxPods: 30
+      nodeTaints:
+        - CriticalAddonsOnly=true:NoSchedule
+    - name: usrnpl1
+      mode: User
+      count: 1
+      minCount: 1
+      maxCount: 1
+      enableAutoScaling: true
+      vmSize: Standard_D2s_v3
+      availabilityZones:
+        - "1"
+      osDiskType: Managed
+      osDiskSizeGB: 128
+      osType: Linux
+      osSKU: Ubuntu
+      maxPods: 30
+      nodeLabels:
+        kubernetes.azure.com/scalesetpriority: spot
+      nodeTaints:
+        - kubernetes.azure.com/scalesetpriority=spot:NoSchedule
+  addonProfiles:
+    azureKeyvaultSecretsProvider:
+      enabled: true
+      config:
+        enableSecretRotation: "false"
+        rotationPollInterval: ""
+    azurepolicy:
+      enabled: false
+    omsagent:
+      enabled: false
+      config:
+        logAnalyticsWorkspaceResourceID: 
+  autoUpgradeProfile:
+    upgradeChannel: 
+    nodeOSUpgradeChannel: 
+  securityProfile:
+    defender:
+      securityMonitoring:
+        enabled: false
+    workloadIdentity:
+      enabled: true
+    # imageCleaner:
+    #   enabled: "true"
+    #   intervalHours: 

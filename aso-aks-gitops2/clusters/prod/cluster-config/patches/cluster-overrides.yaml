@@ -1,0 +1,27 @@
+apiVersion: containerservice.azure.com/v1api20240901
+kind: ManagedCluster
+metadata:
+  name: prod-aks-cluster
+spec:
+  resourceGroupName: rg-aks-prod
+  properties:
+    networkProfile:
+      serviceCidr: 10.240.0.0/16
+      dnsServiceIP: 10.240.0.10
+    securityProfile:
+      defender:
+        enabled: true
+        logAnalyticsWorkspaceResourceId: "/subscriptions/xxx/resourceGroups/rg-security/providers/Microsoft.OperationalInsights/workspaces/law-prod"
+      azureKeyVaultKms:
+        enabled: true
+        keyId: "https://kv-aks-prod.vault.azure.net/keys/aks-encryption/version"
+    apiServerAccessProfile:
+      enablePrivateCluster: true
+      privateDNSZone: "aks.private.contoso.com"
+      authorizedIPRanges:
+        - "10.0.0.0/8"
+    addons:
+      azurePolicy:
+        enabled: true
+      azureKeyvaultSecretsProvider:
+        enabled: true

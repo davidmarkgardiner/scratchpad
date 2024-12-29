@@ -1,0 +1,65 @@
+# Editor backup files
+*-e
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# IDE specific files
+.idea/
+.vscode/
+*.code-workspace
+.project
+.settings/
+
+# Kubernetes / Helm
+*.tgz
+kubeconfig
+preview.yaml
+aso-crd.yaml
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraformrc
+terraform.rc
+
+# Azure
+.azure/
+azureauth.json
+*.publishsettings
+
+# Secrets and environment variables
+*.env
+.env
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+
+# Logs and temp files
+*.log
+logs/
+tmp/
+temp/
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+bin/
+dist/
+build/
+out/
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/

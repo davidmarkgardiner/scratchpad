@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-controls
+spec:
+  validationFailureAction: audit  # Only audit in dev, don't block
+  rules:
+    - name: restrict-privileged
+      validate:
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  privileged: false  # Basic security only
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-images
+spec:
+  validationFailureAction: audit  # Allow any images in dev
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default-network-policy
+spec:
+  validationFailureAction: audit  # Network policies are optional in dev
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-quotas
+spec:
+  validationFailureAction: audit  # Resource quotas are optional in dev
+  rules:
+    - name: require-resource-limits
+      validate:
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  limits:
+                    memory: "2Gi"    # More generous limits for dev
+                    cpu: "1000m"
+                  requests:
+                    memory: "100Mi"   # Smaller requests for dev
+                    cpu: "100m" 

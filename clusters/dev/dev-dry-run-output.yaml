@@ -1,0 +1,86 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default-network-policy
+spec:
+  rules:
+  - generate:
+      data:
+        spec:
+          podSelector: {}
+          policyTypes:
+          - Ingress
+          - Egress
+      kind: NetworkPolicy
+      name: default-deny
+    match:
+      resources:
+        kinds:
+        - Namespace
+    name: require-network-policy
+  validationFailureAction: audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-controls
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+    name: restrict-privileged
+    validate:
+      message: "Privileged containers are not allowed"
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              privileged: false
+  validationFailureAction: audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-quotas
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+    name: require-resource-limits
+    validate:
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                cpu: "1000m"     # More generous CPU limit for dev
+                memory: "2Gi"    # More generous memory limit for dev
+              requests:
+                cpu: "100m"
+                memory: "100Mi"
+  validationFailureAction: audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-images
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+    name: verify-signatures
+    verifyImages:
+    - attestors:
+      - entries:
+        - keyless:
+            issuer: https://token.actions.githubusercontent.com
+            subject: https://github.com/*
+      imageReferences:
+      - "*"    # Allow any image in dev
+  validationFailureAction: audit

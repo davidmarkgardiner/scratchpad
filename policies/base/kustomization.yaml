@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - pod-security.yaml
+  - network-policies.yaml
+  - resource-quotas.yaml
+  - image-verification.yaml
+  - istio-mtls.yaml
+  - istio-rev-label.yaml
+  - pod-affinity.yaml 

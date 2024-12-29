@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default-network-policy
+spec:
+  validationFailureAction: audit
+  rules:
+    - name: require-network-policy
+      match:
+        resources:
+          kinds:
+            - Namespace
+      generate:
+        kind: NetworkPolicy
+        name: default-deny
+        data:
+          spec:
+            podSelector: {}
+            policyTypes:
+            - Ingress
+            - Egress 

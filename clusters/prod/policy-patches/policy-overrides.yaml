@@ -1,0 +1,41 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-controls
+spec:
+  validationFailureAction: enforce
+  rules:
+    - name: restrict-privileged
+      validate:
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  privileged: false
+                  readOnlyRootFilesystem: true
+                  allowPrivilegeEscalation: false
+                  runAsNonRoot: true
+                  seccompProfile:
+                    type: RuntimeDefault
+            automountServiceAccountToken: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-images
+spec:
+  validationFailureAction: enforce
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default-network-policy
+spec:
+  validationFailureAction: enforce
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-quotas
+spec:
+  validationFailureAction: enforce 

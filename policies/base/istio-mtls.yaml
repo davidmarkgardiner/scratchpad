@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-istio-mtls
+spec:
+  validationFailureAction: enforce
+  rules:
+    - name: require-mtls
+      match:
+        resources:
+          kinds:
+            - Namespace
+      generate:
+        kind: PeerAuthentication
+        name: default
+        namespace: "{{request.object.metadata.name}}"
+        data:
+          spec:
+            mtls:
+              mode: STRICT 

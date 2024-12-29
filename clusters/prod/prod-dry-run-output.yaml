@@ -1,0 +1,91 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default-network-policy
+spec:
+  rules:
+  - generate:
+      data:
+        spec:
+          podSelector: {}
+          policyTypes:
+          - Ingress
+          - Egress
+      kind: NetworkPolicy
+      name: default-deny
+    match:
+      resources:
+        kinds:
+        - Namespace
+    name: require-network-policy
+  validationFailureAction: enforce
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-controls
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+    name: restrict-privileged
+    validate:
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              privileged: false
+              readOnlyRootFilesystem: true
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+          automountServiceAccountToken: false
+  validationFailureAction: enforce
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-quotas
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+    name: require-resource-limits
+    validate:
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                cpu: "500m"    # Stricter CPU limit
+                memory: "1Gi"  # Stricter memory limit
+              requests:
+                cpu: "100m"
+                memory: "100Mi"
+  validationFailureAction: enforce
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-images
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+    name: verify-signatures
+    verifyImages:
+    - attestors:
+      - entries:
+        - keyless:
+            issuer: https://token.actions.githubusercontent.com
+            subject: https://github.com/*
+      imageReferences:
+      - "your-azure-registry.azurecr.io/*"  # Stricter image source control
+  validationFailureAction: enforce

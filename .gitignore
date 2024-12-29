@@ -4,4 +4,23 @@
 *.swp
 
 # OS files
-.DS_Store 
+.DS_Store
+
+# Secrets and credentials
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
+*.cer
+*.der
+*.priv
+*.env
+*secret*
+*password*
+*credential*
+kubeconfig
+.kube/
+*.tfvars
+terraform.tfstate*
+.terraform/ 

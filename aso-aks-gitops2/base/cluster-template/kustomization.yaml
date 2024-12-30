@@ -147,7 +147,7 @@ replacements:
       - select:
           kind: ManagedCluster
         fieldPaths:
-          - spec.identity.userAssignedIdentities.[].reference.armId
+          - spec.identity.userAssignedIdentities.0.reference.armId
 
   - source:
       kind: ConfigMap
@@ -177,7 +177,7 @@ replacements:
       - select:
           kind: ManagedCluster
         fieldPaths:
-          - spec.aadProfile.adminGroupObjectIDs.[0]
+          - spec.aadProfile.adminGroupObjectIDs.0
 
   # SSH Key Configuration
   - source:
@@ -350,7 +350,7 @@ replacements:
       - select:
           kind: ManagedCluster
         fieldPaths:
-          - spec.agentPoolProfiles.[mode=System].nodeTaints.[0]
+          - spec.agentPoolProfiles.[mode=System].nodeTaints.0
 
   # User Node Pool Configuration (similar pattern as system node pool)
   - source:
@@ -445,7 +445,7 @@ replacements:
       - select:
           kind: ManagedCluster
         fieldPaths:
-          - spec.serviceMeshProfile.istio.revisions.[0]
+          - spec.serviceMeshProfile.istio.revisions.0
 
   # Auto Upgrade Configuration
   - source:

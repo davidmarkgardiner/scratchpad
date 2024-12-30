@@ -9,11 +9,14 @@ spec:
     name: placeholder-rg
   dnsPrefix: placeholder-prefix
   kubernetesVersion: placeholder-k8s-version
-  # identity:
-  #   type: UserAssigned
-  #   userAssignedIdentities:
-  #     - reference:
-  #         armId: placeholder-identity
+  identity:
+    type: UserAssigned
+    userAssignedIdentities:
+      - reference:
+          armId: placeholder-control-plane-identity
+  servicePrincipalProfile:
+    clientId: placeholder-runtime-client-id
+    objectId: placeholder-runtime-object-id
   aadProfile:
     enableAzureRBAC: true
     managed: true
@@ -30,40 +33,70 @@ spec:
     podCidr: placeholder-pod-cidr
     ipFamilies: ["IPv4"]
     loadBalancerSku: standard
+    outboundType: userDefinedRouting
   apiServerAccessProfile:
     enablePrivateCluster: true
     enablePrivateClusterPublicFQDN: true
+  oidcIssuerProfile:
+    enabled: true
+  securityProfile:
+    defender:
+      securityMonitoring:
+        enabled: false
+    workloadIdentity:
+      enabled: true
+    customCATrustConfig:
+      enabled: true
+  serviceMeshProfile:
+    mode: Istio
+    istio:
+      components:
+        ingressGateways:
+          - enabled: true
+            mode: Internal
+      revisions:
+        - "asm-1-22"
   agentPoolProfiles:
     - name: sysnpl1
       mode: System
       count: 1
       minCount: 1
-      maxCount: 1
+      maxCount: 2
       enableAutoScaling: true
       vmSize: placeholder-system-vmsize
       availabilityZones:
         - "1"
+        - "2"
+        - "3"
       osDiskType: Managed
-      osDiskSizeGB: 128
+      osDiskSizeGB: 100
       osType: Linux
-      osSKU: Ubuntu
-      maxPods: 30
+      osSKU: AzureLinux
+      maxPods: 110
       nodeTaints:
         - CriticalAddonsOnly=true:NoSchedule
+      enableCustomCATrust: true
+      type: VirtualMachineScaleSets
+      orchestratorVersion: placeholder-k8s-version
     - name: usrnpl1
       mode: User
       count: 1
       minCount: 1
-      maxCount: 1
+      maxCount: 2
       enableAutoScaling: true
       vmSize: placeholder-user-vmsize
       availabilityZones:
         - "1"
+        - "2"
+        - "3"
       osDiskType: Managed
-      osDiskSizeGB: 128
+      osDiskSizeGB: 100
       osType: Linux
-      osSKU: Ubuntu
-      maxPods: 30
+      osSKU: AzureLinux
+      maxPods: 110
+      enableCustomCATrust: true
+      type: VirtualMachineScaleSets
+      orchestratorVersion: placeholder-k8s-version
       nodeLabels:
         kubernetes.azure.com/scalesetpriority: spot
       nodeTaints:
@@ -83,9 +116,10 @@ spec:
   autoUpgradeProfile:
     upgradeChannel: placeholder-upgrade-channel
     nodeOSUpgradeChannel: placeholder-os-channel
-  securityProfile:
-    defender:
-      securityMonitoring:
-        enabled: false
-    workloadIdentity:
-      enabled: true
+  sshPublicKey:
+    keyVaultSecretRef:
+      name: placeholder-ssh-secret-name
+      vault:
+        name: placeholder-keyvault-name
+        resourceGroup: placeholder-keyvault-rg
+  uptimeSLATier: Standard

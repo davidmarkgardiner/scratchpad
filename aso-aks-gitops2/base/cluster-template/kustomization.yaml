@@ -10,12 +10,86 @@ generatorOptions:
 configMapGenerator:
   - name: cluster-config
     literals:
+      # Basic cluster settings
       - CLUSTER_NAME=placeholder
       - LOCATION=placeholder
+      - SUBSCRIPTION_ID=placeholder
       - RESOURCE_GROUP=placeholder
-      - K8S_VERSION=placeholder
-      - USER_ASSIGNED_IDENTITY_NAME=placeholder-identity
-      - ADMIN_GROUP_ID=placeholder
+      - DNS_PREFIX=placeholder
+      - K8S_VERSION=1.29
+
+      # Identity and Authentication
+      - CONTROL_PLANE_IDENTITY=placeholder-control-plane-identity
+      - RUNTIME_IDENTITY_CLIENT_ID=placeholder-runtime-client-id
+      - RUNTIME_IDENTITY_OBJECT_ID=placeholder-runtime-object-id
+      - ADMIN_GROUP_ID=placeholder-admin-group
+      
+      # SSH Key Configuration
+      - SSH_KEY_VAULT_NAME=placeholder-keyvault-name
+      - SSH_KEY_VAULT_RG=placeholder-keyvault-rg
+      - SSH_KEY_SECRET_NAME=placeholder-ssh-secret
+
+      # Network Configuration
+      - NETWORK_SERVICE_CIDR=10.0.0.0/16
+      - NETWORK_DNS_SERVICE_IP=10.0.0.10
+      - NETWORK_POD_CIDR=10.244.0.0/16
+      - NETWORK_OUTBOUND_TYPE=userDefinedRouting
+
+      # System Node Pool Configuration
+      - SYSTEM_NODEPOOL_NAME=sysnpl1
+      - SYSTEM_NODEPOOL_VM_SIZE=Standard_D4s_v3
+      - SYSTEM_NODEPOOL_COUNT=1
+      - SYSTEM_NODEPOOL_MIN_COUNT=1
+      - SYSTEM_NODEPOOL_MAX_COUNT=2
+      - SYSTEM_NODEPOOL_OS_DISK_SIZE=100
+      - SYSTEM_NODEPOOL_MAX_PODS=110
+      - SYSTEM_NODEPOOL_AVAILABILITY_ZONES=["1","2","3"]
+      - SYSTEM_NODEPOOL_CUSTOM_CA_TRUST=true
+
+      # User Node Pool Configuration
+      - USER_NODEPOOL_NAME=usrnpl1
+      - USER_NODEPOOL_VM_SIZE=Standard_D4s_v3
+      - USER_NODEPOOL_COUNT=1
+      - USER_NODEPOOL_MIN_COUNT=1
+      - USER_NODEPOOL_MAX_COUNT=2
+      - USER_NODEPOOL_OS_DISK_SIZE=100
+      - USER_NODEPOOL_MAX_PODS=110
+      - USER_NODEPOOL_AVAILABILITY_ZONES=["1","2","3"]
+      - USER_NODEPOOL_CUSTOM_CA_TRUST=true
+
+      # Addon Configuration
+      - ADDONS_KEYVAULT_ENABLED=true
+      - ADDONS_KEYVAULT_SECRET_ROTATION=false
+      - ADDONS_KEYVAULT_ROTATION_INTERVAL=2m
+      - ADDONS_AZURE_POLICY_ENABLED=false
+      - ADDONS_MONITORING_ENABLED=false
+      - ADDONS_MONITORING_WORKSPACE_ID=placeholder-workspace-id
+      
+      # Service Mesh Configuration
+      - ADDONS_SERVICE_MESH_ENABLED=true
+      - ADDONS_SERVICE_MESH_MODE=Istio
+      - ADDONS_SERVICE_MESH_ISTIO_REVISION=asm-1-22
+      - ADDONS_SERVICE_MESH_INGRESS_GATEWAY_ENABLED=true
+      - ADDONS_SERVICE_MESH_INGRESS_GATEWAY_MODE=Internal
+
+      # Auto Upgrade Configuration
+      - AUTO_UPGRADE_CHANNEL=patch
+      - AUTO_UPGRADE_NODE_OS_CHANNEL=NodeImage
+
+      # Security Configuration
+      - SECURITY_DEFENDER_ENABLED=false
+      - SECURITY_WORKLOAD_IDENTITY=true
+      - SECURITY_OIDC_ISSUER=true
+      - SECURITY_IMAGE_CLEANER_ENABLED=true
+      - SECURITY_IMAGE_CLEANER_INTERVAL=168
+
+      # SLA Configuration
+      - UPTIME_SLA=Standard
+
+      # Tags
+      - TAG_BILLING_REFERENCE=placeholder
+      - TAG_OP_ENVIRONMENT=placeholder
+      - TAG_CMDB_REFERENCE=placeholder
 
 labels:
   - pairs:

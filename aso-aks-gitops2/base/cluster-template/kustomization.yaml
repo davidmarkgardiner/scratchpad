@@ -45,6 +45,7 @@ configMapGenerator:
       - SYSTEM_NODEPOOL_MAX_PODS=110
       - SYSTEM_NODEPOOL_AVAILABILITY_ZONES=["1","2","3"]
       - SYSTEM_NODEPOOL_CUSTOM_CA_TRUST=true
+      - SYSTEM_NODEPOOL_TAINTS=CriticalAddonsOnly=true:NoSchedule
 
       # User Node Pool Configuration
       - USER_NODEPOOL_NAME=usrnpl1
@@ -64,6 +65,7 @@ configMapGenerator:
       - ADDONS_AZURE_POLICY_ENABLED=false
       - ADDONS_MONITORING_ENABLED=false
       - ADDONS_MONITORING_WORKSPACE_ID=placeholder-workspace-id
+      - ADDONS_MONITORING_WORKSPACE_ID_DEFENDER=placeholder-workspace-id-defender
       
       # Service Mesh Configuration
       - ADDONS_SERVICE_MESH_ENABLED=true
@@ -90,6 +92,423 @@ configMapGenerator:
       - TAG_BILLING_REFERENCE=placeholder
       - TAG_OP_ENVIRONMENT=placeholder
       - TAG_CMDB_REFERENCE=placeholder
+
+replacements:
+  # Basic cluster settings
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.CLUSTER_NAME
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - metadata.name
+          - spec.dnsPrefix
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.LOCATION
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.location
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.RESOURCE_GROUP
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.owner.name
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.K8S_VERSION
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.kubernetesVersion
+          - spec.agentPoolProfiles.[name=sysnpl1].orchestratorVersion
+          - spec.agentPoolProfiles.[name=usrnpl1].orchestratorVersion
+
+  # Identity and Authentication
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.CONTROL_PLANE_IDENTITY
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.identity.userAssignedIdentities.[].reference.armId
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.RUNTIME_IDENTITY_CLIENT_ID
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.servicePrincipalProfile.clientId
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.RUNTIME_IDENTITY_OBJECT_ID
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.servicePrincipalProfile.objectId
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADMIN_GROUP_ID
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.aadProfile.adminGroupObjectIDs.[0]
+
+  # SSH Key Configuration
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SSH_KEY_VAULT_NAME
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.sshPublicKey.keyVaultSecretRef.vault.name
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SSH_KEY_VAULT_RG
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.sshPublicKey.keyVaultSecretRef.vault.resourceGroup
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SSH_KEY_SECRET_NAME
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.sshPublicKey.keyVaultSecretRef.name
+
+  # Network Configuration
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.NETWORK_SERVICE_CIDR
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.networkProfile.serviceCidr
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.NETWORK_DNS_SERVICE_IP
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.networkProfile.dnsServiceIP
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.NETWORK_POD_CIDR
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.networkProfile.podCidr
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.NETWORK_OUTBOUND_TYPE
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.networkProfile.outboundType
+
+  # System Node Pool Configuration
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_NAME
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].name
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_VM_SIZE
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].vmSize
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_COUNT
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].count
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_MIN_COUNT
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].minCount
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_MAX_COUNT
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].maxCount
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_OS_DISK_SIZE
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].osDiskSizeGB
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_MAX_PODS
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].maxPods
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_AVAILABILITY_ZONES
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].availabilityZones
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_CUSTOM_CA_TRUST
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].enableCustomCATrust
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SYSTEM_NODEPOOL_TAINTS
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=System].nodeTaints.[0]
+
+  # User Node Pool Configuration (similar pattern as system node pool)
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.USER_NODEPOOL_NAME
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=User].name
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.USER_NODEPOOL_VM_SIZE
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.agentPoolProfiles.[mode=User].vmSize
+
+  # ... Continue with other user node pool settings ...
+
+  # Addon Configuration
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADDONS_KEYVAULT_ENABLED
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.addonProfiles.azureKeyvaultSecretsProvider.enabled
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADDONS_KEYVAULT_SECRET_ROTATION
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.addonProfiles.azureKeyvaultSecretsProvider.config.enableSecretRotation
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADDONS_KEYVAULT_ROTATION_INTERVAL
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.addonProfiles.azureKeyvaultSecretsProvider.config.rotationPollInterval
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADDONS_MONITORING_WORKSPACE_ID
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.addonProfiles.omsagent.config.logAnalyticsWorkspaceResourceID
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADDONS_MONITORING_WORKSPACE_ID_DEFENDER
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.securityProfile.defender.logAnalyticsWorkspaceResourceID
+
+  # Service Mesh Configuration
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADDONS_SERVICE_MESH_MODE
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.serviceMeshProfile.mode
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.ADDONS_SERVICE_MESH_ISTIO_REVISION
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.serviceMeshProfile.istio.revisions.[0]
+
+  # Auto Upgrade Configuration
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.AUTO_UPGRADE_CHANNEL
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.autoUpgradeProfile.upgradeChannel
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.AUTO_UPGRADE_NODE_OS_CHANNEL
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.autoUpgradeProfile.nodeOSUpgradeChannel
+
+  # Security Configuration
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SECURITY_DEFENDER_ENABLED
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.securityProfile.defender.securityMonitoring.enabled
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SECURITY_WORKLOAD_IDENTITY
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.securityProfile.workloadIdentity.enabled
+
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.SECURITY_OIDC_ISSUER
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.oidcIssuerProfile.enabled
+
+  # SLA Configuration
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.UPTIME_SLA
+    targets:
+      - select:
+          kind: ManagedCluster
+        fieldPaths:
+          - spec.uptimeSLATier
 
 labels:
   - pairs:

@@ -6,8 +6,8 @@ metadata:
 spec:
   location: placeholder-location
   owner:
-    name: placeholder-rg
-  dnsPrefix: placeholder-prefix
+    name: placeholder-resource-group
+  dnsPrefix: placeholder-dns-prefix
   kubernetesVersion: placeholder-k8s-version
   identity:
     type: UserAssigned
@@ -29,11 +29,11 @@ spec:
     networkPolicy: cilium
     networkDataplane: cilium
     serviceCidr: placeholder-service-cidr
-    dnsServiceIP: placeholder-dns-ip
+    dnsServiceIP: placeholder-dns-service-ip
     podCidr: placeholder-pod-cidr
     ipFamilies: ["IPv4"]
     loadBalancerSku: standard
-    outboundType: userDefinedRouting
+    outboundType: placeholder-outbound-type
   apiServerAccessProfile:
     enablePrivateCluster: true
     enablePrivateClusterPublicFQDN: true
@@ -42,59 +42,54 @@ spec:
   securityProfile:
     defender:
       securityMonitoring:
-        enabled: false
+        enabled: placeholder-defender-enabled
+      logAnalyticsWorkspaceResourceID: placeholder-workspace-id-defender
     workloadIdentity:
-      enabled: true
+      enabled: placeholder-workload-identity-enabled
     customCATrustConfig:
       enabled: true
   serviceMeshProfile:
-    mode: Istio
+    mode: placeholder-service-mesh-mode
     istio:
       components:
         ingressGateways:
-          - enabled: true
-            mode: Internal
+          - enabled: placeholder-service-mesh-ingress-enabled
+            mode: placeholder-service-mesh-ingress-mode
       revisions:
-        - "asm-1-22"
+        - placeholder-service-mesh-revision
   agentPoolProfiles:
-    - name: sysnpl1
+    - name: placeholder-system-nodepool-name
       mode: System
-      count: 1
-      minCount: 1
-      maxCount: 2
+      count: placeholder-system-nodepool-count
+      minCount: placeholder-system-nodepool-min-count
+      maxCount: placeholder-system-nodepool-max-count
       enableAutoScaling: true
-      vmSize: placeholder-system-vmsize
-      availabilityZones:
-        - "1"
-        - "2"
-        - "3"
+      vmSize: placeholder-system-nodepool-vmsize
+      availabilityZones: placeholder-system-nodepool-zones
       osDiskType: Managed
-      osDiskSizeGB: 100
+      osDiskSizeGB: placeholder-system-nodepool-disk-size
       osType: Linux
       osSKU: AzureLinux
-      maxPods: 110
+      maxPods: placeholder-system-nodepool-maxpods
       nodeTaints:
-        - CriticalAddonsOnly=true:NoSchedule
-      enableCustomCATrust: true
+        - placeholder-system-nodepool-taints
+      enableCustomCATrust: placeholder-system-nodepool-custom-ca
       type: VirtualMachineScaleSets
       orchestratorVersion: placeholder-k8s-version
-    - name: usrnpl1
+    - name: placeholder-user-nodepool-name
       mode: User
-      count: 1
-      minCount: 1
-      maxCount: 2
+      count: placeholder-user-nodepool-count
+      minCount: placeholder-user-nodepool-min-count
+      maxCount: placeholder-user-nodepool-max-count
       enableAutoScaling: true
-      vmSize: placeholder-user-vmsize
-      availabilityZones:
-        - "1"
-        - "2"
-        - "3"
+      vmSize: placeholder-user-nodepool-vmsize
+      availabilityZones: placeholder-user-nodepool-zones
       osDiskType: Managed
-      osDiskSizeGB: 100
+      osDiskSizeGB: placeholder-user-nodepool-disk-size
       osType: Linux
       osSKU: AzureLinux
-      maxPods: 110
-      enableCustomCATrust: true
+      maxPods: placeholder-user-nodepool-maxpods
+      enableCustomCATrust: placeholder-user-nodepool-custom-ca
       type: VirtualMachineScaleSets
       orchestratorVersion: placeholder-k8s-version
       nodeLabels:
@@ -103,14 +98,14 @@ spec:
         - kubernetes.azure.com/scalesetpriority=spot:NoSchedule
   addonProfiles:
     azureKeyvaultSecretsProvider:
-      enabled: true
+      enabled: placeholder-keyvault-enabled
       config:
-        enableSecretRotation: false
+        enableSecretRotation: placeholder-keyvault-rotation
         rotationPollInterval: placeholder-rotation-interval
     azurepolicy:
-      enabled: false
+      enabled: placeholder-policy-enabled
     omsagent:
-      enabled: false
+      enabled: placeholder-monitoring-enabled
       config:
         logAnalyticsWorkspaceResourceID: placeholder-workspace-id
   autoUpgradeProfile:
@@ -118,8 +113,8 @@ spec:
     nodeOSUpgradeChannel: placeholder-os-channel
   sshPublicKey:
     keyVaultSecretRef:
-      name: placeholder-ssh-secret-name
+      name: placeholder-ssh-secret
       vault:
         name: placeholder-keyvault-name
         resourceGroup: placeholder-keyvault-rg
-  uptimeSLATier: Standard
+  uptimeSLATier: placeholder-uptime-sla

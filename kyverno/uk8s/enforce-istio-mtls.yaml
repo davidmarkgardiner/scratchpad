@@ -25,6 +25,11 @@ spec:
           kinds:
           - Namespace
           name: "at*"
+    exclude:
+      any:
+      - resources:
+          name: 
+            regex: "^(?!at).*$"
     generate:
       apiVersion: security.istio.io/v1beta1
       kind: PeerAuthentication
@@ -45,10 +50,10 @@ spec:
             matchExpressions:
             - key: kubernetes.io/metadata.name
               operator: Matches
-              values: ["at*"]
+              values: ["^at.*$"]  # Using regex to match exactly 'at' prefix
     validate:
       message: "PeerAuthentication resources in 'at' namespaces must use STRICT mode"
       pattern:
         spec:
           mtls:
-            mode: "STRICT" 
+            mode: "STRICT"

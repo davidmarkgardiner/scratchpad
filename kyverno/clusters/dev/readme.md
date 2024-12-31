@@ -79,3 +79,12 @@ Would you be able to share:
 This would help identify if it's a configuration issue or a problem with the Kyverno deployment itself.
 
 ```
+
+
+```
+
+kubectl rollout restart deployment kyverno-admission-controller
+kubectl rollout restart deployment kyverno-background-controller
+kubectl rollout restart deployment kyverno-cleanup-controller
+kubectl rollout restart deployment kyverno-reports-controller
+```

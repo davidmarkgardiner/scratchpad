@@ -1,25 +1,28 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: enforce-pod-affinity-spot
+  name: audit-pod-affinity-spot
 spec:
-  validationFailureAction: enforce
   rules:
-    - name: prefer-spot-instances
-      match:
-        resources:
-          kinds:
-            - Pod
-      mutate:
-        patchStrategicMerge:
-          spec:
-            affinity:
-              nodeAffinity:
-                preferredDuringSchedulingIgnoredDuringExecution:
-                  - weight: 100
-                    preference:
-                      matchExpressions:
-                        - key: kubernetes.azure.com/scalesetpriority
-                          operator: In
-                          values:
-                            - spot 
+  - match:
+      resources:
+        kinds:
+        - Pod
+        namespaces:
+        - "at[0-9]{5}"
+    mutate:
+      patchStrategicMerge:
+        spec:
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - preference:
+                  matchExpressions:
+                  - key: kubernetes.azure.com/scalesetpriority
+                    operator: In
+                    values:
+                    - spot
+                weight: 100
+    name: prefer-spot-instances
+  validationFailureAction: Audit

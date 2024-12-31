@@ -3,18 +3,37 @@ kind: ClusterPolicy
 metadata:
   name: verify-images
 spec:
-  validationFailureAction: audit
   rules:
-    - name: verify-signatures
-      match:
-        resources:
-          kinds:
-            - Pod
-      verifyImages:
-      - imageReferences:
-        - "*"
-        attestors:
-        - entries:
-          - keyless:
-              subject: "https://github.com/*"
-              issuer: "https://token.actions.githubusercontent.com" 
+  - match:
+      resources:
+        kinds:
+        - Pod
+        namespaces:
+        - "at[0-9]{5}"
+    name: verify-signatures
+    verifyImages:
+    - attestors:
+      - entries:
+        - keyless:
+            rekor:
+              url: "https://rekor.sigstore.dev"
+            roots: |
+              -----BEGIN CERTIFICATE-----
+              MIICJzCCAa2gAwIBAgIUUDqtH1JWJrTD6VkHe+/BsnDkfqQwCgYIKoZIzj0EAwMw
+              NzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRl
+              cm1lZGlhdGUwHhcNMjMwNzE5MTIyNzU5WhcNMjMwNzE5MTIzNzU5WjAAMFkwEwYH
+              KoZIzj0CAQYIKoZIzj0DAQcDQgAEUz0O+ZOFJwsY1kqMuF0yFiKqvVY3m8RxOkJJ
+              JVY5QQ5ExL+H4jq3aCbzJKXAR8mz5TjXZQjXQXvVXCBXZXXQnKOBrTCBqjAOBgNV
+              HQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwMwDAYDVR0TAQH/BAIwADAd
+              BgNVHQ4EFgQUUDqtH1JWJrTD6VkHe+/BsnDkfqQwHwYDVR0jBBgwFoAU39Ppz1YK
+              SnSkN+VqhpJxX6FYyYowOQYKKwYBBAGDvzABAQQrMCkEIFQ6rR9SViYkw+lZB3vv
+              wbJw5H6kBAUABAgHCAoLDA0ODxAREhMwCgYIKoZIzj0EAwMDaAAwZQIwAK4JNULC
+              +eo4yRJJWJTXZWcL7BJqyX8qP6YV7lOLXnM+jNKR0l1OYy4z4e4+qHXxAjEA4knx
+              8Q+X9C9vz8vP+mvXH+AHxKjA4VNiUQKiFxGbgHX7XxW3ADL+0tHbY6+3czEi
+              -----END CERTIFICATE-----
+            subject: "https://github.com/*"
+            issuer: "https://token.actions.githubusercontent.com"
+      imageReferences:
+      - '*'
+      mutateDigest: false
+  validationFailureAction: Audit

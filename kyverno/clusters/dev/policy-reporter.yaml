@@ -1,0 +1,36 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+metadata:
+  name: kyverno-policy-report
+spec:
+  # This will filter results for 'at' namespaces only
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: Matches
+      values:
+      - "at[0-9]{5}"
+  
+  policies:
+  - name: audit-pod-affinity-spot
+    rules:
+    - name: prefer-spot-instances
+  - name: audit-strict-mtls
+    rules:
+    - name: validate-mtls
+  - name: default-network-policy
+    rules:
+    - name: require-network-policy
+  - name: pod-security-controls
+    rules:
+    - name: restrict-privileged
+  - name: require-istio-revision-label
+    rules:
+    - name: add-istio-revision-label
+    - name: check-istio-revision-label
+  - name: resource-quotas
+    rules:
+    - name: require-resource-limits
+  - name: verify-images
+    rules:
+    - name: verify-signatures 

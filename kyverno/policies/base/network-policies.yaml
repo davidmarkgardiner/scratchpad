@@ -3,19 +3,22 @@ kind: ClusterPolicy
 metadata:
   name: default-network-policy
 spec:
-  validationFailureAction: audit
   rules:
-    - name: require-network-policy
-      match:
-        resources:
-          kinds:
-            - Namespace
-      generate:
-        kind: NetworkPolicy
-        name: default-deny
-        data:
-          spec:
-            podSelector: {}
-            policyTypes:
-            - Ingress
-            - Egress 
+  - generate:
+      data:
+        spec:
+          podSelector: {}
+          policyTypes:
+          - Ingress
+          - Egress
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      name: default-deny
+      namespace: "{{request.object.metadata.name}}"
+    match:
+      resources:
+        kinds:
+        - Namespace
+        name: "at[0-9]{5}"
+    name: require-network-policy
+  validationFailureAction: Audit

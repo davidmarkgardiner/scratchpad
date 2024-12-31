@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: Require Labels
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Requires all resources to have specific labels for better organization and management.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-required-labels
+      match:
+        resources:
+          kinds:
+          - Pod
+          - Deployment
+          - Service
+          namespaces:
+          - "at[0-9]{5}"
+      validate:
+        message: "The required labels are missing. Please add 'app', 'environment', and 'owner' labels."
+        pattern:
+          metadata:
+            labels:
+              app: "?*"
+              environment: "?*"
+              owner: "?*" 

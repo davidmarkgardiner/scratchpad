@@ -1,0 +1,9 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+metadata:
+  name: mtls-policy-report
+spec:
+  policies:
+  - name: audit-strict-mtls
+    rules:
+    - name: validate-mtls 

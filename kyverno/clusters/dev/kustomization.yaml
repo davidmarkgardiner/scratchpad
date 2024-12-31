@@ -5,4 +5,17 @@ resources:
   - ../../policies/base
 
 patches:
-  - path: policy-patches/policy-overrides.yaml 
+  - target:
+      kind: ClusterPolicy
+      name: enforce-strict-mtls
+    patch: |
+      - op: replace
+        path: /spec/validationFailureAction
+        value: audit
+  - target:
+      kind: ClusterPolicy
+      name: require-istio-revision-label
+    patch: |
+      - op: replace
+        path: /spec/validationFailureAction
+        value: audit 

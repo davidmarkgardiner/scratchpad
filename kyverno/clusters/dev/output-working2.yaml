@@ -1,0 +1,219 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-pod-affinity-spot
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+        namespaces:
+        - at[0-9]{5}
+    mutate:
+      patchStrategicMerge:
+        spec:
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - preference:
+                  matchExpressions:
+                  - key: kubernetes.azure.com/scalesetpriority
+                    operator: In
+                    values:
+                    - spot
+                weight: 100
+    name: prefer-spot-instances
+  validationFailureAction: Audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    kyverno.io/kubernetes-version: "1.24"
+    kyverno.io/kyverno-version: 1.8.0
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: Strict mTLS requires that mutual TLS be enabled
+      across the entire service mesh, which can be set using a PeerAuthentication
+      resource on a per-Namespace basis. This policy automatically creates and Audits
+      strict mTLS for namespaces starting with 'at'.
+    policies.kyverno.io/minversion: 1.6.0
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: PeerAuthentication
+    policies.kyverno.io/title: Audit Istio Strict mTLS
+  name: audit-strict-mtls
+spec:
+  background: true
+  rules:
+  - match:
+      resources:
+        kinds:
+        - PeerAuthentication
+        namespaces:
+        - at[0-9]{5}
+    name: validate-mtls
+    validate:
+      message: PeerAuthentication resources in 'at' namespaces must use STRICT mode
+      pattern:
+        spec:
+          mtls:
+            mode: STRICT
+  validationFailureAction: Audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default-network-policy
+spec:
+  rules:
+  - generate:
+      apiVersion: networking.k8s.io/v1
+      data:
+        spec:
+          podSelector: {}
+          policyTypes:
+          - Ingress
+          - Egress
+      kind: NetworkPolicy
+      name: default-deny
+      namespace: '{{request.object.metadata.name}}'
+    match:
+      resources:
+        kinds:
+        - Namespace
+        name: at[0-9]{5}
+    name: require-network-policy
+  validationFailureAction: Audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-controls
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+        namespaces:
+        - at[0-9]{5}
+    name: restrict-privileged
+    validate:
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              privileged: false
+  validationFailureAction: Audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    policies.kyverno.io/category: Istio
+    policies.kyverno.io/description: This policy ensures namespaces starting with
+      'at' have the required Istio revision label for proper sidecar injection. The
+      label istio.io/rev=asm-1-23 is required for Istio to know which version of the
+      sidecar to inject.
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/title: Required Istio Revision Label
+  name: require-istio-revision-label
+spec:
+  background: true
+  mutateExistingOnPolicyUpdate: true
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Namespace
+        name: at[0-9]{5}
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            istio.io/rev: asm-1-23
+      targets:
+      - apiVersion: v1
+        kind: Namespace
+    name: add-istio-revision-label
+  - match:
+      resources:
+        kinds:
+        - Namespace
+        name: at[0-9]{5}
+    name: check-istio-revision-label
+    validate:
+      message: Namespaces starting with 'at' followed by 5 numbers must have the label
+        istio.io/rev=asm-1-23
+      pattern:
+        metadata:
+          labels:
+            istio.io/rev: asm-1-23
+  validationFailureAction: audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-quotas
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+        namespaces:
+        - at[0-9]{5}
+    name: require-resource-limits
+    validate:
+      message: Resource limits are required
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                cpu: ?*
+                memory: ?*
+              requests:
+                cpu: ?*
+                memory: ?*
+  validationFailureAction: Audit
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-images
+spec:
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Pod
+        namespaces:
+        - at[0-9]{5}
+    name: verify-signatures
+    verifyImages:
+    - attestors:
+      - entries:
+        - keyless:
+            issuer: https://token.actions.githubusercontent.com
+            rekor:
+              url: https://rekor.sigstore.dev
+            roots: |
+              -----BEGIN CERTIFICATE-----
+              MIICJzCCAa2gAwIBAgIUUDqtH1JWJrTD6VkHe+/BsnDkfqQwCgYIKoZIzj0EAwMw
+              NzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRl
+              cm1lZGlhdGUwHhcNMjMwNzE5MTIyNzU5WhcNMjMwNzE5MTIzNzU5WjAAMFkwEwYH
+              KoZIzj0CAQYIKoZIzj0DAQcDQgAEUz0O+ZOFJwsY1kqMuF0yFiKqvVY3m8RxOkJJ
+              JVY5QQ5ExL+H4jq3aCbzJKXAR8mz5TjXZQjXQXvVXCBXZXXQnKOBrTCBqjAOBgNV
+              HQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwMwDAYDVR0TAQH/BAIwADAd
+              BgNVHQ4EFgQUUDqtH1JWJrTD6VkHe+/BsnDkfqQwHwYDVR0jBBgwFoAU39Ppz1YK
+              SnSkN+VqhpJxX6FYyYowOQYKKwYBBAGDvzABAQQrMCkEIFQ6rR9SViYkw+lZB3vv
+              wbJw5H6kBAUABAgHCAoLDA0ODxAREhMwCgYIKoZIzj0EAwMDaAAwZQIwAK4JNULC
+              +eo4yRJJWJTXZWcL7BJqyX8qP6YV7lOLXnM+jNKR0l1OYy4z4e4+qHXxAjEA4knx
+              8Q+X9C9vz8vP+mvXH+AHxKjA4VNiUQKiFxGbgHX7XxW3ADL+0tHbY6+3czEi
+              -----END CERTIFICATE-----
+            subject: https://github.com/*
+      imageReferences:
+      - '*'
+      mutateDigest: false
+  validationFailureAction: Audit

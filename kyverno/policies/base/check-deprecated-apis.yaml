@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-deprecated-apis
+  annotations:
+    policies.kyverno.io/title: Check Deprecated APIs
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy checks for the use of deprecated APIs and warns users to update to supported versions.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: validate-apis
+      match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+            - DaemonSet
+            - StatefulSet
+      validate:
+        message: "API version is deprecated. Please use apps/v1 instead."
+        pattern:
+          apiVersion: "apps/v1" 

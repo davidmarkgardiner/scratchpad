@@ -1,20 +1,33 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: enforce-istio-mtls
+  annotations:
+    kyverno.io/kubernetes-version: "1.24"
+    kyverno.io/kyverno-version: 1.8.0
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: Strict mTLS requires that mutual TLS be enabled
+      across the entire service mesh, which can be set using a PeerAuthentication
+      resource on a per-Namespace basis. This policy automatically creates and Audits
+      strict mTLS for namespaces starting with 'at'.
+    policies.kyverno.io/minversion: 1.6.0
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: PeerAuthentication
+    policies.kyverno.io/title: Audit Istio Strict mTLS
+  name: audit-strict-mtls
 spec:
-  validationFailureAction: enforce
+  background: true
   rules:
-    - name: require-mtls
-      match:
-        resources:
-          kinds:
-            - Namespace
-      generate:
-        kind: PeerAuthentication
-        name: default
-        namespace: "{{request.object.metadata.name}}"
-        data:
-          spec:
-            mtls:
-              mode: STRICT 
+  - name: validate-mtls
+    match:
+      resources:
+        kinds:
+        - PeerAuthentication
+        namespaces:
+        - "at[0-9]{5}"
+    validate:
+      message: PeerAuthentication resources in 'at' namespaces must use STRICT mode
+      pattern:
+        spec:
+          mtls:
+            mode: STRICT
+  validationFailureAction: Audit

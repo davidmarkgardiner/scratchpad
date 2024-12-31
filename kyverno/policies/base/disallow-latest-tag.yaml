@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: Disallow Latest Tag
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      The ':latest' tag is mutable and can lead to inconsistencies in deployed versions.
+      This policy validates that the 'latest' tag is not used in Pod containers.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-specific-tag
+      match:
+        resources:
+          kinds:
+          - Pod
+          namespaces:
+          - "at[0-9]{5}"
+      validate:
+        message: "Using 'latest' tag is not allowed. Please use a specific tag for the container image."
+        pattern:
+          spec:
+            containers:
+            - image: "!*:latest" 

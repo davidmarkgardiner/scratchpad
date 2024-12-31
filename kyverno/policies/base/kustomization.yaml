@@ -8,4 +8,7 @@ resources:
   - image-verification.yaml
   - istio-mtls.yaml
   - istio-rev-label.yaml
-  - pod-affinity.yaml 
+  - pod-affinity.yaml
+  - disallow-latest-tag.yaml
+  - require-labels.yaml
+  - check-deprecated-apis.yaml 

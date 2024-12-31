@@ -1,0 +1,48 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+metadata:
+  name: comprehensive-policy-report
+spec:
+  policies:
+  - name: audit-pod-affinity-spot
+    rules:
+    - name: prefer-spot-instances
+  - name: audit-strict-mtls
+    rules:
+    - name: validate-mtls
+  - name: default-network-policy
+    rules:
+    - name: require-network-policy
+  - name: disallow-latest-tag
+    rules:
+    - name: check-image-tag
+  - name: enforce-strict-mtls
+    rules:
+    - name: validate-mtls
+  - name: pod-security-controls
+    rules:
+    - name: restrict-privileged
+  - name: require-istio-revision-label
+    rules:
+    - name: add-istio-revision-label
+    - name: check-istio-revision-label
+  - name: require-labels
+    rules:
+    - name: check-required-labels
+  - name: resource-quotas
+    rules:
+    - name: require-resource-limits
+  - name: unique-service-selectors
+    rules:
+    - name: validate-selectors
+  - name: verify-images
+    rules:
+    - name: verify-signatures
+
+  # Filter for 'at' namespaces
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: Matches
+      values:
+      - "at[0-9]{5}" 

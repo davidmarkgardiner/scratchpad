@@ -11,4 +11,5 @@ resources:
   - pod-affinity.yaml
   - disallow-latest-tag.yaml
   - require-labels.yaml
-  - check-deprecated-apis.yaml 
+  - check-deprecated-apis.yaml
+  - kyverno-rbac.yaml 

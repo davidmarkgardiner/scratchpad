@@ -18,6 +18,19 @@ rules:
 - apiGroups: ["wgpolicyk8s.io"]
   resources: ["clusterpolicyreports", "policyreports"]
   verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["security.istio.io"]
+  resources: ["peerauthentications"]
+  verbs: ["get", "list", "watch"]
+---
+# Role specifically for the reports controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-reports-role
+rules:
+- apiGroups: ["security.istio.io"]
+  resources: ["peerauthentications"]
+  verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -30,4 +43,17 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kyverno
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno-reports-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-reports-role
+subjects:
+- kind: ServiceAccount
+  name: kyverno-reports-controller
   namespace: kyverno 

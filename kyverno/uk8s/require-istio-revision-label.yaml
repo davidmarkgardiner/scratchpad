@@ -22,6 +22,11 @@ spec:
             kinds:
               - Namespace
             name: "at*"
+      exclude:
+        any:
+        - resources:
+            name: 
+              regex: "^(?!at).*$"
       mutate:
         targets:
           - apiVersion: v1
@@ -37,6 +42,11 @@ spec:
             kinds:
               - Namespace
             name: "at*"
+      exclude:
+        any:
+        - resources:
+            name: 
+              regex: "^(?!at).*$"
       validate:
         message: "Namespaces starting with 'at' must have the label istio.io/rev=asm-1-23 for proper Istio sidecar injection"
         pattern:

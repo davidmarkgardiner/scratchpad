@@ -1,0 +1,4 @@
+- resources:
+    kinds:
+    - Namespace
+    name: "at[0-9]{5}-.*"

@@ -1,0 +1,41 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-istio-injection-label
+  annotations:
+    policies.kyverno.io/title: Prevent Istio Injection Label
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy prevents the istio-injection=enabled label from being set on pods
+      and deployments in namespaces matching pattern 'at[0-9]{5}'.
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+    - name: check-istio-injection-label
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+              - key: name
+                operator: Matches
+                values: 
+                - "at[0-9]{5}-.*"
+      validate:
+        message: "Setting the istio-injection=enabled label is not allowed on resources in namespaces matching pattern 'at[0-9]{5}'"
+        pattern:
+          metadata:
+            labels:
+              =(istio-injection): "!enabled"
+      preconditions:
+        all:
+        - key: "{{ request.operation }}"
+          operator: In
+          value: 
+          - CREATE
+          - UPDATE

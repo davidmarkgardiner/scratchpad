@@ -23,7 +23,7 @@ spec:
         kinds:
         - PeerAuthentication
         namespaces:
-        - "at[0-9]{5}"
+        - "at[0-9]{5}-.*"
     validate:
       message: PeerAuthentication resources in 'at' namespaces must use STRICT mode
       pattern:

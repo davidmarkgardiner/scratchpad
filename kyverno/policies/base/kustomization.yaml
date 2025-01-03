@@ -8,8 +8,10 @@ resources:
   - image-verification.yaml
   - istio-mtls.yaml
   - istio-rev-label.yaml
-  - pod-affinity.yaml
   - disallow-latest-tag.yaml
   - require-labels.yaml
   - check-deprecated-apis.yaml
-  - kyverno-rbac.yaml 
+  - kyverno-rbac.yaml
+  - pod-antiaffinity.yaml
+  # - node-affinity-spot.yaml
+  # - spot-tolerations.yaml 

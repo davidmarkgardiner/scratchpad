@@ -9,7 +9,7 @@ spec:
         kinds:
         - Pod
         namespaces:
-        - "at[0-9]{5}"
+        - "at[0-9]{5}-.*"
     name: restrict-privileged
     validate:
       pattern:

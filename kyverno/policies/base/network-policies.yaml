@@ -19,6 +19,6 @@ spec:
       resources:
         kinds:
         - Namespace
-        name: "at[0-9]{5}"
+        name: "at[0-9]{5}-.*"
     name: require-network-policy
   validationFailureAction: Audit

@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: insert-node-affinity-spot
+  annotations:
+    policies.kyverno.io/title: Add Node Affinity for Spot Instances
+    policies.kyverno.io/category: Spot Instances
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      This policy adds node affinity configurations to prefer scheduling on spot instances
+      and worker nodes.
+spec:
+  rules:
+    - name: insert-node-affinity
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaces:
+              - at12345-dev
+      preconditions:
+        all:
+        - key: "{{request.object.spec.template.metadata.labels.app || ''}}"
+          operator: NotEquals
+          value: ""
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(affinity):
+                  nodeAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                      - weight: 100
+                        preference:
+                          matchExpressions:
+                            - key: "kubernetes.azure.com/scalesetpriority"
+                              operator: In
+                              values:
+                                - "spot"
+                      - weight: 1
+                        preference:
+                          matchExpressions:
+                            - key: worker
+                              operator: In
+                              values:
+                                - "true" 

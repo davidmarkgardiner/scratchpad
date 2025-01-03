@@ -1,0 +1,64 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: insert-pod-affinity-spot
+  annotations:
+    policies.kyverno.io/title: Add Pod and Node Affinity for Spot Instances
+    policies.kyverno.io/category: Spot Instances
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      This policy adds node affinity for spot instances and pod anti-affinity configurations
+      for critical workloads in specific namespaces.
+spec:
+  rules:
+    - name: insert-pod-antiaffinity
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaces:
+              - "at[0-9]{5}-.*"
+      preconditions:
+        all:
+        - key: "{{request.object.spec.template.metadata.labels.app || ''}}"
+          operator: NotEquals
+          value: ""
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "kubernetes.azure.com/scalesetpriority"
+                    operator: "Equal"
+                    value: "spot"
+                    effect: "NoSchedule"
+                +(affinity):
+                  nodeAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                      - weight: 100
+                        preference:
+                          matchExpressions:
+                            - key: "kubernetes.azure.com/scalesetpriority"
+                              operator: In
+                              values:
+                                - "spot"
+                      - weight: 1
+                        preference:
+                          matchExpressions:
+                            - key: worker
+                              operator: In
+                              values:
+                                - "true"
+                  podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                    - weight: 100
+                      podAffinityTerm:
+                        labelSelector:
+                          matchExpressions:
+                          - key: app
+                            operator: In
+                            values:
+                            - "{{request.object.spec.template.metadata.labels.app}}"
+                        topologyKey: kubernetes.io/hostname

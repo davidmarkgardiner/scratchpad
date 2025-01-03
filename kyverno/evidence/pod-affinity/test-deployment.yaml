@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: test-app
+  name: test-deployment
+  namespace: at12345-dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+    spec:
+      containers:
+      - image: nginx:1.21
+        name: nginx
+        ports:
+        - containerPort: 80 

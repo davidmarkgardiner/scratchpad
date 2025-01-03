@@ -1,0 +1,34 @@
+   spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: kubernetes.azure.com/scalesetpriority
+                operator: In
+                values:
+                - spot
+            weight: 100
+          - preference:
+              matchExpressions:
+              - key: worker
+                operator: In
+                values:
+                - "true"
+            weight: 1
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - test-app
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      tolerations:
+      - effect: NoSchedule
+        key: kubernetes.azure.com/scalesetpriority
+        operator: Equal
+        value: spot

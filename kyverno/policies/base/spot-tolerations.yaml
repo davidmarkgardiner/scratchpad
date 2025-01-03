@@ -1,0 +1,41 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: insert-spot-tolerations
+  annotations:
+    policies.kyverno.io/title: Add Spot Instance Tolerations
+    policies.kyverno.io/category: Spot Instances
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      This policy adds tolerations to allow scheduling on spot instances.
+spec:
+  rules:
+    - name: insert-spot-tolerations
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+                - key: environment
+                  operator: In
+                  values:
+                    - dev
+                    - staging
+                    - prod
+      preconditions:
+        all:
+        - key: "{{request.object.spec.template.metadata.labels.app || ''}}"
+          operator: NotEquals
+          value: ""
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "kubernetes.azure.com/scalesetpriority"
+                    operator: "Equal"
+                    value: "spot"
+                    effect: "NoSchedule" 

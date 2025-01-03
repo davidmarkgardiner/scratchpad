@@ -16,10 +16,11 @@ spec:
   rules:
   - name: add-istio-revision-label
     match:
-      resources:
-        kinds:
-        - Namespace
-        name: "at[0-9]{5}"
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          name: "at[0-9]{5}-.*"
     mutate:
       targets:
       - apiVersion: v1
@@ -30,14 +31,15 @@ spec:
             istio.io/rev: asm-1-23
   - name: check-istio-revision-label
     match:
-      resources:
-        kinds:
-        - Namespace
-        name: "at[0-9]{5}"
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          name: "at[0-9]{5}-.*"
     validate:
       message: Namespaces starting with 'at' followed by 5 numbers must have the label istio.io/rev=asm-1-23
       pattern:
         metadata:
           labels:
             istio.io/rev: asm-1-23
-  validationFailureAction: Audit
+  validationFailureAction: audit

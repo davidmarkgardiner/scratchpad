@@ -19,7 +19,7 @@ spec:
           kinds:
           - Pod
           namespaces:
-          - "at[0-9]{5}"
+          - "at[0-9]{5}-.*"
       validate:
         message: "Using 'latest' tag is not allowed. Please use a specific tag for the container image."
         pattern:

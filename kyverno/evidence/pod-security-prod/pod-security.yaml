@@ -1,0 +1,58 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-controls
+  annotations:
+    policies.kyverno.io/title: Pod Security Standards for Production
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      This policy enforces restricted Pod Security Standards for production environments,
+      including disabling privileged mode, requiring read-only root filesystem,
+      preventing privilege escalation, running as non-root, using RuntimeDefault seccomp,
+      and disabling service account token automounting.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: restrict-pod-security
+      match:
+        resources:
+          kinds:
+          - Pod
+          selector:
+            matchExpressions:
+            - key: pod-security.kubernetes.io/warn
+              operator: Exists
+      validate:
+        message: >-
+          Production pods must meet security requirements: non-privileged, read-only root filesystem,
+          no privilege escalation, non-root user, RuntimeDefault seccomp profile, and no automounted service account token.
+        pattern:
+          spec:
+            =(ephemeralContainers):
+              - =(securityContext):
+                  =(privileged): "false"
+                  =(readOnlyRootFilesystem): "true"
+                  =(allowPrivilegeEscalation): "false"
+                  =(runAsNonRoot): "true"
+                  =(seccompProfile):
+                    =(type): "RuntimeDefault"
+            =(initContainers):
+              - =(securityContext):
+                  =(privileged): "false"
+                  =(readOnlyRootFilesystem): "true"
+                  =(allowPrivilegeEscalation): "false"
+                  =(runAsNonRoot): "true"
+                  =(seccompProfile):
+                    =(type): "RuntimeDefault"
+            containers:
+              - =(securityContext):
+                  =(privileged): "false"
+                  =(readOnlyRootFilesystem): "true"
+                  =(allowPrivilegeEscalation): "false"
+                  =(runAsNonRoot): "true"
+                  =(seccompProfile):
+                    =(type): "RuntimeDefault"
+            =(automountServiceAccountToken): "false"

@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-istio-injection-label
+  annotations:
+    policies.kyverno.io/title: Prevent Istio Injection Label
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy prevents the istio-injection=enabled label from being set on any
+      Namespace, Pod, or Deployment resources.
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+    - name: check-istio-injection-label
+      match:
+        any:
+        - resources:
+            kinds:
+            - Namespace
+            - Pod
+            - Deployment
+      validate:
+        message: "Setting the istio-injection=enabled label is not allowed"
+        pattern:
+          metadata:
+            labels:
+              =(istio-injection): "!enabled"
+      preconditions:
+        all:
+        - key: "{{ request.operation }}"
+          operator: In
+          value: 
+          - CREATE
+          - UPDATE

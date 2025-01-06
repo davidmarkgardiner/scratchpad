@@ -7,8 +7,7 @@ metadata:
     policies.kyverno.io/category: Security
     policies.kyverno.io/description: Strict mTLS requires that mutual TLS be enabled
       across the entire service mesh, which can be set using a PeerAuthentication
-      resource on a per-Namespace basis. This policy automatically creates and Audits
-      strict mTLS for namespaces starting with 'at'.
+      resource. This policy audits all PeerAuthentication resources to ensure they use strict mTLS.
     policies.kyverno.io/minversion: 1.6.0
     policies.kyverno.io/severity: medium
     policies.kyverno.io/subject: PeerAuthentication
@@ -22,10 +21,8 @@ spec:
       resources:
         kinds:
         - PeerAuthentication
-        namespaces:
-        - "at[0-9]{5}-.*"
     validate:
-      message: PeerAuthentication resources in 'at' namespaces must use STRICT mode
+      message: PeerAuthentication resources must use STRICT mode
       pattern:
         spec:
           mtls:

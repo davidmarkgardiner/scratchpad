@@ -1,0 +1,8 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: at54321-prod
+spec:
+  mtls:
+    mode: PERMISSIVE 

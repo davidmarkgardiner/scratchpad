@@ -9,7 +9,9 @@ metadata:
     policies.kyverno.io/description: >-
       This policy adds both pod anti-affinity and node affinity configurations to ensure better pod distribution
       across nodes and spot instance scheduling.
+    policies.kyverno.io/debug: "true"
 spec:
+  validationFailureAction: audit
   rules:
     - name: insert-pod-antiaffinity
       match:
@@ -19,12 +21,10 @@ spec:
               - Deployment
             namespaceSelector:
               matchExpressions:
-                - key: worker-tppe
+                - key: worker-type
                   operator: In
                   values:
-                    # - worker
                     - spot
-                    # - gpu
       preconditions:
         all:
         - key: "{{request.object.spec.template.metadata.labels.app || ''}}"

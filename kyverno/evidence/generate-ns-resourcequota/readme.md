@@ -4,13 +4,13 @@ This document demonstrates how to test the Kyverno resource quotas policy that e
 
 ## Policy Details
 
-The policy (`resource-quotas.yaml`) enforces that all Pods in namespaces matching the pattern `at[0-9]{5}-.*` must have both resource requests and limits defined.
+The policy (`generate-ns-resourcequota.yaml`) enforces that all Pods in namespaces matching the pattern `at[0-9]{5}-.*` must have both resource requests and limits defined.
 
 ```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: resource-quotas
+  name: generate-ns-resourcequota
 spec:
   validationFailureAction: Audit
   rules:
@@ -63,7 +63,7 @@ spec:
 
 1. Apply the policy:
    ```bash
-   kubectl apply -f resource-quotas.yaml
+   kubectl apply -f generate-ns-resourcequota.yaml
    ```
 
 2. Create test pods:

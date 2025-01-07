@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: prevent-istio-injection-label
+  name: validate-ns-istio-injection
   annotations:
     policies.kyverno.io/title: Prevent Istio Injection Label
     policies.kyverno.io/category: Security

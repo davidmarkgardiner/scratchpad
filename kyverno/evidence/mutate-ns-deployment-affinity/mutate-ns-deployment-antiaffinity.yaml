@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: insert-pod-antiaffinity
+  name: mutate-ns-deployment-antiaffinity
   annotations:
     policies.kyverno.io/title: Add Pod Anti-Affinity
     policies.kyverno.io/category: Sample

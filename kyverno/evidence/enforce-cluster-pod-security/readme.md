@@ -4,7 +4,7 @@ This document demonstrates how to test the Kyverno pod security policy that prev
 
 ## Policy Details
 
-The policy (`pod-security.yaml`) enforces that all Pods in namespaces matching the pattern `at[0-9]{5}-.*` must not run with privileged security context.
+The policy (`enforce-cluster-pod-security.yaml`) enforces that all Pods in namespaces matching the pattern `at[0-9]{5}-.*` must not run with privileged security context.
 
 ## Test Cases
 
@@ -43,7 +43,7 @@ spec:
 
 1. Apply the policy:
    ```bash
-   kubectl apply -f pod-security.yaml
+   kubectl apply -f enforce-cluster-pod-security.yaml
    ```
 
 2. Create test pods:

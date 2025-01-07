@@ -4,7 +4,7 @@ This policy enforces a comprehensive set of Pod Security Standards suitable for 
 
 ## Policy Details
 
-- **File**: `pod-security.yaml`
+- **File**: `enforce-cluster-pod-security-prod.yaml`
 - **Type**: ClusterPolicy
 - **Action**: Validate
 - **Target**: Pods in namespaces with label `pod-security.kubernetes.io/warn`
@@ -86,7 +86,7 @@ spec:
 
 1. Apply the policy:
    ```bash
-   kubectl apply -f pod-security.yaml
+   kubectl apply -f enforce-cluster-pod-security-prod.yaml
    ```
 
 2. Create test namespace:
@@ -163,7 +163,7 @@ kubectl delete ns test-unlabeled
 
 2. Verify policy status:
    ```bash
-   kubectl get clusterpolicy pod-security-controls -o yaml
+   kubectl get clusterpolicy enforce-cluster-pod-security-prod -o yaml
    ```
 
 3. Check namespace labels:

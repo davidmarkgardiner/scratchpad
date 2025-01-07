@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: audit-spot-instance-config
+  name: audit-cluster-pod-spotconfig
   annotations:
     policies.kyverno.io/title: Audit Spot Instance Configuration
     policies.kyverno.io/category: Pod Security
@@ -41,7 +41,7 @@ spec:
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: mutate-spot-instance-config
+  name: mutate-cluster-pod-spotconfig
   annotations:
     policies.kyverno.io/title: Mutate Spot Instance Configuration
     policies.kyverno.io/category: Pod Security

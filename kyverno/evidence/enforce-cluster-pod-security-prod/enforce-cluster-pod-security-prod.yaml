@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: pod-security-controls
+  name: enforce-cluster-pod-security-prod
   annotations:
     policies.kyverno.io/title: Pod Security Standards for Production
     policies.kyverno.io/category: Pod Security Standards (Restricted)

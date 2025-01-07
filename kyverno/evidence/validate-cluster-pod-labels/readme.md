@@ -4,7 +4,7 @@ This document demonstrates how to test the Kyverno required labels policy that e
 
 ## Policy Details
 
-The policy (`require-labels.yaml`) enforces that all Pods, Deployments, and Services in namespaces matching the pattern `at[0-9]{5}-.*` must have the required label: `app.kubernetes.io/name`.
+The policy (`validate-cluster-pod-labels.yaml`) enforces that all Pods, Deployments, and Services in namespaces matching the pattern `at[0-9]{5}-.*` must have the required label: `app.kubernetes.io/name`.
 
 ## Test Cases
 
@@ -41,7 +41,7 @@ spec:
 
 1. Apply the policy:
    ```bash
-   kubectl apply -f require-labels.yaml
+   kubectl apply -f validate-cluster-pod-labels.yaml
    ```
 
 2. Create test pods:
@@ -64,23 +64,23 @@ spec:
 
 - The compliant pod will show a pass result:
   ```
-  validation rule 'require-labels' passed
+  validation rule 'validate-cluster-pod-labels' passed
   ```
 
 ```
 k get polr -o yaml | grep labels
     labels:
       name: nginx-with-labels
-  - message: validation rule 'require-labels' passed.
-    policy: require-labels
-    rule: require-labels
+  - message: validation rule 'validate-cluster-pod-labels' passed.
+    policy: validate-cluster-pod-labels
+    rule: validate-cluster-pod-labels
     name: nginx-with-labels
     labels:
       name: nginx-no-labels
   - message: 'validation error: The following labels are required: ''app.kubernetes.io/name''.
-      rule require-labels failed at path /metadata/labels/'
-    policy: require-labels
-    rule: require-labels
+      rule validate-cluster-pod-labels failed at path /metadata/labels/'
+    policy: validate-cluster-pod-labels
+    rule: validate-cluster-pod-labels
     name: nginx-no-labels
 (base) 
 

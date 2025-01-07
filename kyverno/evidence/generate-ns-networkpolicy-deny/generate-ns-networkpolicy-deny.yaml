@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: add-networkpolicy
+  name: generate-ns-networkpolicy-deny
   annotations:
     policies.kyverno.io/title: Add Network Policy
     policies.kyverno.io/category: Multi-Tenancy, EKS Best Practices

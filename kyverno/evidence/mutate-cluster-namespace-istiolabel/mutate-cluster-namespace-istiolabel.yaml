@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: require-istio-revision-label
+  name: mutate-cluster-namespace-istiolabel
   annotations:
     policies.kyverno.io/category: Istio
     policies.kyverno.io/description: This policy ensures namespaces starting with

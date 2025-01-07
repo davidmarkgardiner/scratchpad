@@ -4,7 +4,7 @@ This policy prevents the `istio-injection=enabled` label from being set on any N
 
 ## Policy Details
 
-- **File**: `prevent-istio-injection-label.yaml`
+- **File**: `validate-ns-istio-injection.yaml`
 - **Type**: ClusterPolicy
 - **Action**: Validate
 - **Target**: All Namespaces, Pods, and Deployments
@@ -101,7 +101,7 @@ spec:
 
 1. Apply the policy:
    ```bash
-   kubectl apply -f prevent-istio-injection-label.yaml
+   kubectl apply -f validate-ns-istio-injection.yaml
    ```
 
 2. Test with compliant resources:
@@ -174,7 +174,7 @@ kubectl delete ns test-ns
 
 2. Verify policy status:
    ```bash
-   kubectl get clusterpolicy prevent-istio-injection-label -o yaml
+   kubectl get clusterpolicy validate-ns-istio-injection -o yaml
    ```
 
 3. Check admission reviews:

@@ -1,0 +1,19 @@
+apiVersion: kro.run/v1alpha1
+kind: WhiskAppNew
+metadata:
+  name: whiskapp-new
+  namespace: kro
+spec:
+  name: whisky-app2
+  namespace: at39473-dev-ob-test40
+  image: nginx:1.25.3
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "256Mi"
+  istio:
+    enabled: false 

@@ -1,0 +1,203 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: policy-validation
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: policy-test-runner
+  namespace: policy-validation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: policy-test-runner-{{ .Release.Name }}
+rules:
+- apiGroups: [""]
+  resources: ["namespaces", "pods", "services"]
+  verbs: ["create", "delete", "get", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["create", "delete", "get", "list"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list"]
+- apiGroups: ["security.istio.io"]
+  resources: ["peerauthentications"]
+  verbs: ["create", "delete", "get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: policy-test-runner-{{ .Release.Name }}
+subjects:
+- kind: ServiceAccount
+  name: policy-test-runner
+  namespace: policy-validation
+roleRef:
+  kind: ClusterRole
+  name: policy-test-runner-{{ .Release.Name }}
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ .Release.Name }}-test-pod-security"
+  namespace: policy-validation
+  annotations:
+    "helm.sh/hook": test
+spec:
+  serviceAccountName: policy-test-runner
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command: ["/bin/bash", "-c"]
+    args:
+      - |
+        set -e
+        echo "Testing Pod Security Policy..."
+        # Test privileged container block
+        if kubectl run test-priv --image=nginx --privileged -n policy-validation 2>/dev/null; then
+          echo "ERROR: Privileged pod was created!"
+          exit 1
+        fi
+        
+        # Test WhiskApp security context requirements
+        cat <<EOF | kubectl apply -f - 2>/dev/null
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: test-security
+          namespace: policy-validation
+        spec:
+          selector:
+            matchLabels:
+              app: test
+          template:
+            metadata:
+              labels:
+                app: test
+            spec:
+              containers:
+              - name: nginx
+                image: nginx
+                securityContext:
+                  privileged: true
+                  allowPrivilegeEscalation: true
+        EOF
+        
+        if kubectl get deployment test-security -n policy-validation 2>/dev/null; then
+          echo "ERROR: Deployment with privileged security context was created!"
+          exit 1
+        fi
+        
+        kubectl delete deployment test-security -n policy-validation --ignore-not-found
+        echo "✅ Pod Security Policy test passed"
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ .Release.Name }}-test-resource-requirements"
+  namespace: policy-validation
+  annotations:
+    "helm.sh/hook": test
+spec:
+  serviceAccountName: policy-test-runner
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command: ["/bin/bash", "-c"]
+    args:
+      - |
+        set -e
+        echo "Testing Resource Requirements Policy..."
+        # Test deployment without resource limits
+        cat <<EOF | kubectl apply -f - 2>/dev/null
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: test-resources
+          namespace: policy-validation
+        spec:
+          selector:
+            matchLabels:
+              app: test
+          template:
+            metadata:
+              labels:
+                app: test
+            spec:
+              containers:
+              - name: nginx
+                image: nginx
+        EOF
+        
+        if kubectl get deployment test-resources -n policy-validation 2>/dev/null; then
+          echo "ERROR: Deployment without resource limits was created!"
+          exit 1
+        fi
+        
+        kubectl delete deployment test-resources -n policy-validation --ignore-not-found
+        echo "✅ Resource Requirements Policy test passed"
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ .Release.Name }}-test-spot-config"
+  namespace: policy-validation
+  annotations:
+    "helm.sh/hook": test
+spec:
+  serviceAccountName: policy-test-runner
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command: ["/bin/bash", "-c"]
+    args:
+      - |
+        set -e
+        echo "Testing Spot Configuration Policy..."
+        # Create test deployment
+        kubectl create deployment test-spot --image=nginx -n policy-validation
+        sleep 5
+        
+        # Verify spot tolerations and affinity
+        DEPLOYMENT_YAML=$(kubectl get deployment test-spot -n policy-validation -o yaml)
+        if ! echo "$DEPLOYMENT_YAML" | grep -q "kubernetes.azure.com/scalesetpriority"; then
+          echo "ERROR: Spot toleration not added!"
+          exit 1
+        fi
+        if ! echo "$DEPLOYMENT_YAML" | grep -q "nodeAffinity"; then
+          echo "ERROR: Node affinity not added!"
+          exit 1
+        fi
+        
+        kubectl delete deployment test-spot -n policy-validation
+        echo "✅ Spot Configuration Policy test passed"
+  restartPolicy: Never
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-cleanup"
+  namespace: policy-validation
+  annotations:
+    "helm.sh/hook": post-test
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      serviceAccountName: policy-test-runner
+      containers:
+      - name: cleanup
+        image: bitnami/kubectl:latest
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          kubectl delete ns policy-validation --ignore-not-found
+          kubectl delete clusterrole policy-test-runner-{{ .Release.Name }} --ignore-not-found
+          kubectl delete clusterrolebinding policy-test-runner-{{ .Release.Name }} --ignore-not-found
+      restartPolicy: Never 

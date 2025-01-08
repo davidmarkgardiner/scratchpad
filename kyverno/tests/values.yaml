@@ -1,0 +1,11 @@
+test:
+  image: bitnami/kubectl:latest
+  timeout: 300
+  cleanup: true
+  namespaces:
+    prefix: "test-"
+  labels:
+    required:
+      - app
+      - environment
+      - owner 

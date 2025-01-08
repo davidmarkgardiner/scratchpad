@@ -254,3 +254,81 @@ kubectl get policyreport -A
    - Check events in the namespace
    - Verify RBAC permissions
    - Increase test timeout if needed
+
+
+---
+
+Yes, the Helm test will fail if any of the test pods fail their execution. Here's how it works:
+
+1. **Test Pod Failure Conditions**:
+- If the test pod exits with a non-zero code (any error)
+- If any command in the test script fails (due to `set -e`)
+- If policy validation fails
+- If timeout is reached
+
+2. **Example Flow**:
+```bash
+# When test succeeds:
+$ helm test kyverno-policies -n kyverno --logs
+NAME: kyverno-policies
+LAST DEPLOYED: Wed Jan 8 10:00:00 2024
+NAMESPACE: kyverno
+STATUS: deployed
+TEST SUITE:     kyverno-policies-test-require-labels
+Last Started:   Wed Jan 8 10:01:00 2024
+Last Completed: Wed Jan 8 10:01:30 2024
+Phase:          Succeeded  👍
+
+# When test fails:
+$ helm test kyverno-policies -n kyverno --logs
+NAME: kyverno-policies
+LAST DEPLOYED: Wed Jan 8 10:00:00 2024
+NAMESPACE: kyverno
+STATUS: deployed
+TEST SUITE:     kyverno-policies-test-require-labels
+Last Started:   Wed Jan 8 10:01:00 2024
+Last Completed: Wed Jan 8 10:01:30 2024
+Phase:          Failed     👎
+Error: pod kyverno-policies-test-require-labels failed
+```
+
+3. **In CI/CD Pipeline**:
+```yaml
+steps:
+- task: HelmDeploy@0
+  inputs:
+    command: 'test'
+    releaseName: 'kyverno-policies'
+    namespace: 'kyverno'
+    arguments: '--logs'
+  failOnStderr: true  # This ensures pipeline fails if helm test fails
+```
+
+4. **Common Failure Scenarios**:
+```yaml
+# Test pod showing failure
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "test-pod"
+spec:
+  containers:
+    - name: test
+      command: ["/bin/bash", "-c"]
+      args:
+        - |
+          # This will fail if policy doesn't block non-compliant pod
+          if kubectl run test-pod --privileged; then
+            echo "ERROR: Privileged pod was created!"
+            exit 1  # This causes helm test to fail
+          fi
+```
+
+The pipeline will stop if:
+- Any test pod returns non-zero exit code
+- Test pods fail to start
+- Tests timeout
+- RBAC permissions are insufficient
+- Policy validation fails
+
+This ensures that your policies are working as expected before deployment proceeds.

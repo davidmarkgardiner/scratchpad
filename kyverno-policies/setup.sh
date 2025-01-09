@@ -8,6 +8,7 @@ mkdir -p kyverno-policies/archive
 # Create empty files
 touch kyverno-policies/Chart.yaml
 touch kyverno-policies/values.yaml
+touch kyverno-policies/README.md
 
 # Create policy files
 touch kyverno-policies/templates/policies/mutate-ns-deployment-spotaffinity.yaml

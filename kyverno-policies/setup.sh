@@ -13,10 +13,12 @@ touch kyverno-policies/values.yaml
 touch kyverno-policies/templates/policies/mutate-ns-deployment-spotaffinity.yaml
 touch kyverno-policies/templates/policies/mutate-cluster-namespace-istiolabel.yaml
 touch kyverno-policies/templates/policies/enforce-cluster-pod-security.yaml
+touch kyverno-policies/templates/policies/audit-cluster-peerauthentication-mtls.yaml
 
 # Create test files
 touch kyverno-policies/templates/tests/test-spot-affinity-mutation.yaml
 touch kyverno-policies/templates/tests/test-istio-label-mutation.yaml
+touch kyverno-policies/templates/tests/test-mtls-audit.yaml
 
 # Make script executable
 chmod +x setup.sh 

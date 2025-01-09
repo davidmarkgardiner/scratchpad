@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-test-mtls-audit
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-test-mtls-audit
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-4"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+- apiGroups: ["security.istio.io"]
+  resources: ["peerauthentications"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: ["wgpolicyk8s.io"]
+  resources: ["policyreports"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-test-mtls-audit
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-3"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-test-mtls-audit
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-test-mtls-audit
+  namespace: {{ .Release.Namespace }}
+---
+# Compliant PeerAuthentication
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: {{ .Release.Name }}-test-mtls-audit-compliant
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-2"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  mtls:
+    mode: STRICT
+---
+# Non-compliant PeerAuthentication
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: {{ .Release.Name }}-test-mtls-audit-noncompliant
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-2"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-test-mtls-audit
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-1"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ .Release.Name }}-test-mtls-audit
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command:
+    - /bin/bash
+    - -c
+    - |
+      # Wait for policy to be ready and reports to be generated
+      sleep 20
+      
+      # Get the policy report for compliant PeerAuthentication
+      COMPLIANT_REPORT=$(kubectl get policyreport -o json | jq -r --arg name "{{ .Release.Name }}-test-mtls-audit-compliant" '.items[].results[] | select(.resources[].name==$name)')
+      if [[ ! -z "$COMPLIANT_REPORT" ]]; then
+        echo "❌ Expected no policy violations for compliant PeerAuthentication"
+        exit 1
+      fi
+      echo "✅ Compliant PeerAuthentication passed validation"
+      
+      # Get the policy report for non-compliant PeerAuthentication
+      NON_COMPLIANT_REPORT=$(kubectl get policyreport -o json | jq -r --arg name "{{ .Release.Name }}-test-mtls-audit-noncompliant" '.items[].results[] | select(.resources[].name==$name)')
+      if [[ -z "$NON_COMPLIANT_REPORT" ]]; then
+        echo "❌ Expected policy violation for non-compliant PeerAuthentication"
+        exit 1
+      fi
+      if [[ ! "$NON_COMPLIANT_REPORT" =~ "PeerAuthentication resources must use STRICT mode" ]]; then
+        echo "❌ Expected violation message not found"
+        exit 1
+      fi
+      echo "✅ Non-compliant PeerAuthentication correctly triggered policy violation"
+      
+      # Clean up test resources
+      kubectl delete peerauthentication {{ .Release.Name }}-test-mtls-audit-compliant -n {{ .Release.Namespace }}
+      kubectl delete peerauthentication {{ .Release.Name }}-test-mtls-audit-noncompliant -n {{ .Release.Namespace }}
+  restartPolicy: Never 

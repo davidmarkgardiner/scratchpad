@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-show-reports
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-weight: "5"  # Run this last
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ .Release.Name }}-test-sa
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command: 
+    - /bin/sh
+    - -c
+    - |
+      echo "Waiting for policy reports to be generated..."
+      for i in $(seq 1 30); do
+        if kubectl get policyreport -A 2>/dev/null | grep -q .; then
+          break
+        fi
+        echo "Waiting for policy reports... ($i/30)"
+        sleep 2
+      done
+
+      echo "\n=== Policy Reports ==="
+      kubectl get policyreport -A || echo "No policy reports found"
+      
+      echo "\n=== Cluster Policy Reports ==="
+      kubectl get clusterpolicyreport || echo "No cluster policy reports found"
+      
+      echo "\n=== Detailed Policy Reports ==="
+      kubectl get policyreport -A -o yaml || echo "No detailed policy reports found"
+      
+      # Always exit successfully since this is just for information
+      exit 0
+  restartPolicy: Never 

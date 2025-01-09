@@ -1,0 +1,5 @@
+policyKind: ClusterPolicy
+validationFailureAction: Audit
+podSecurityStandard: baseline
+podSecuritySeverity: medium
+background: true 

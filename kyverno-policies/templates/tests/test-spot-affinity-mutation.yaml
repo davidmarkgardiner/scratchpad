@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-test-spot-affinity
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-test-spot-affinity
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-4"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-test-spot-affinity
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-3"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-test-spot-affinity
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-test-spot-affinity
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Name }}-test-spot-affinity
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-2"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  labels:
+    worker-type: spot
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+  namespace: {{ .Release.Name }}-test-spot-affinity
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "-1"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-test-spot-affinity
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test-success
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ .Release.Name }}-test-spot-affinity
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command:
+    - /bin/bash
+    - -c
+    - |
+      # Wait for policy to be ready
+      sleep 10
+      
+      # Get the deployment
+      DEPLOYMENT=$(kubectl get deployment -n {{ .Release.Name }}-test-spot-affinity test-deployment -o json)
+      
+      # Check tolerations
+      TOLERATIONS=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.tolerations')
+      if [[ $TOLERATIONS != *"kubernetes.azure.com/scalesetpriority"* ]]; then
+        echo "❌ Expected spot toleration not found"
+        exit 1
+      fi
+      
+      # Check pod anti-affinity
+      POD_ANTI_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.podAntiAffinity')
+      if [[ $POD_ANTI_AFFINITY != *"kubernetes.io/hostname"* ]]; then
+        echo "❌ Expected pod anti-affinity not found"
+        exit 1
+      fi
+      
+      # Check node affinity
+      NODE_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.nodeAffinity')
+      if [[ $NODE_AFFINITY != *"kubernetes.azure.com/scalesetpriority"* ]]; then
+        echo "❌ Expected node affinity for spot instances not found"
+        exit 1
+      fi
+      
+      echo "✅ All affinity and toleration configurations were correctly mutated"
+      
+      # Clean up
+      kubectl delete ns {{ .Release.Name }}-test-spot-affinity
+  restartPolicy: Never 

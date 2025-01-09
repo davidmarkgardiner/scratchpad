@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-test-good-namespace
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ .Release.Name }}-test-sa
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command: 
+    - /bin/sh
+    - -c
+    - |
+      echo "Creating namespace with allowed labels..."
+      if ! kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: test-namespace-good
+        labels:
+          environment: dev
+      EOF
+      then
+        echo "Failed to create namespace"
+        exit 1
+      fi
+      echo "Namespace created successfully"
+      sleep 5
+      echo "Cleaning up namespace..."
+      kubectl delete namespace test-namespace-good --wait=false || true
+      exit 0
+  restartPolicy: Never 

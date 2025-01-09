@@ -1,0 +1,92 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-policy-violations
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-weight: "1"  # Run this before show-reports
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ .Release.Name }}-policy-violations
+    spec:
+      serviceAccountName: {{ .Release.Name }}-admin
+      containers:
+      - name: test
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Wait for policies to be ready
+          echo "Waiting for policies to be ready..."
+          until kubectl get clusterpolicy validate-ns-istio-injection >/dev/null 2>&1 && \
+                kubectl get clusterpolicy require-resource-limits >/dev/null 2>&1; do
+            echo "Waiting for policies to be created..."
+            sleep 2
+          done
+          echo "Policies are ready"
+
+          # Create test namespace with violation
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: test-violations
+            labels:
+              istio-injection: enabled
+          EOF
+
+          # Create test deployment with violations
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: violation-test
+            namespace: test-violations
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: violation-test
+            template:
+              metadata:
+                labels:
+                  app: violation-test
+                  istio-injection: enabled
+              spec:
+                containers:
+                - name: nginx
+                  image: nginx:1.19.0
+                  # Intentionally missing resource limits
+          EOF
+
+          echo "Waiting for policy reports to be generated..."
+          sleep 5
+
+          # Check for istio-injection policy violation
+          ISTIO_VIOLATIONS=$(kubectl get policyreport -A -o json | jq -r '.items[].results[] | select(.policy == "validate-ns-istio-injection") | .message')
+          if [ -z "$ISTIO_VIOLATIONS" ]; then
+            echo "Error: Expected istio-injection policy violation not found"
+            exit 1
+          fi
+          echo "Found istio-injection policy violation as expected"
+
+          # Check for resource limits policy violation
+          RESOURCE_VIOLATIONS=$(kubectl get policyreport -A -o json | jq -r '.items[].results[] | select(.policy == "require-resource-limits") | .message')
+          if [ -z "$RESOURCE_VIOLATIONS" ]; then
+            echo "Error: Expected resource limits policy violation not found"
+            exit 1
+          fi
+          echo "Found resource limits policy violation as expected"
+
+          echo "All expected policy violations found - test passed!"
+
+          # Cleanup
+          kubectl delete ns test-violations
+
+          # Sleep a bit to ensure logs are captured
+          sleep 5
+      restartPolicy: Never 

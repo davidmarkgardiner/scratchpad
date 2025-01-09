@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-test-good
+  namespace: {{ .Release.Namespace }}
+  labels:
+    helm.sh/test: resource-limits
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ .Release.Name }}-test-sa
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command: 
+    - /bin/sh
+    - -c
+    - |
+      echo "Creating deployment with resource limits..."
+      if ! kubectl apply -f - <<EOF
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: test-good
+        namespace: {{ .Release.Namespace }}
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: test-good
+        template:
+          metadata:
+            labels:
+              app: test-good
+          spec:
+            containers:
+            - name: nginx
+              image: nginx
+              resources:
+                limits:
+                  memory: "128Mi"
+                  cpu: "500m"
+      EOF
+      then
+        echo "Failed to create deployment"
+        exit 1
+      fi
+      echo "Deployment created successfully"
+      sleep 5
+      echo "Cleaning up deployment..."
+      kubectl delete deployment -n {{ .Release.Namespace }} test-good || true
+  restartPolicy: Never 

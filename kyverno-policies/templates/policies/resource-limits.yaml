@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: {{ .Values.policyKind }}
+metadata:
+  name: require-resource-limits
+  annotations:
+    policies.kyverno.io/title: Require Resource Limits
+    policies.kyverno.io/category: Resource Constraints
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Requires all containers in Deployments to have memory and CPU resource limits set.
+spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
+  background: {{ .Values.background }}
+  rules:
+  - name: check-resource-limits
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    validate:
+      message: "Resource limits are required for all containers in Deployments"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+                - resources:
+                    limits:
+                      memory: "?*"
+                      cpu: "?*" 

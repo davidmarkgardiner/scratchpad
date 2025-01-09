@@ -1,0 +1,70 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-ns-deployment-spotaffinity
+  annotations:
+    policies.kyverno.io/title: Add Pod Anti-Affinity and Node Affinity
+    policies.kyverno.io/category: Workload Distribution
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      This policy adds both pod anti-affinity and node affinity configurations to ensure better pod distribution
+      across nodes and spot instance scheduling.
+    policies.kyverno.io/debug: "true"
+spec:
+  validationFailureAction: audit
+  rules:
+    - name: insert-pod-antiaffinity
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+                - key: worker-type
+                  operator: In
+                  values:
+                    - spot
+      preconditions:
+        all:
+        - key: {{ `"{{ request.object.spec.template.metadata.labels.app || '' }}"` }}
+          operator: NotEquals
+          value: ""
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "kubernetes.azure.com/scalesetpriority"
+                    operator: "Equal"
+                    value: "spot"
+                    effect: "NoSchedule" 
+                +(affinity):
+                  podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                    - weight: 100
+                      podAffinityTerm:
+                        labelSelector:
+                          matchExpressions:
+                          - key: app
+                            operator: In
+                            values:
+                            - {{ `"{{ request.object.spec.template.metadata.labels.app }}"` }}
+                        topologyKey: kubernetes.io/hostname
+                  nodeAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                      - weight: 100
+                        preference:
+                          matchExpressions:
+                            - key: "kubernetes.azure.com/scalesetpriority"
+                              operator: In
+                              values:
+                                - "spot"
+                      - weight: 1
+                        preference:
+                          matchExpressions:
+                            - key: worker
+                              operator: In
+                              values:
+                                - "true" 

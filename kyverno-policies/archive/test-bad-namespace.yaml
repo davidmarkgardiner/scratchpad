@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-test-bad-namespace
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ .Release.Name }}-test-sa
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command: 
+    - /bin/sh
+    - -c
+    - |
+      echo "Attempting to create namespace with istio-injection=enabled label..."
+      if kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: test-namespace-bad
+        labels:
+          environment: prod
+          istio-injection: enabled
+      EOF
+      then
+        echo "Policy violation not detected"
+        kubectl delete namespace test-namespace-bad --wait=false || true
+        exit 1
+      else
+        echo "Policy violation correctly detected"
+        exit 0
+      fi
+  restartPolicy: Never 

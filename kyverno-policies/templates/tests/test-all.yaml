@@ -3,17 +3,11 @@ kind: ServiceAccount
 metadata:
   name: {{ .Release.Name }}-test-all
   namespace: {{ .Release.Namespace }}
-  annotations:
-    helm.sh/hook: test
-    helm.sh/hook-delete-policy: hook-succeeded
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ .Release.Name }}-test-all
-  annotations:
-    helm.sh/hook: test
-    helm.sh/hook-delete-policy: hook-succeeded
 rules:
 - apiGroups: ["kyverno.io"]
   resources: ["clusterpolicies"]
@@ -35,9 +29,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{ .Release.Name }}-test-all
-  annotations:
-    helm.sh/hook: test
-    helm.sh/hook-delete-policy: hook-succeeded
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -54,7 +45,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     helm.sh/hook: test
-    helm.sh/hook-delete-policy: hook-succeeded
+    helm.sh/hook-weight: "5"
 spec:
   serviceAccountName: {{ .Release.Name }}-test-all
   containers:
@@ -66,17 +57,28 @@ spec:
     - |
       set -e
       
+      # Print test header
+      function print_header() {
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🧪 Running Kyverno Policy Tests"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      }
+
       function cleanup {
         echo "🧹 Cleaning up test resources..."
         kubectl delete ns {{ .Release.Name }}-test-spot --ignore-not-found
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       }
       trap cleanup EXIT
+
+      print_header
       
       # Wait for policies to be ready
       echo "⏳ Waiting for policies to be ready..."
-      sleep 30
+      sleep 5
       
-      echo "🔍 Step 1: Testing Policy Readiness"
+      echo "📋 Test Suite: Policy Readiness Check"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       # Expected policies
       EXPECTED_POLICIES=(
         "audit-cluster-peerauthentication-mtls"
@@ -87,22 +89,24 @@ spec:
       )
       
       for policy in "${EXPECTED_POLICIES[@]}"; do
-        echo "Checking policy: $policy"
+        echo "Testing: $policy"
         POLICY_STATUS=$(kubectl get clusterpolicy "$policy" -o json)
         if [ $? -ne 0 ]; then
-          echo "❌ Policy $policy not found"
+          echo "❌ FAILED: Policy $policy not found"
           exit 1
         fi
         READY_STATUS=$(echo "$POLICY_STATUS" | jq -r '.status.ready')
         if [ "$READY_STATUS" != "true" ]; then
-          echo "❌ Policy $policy is not ready"
+          echo "❌ FAILED: Policy $policy is not ready"
           echo "Status: $(echo "$POLICY_STATUS" | jq -r '.status.message')"
           exit 1
         fi
-        echo "✅ Policy $policy is ready"
+        echo "✅ PASSED: Policy $policy is ready and active"
       done
       
-      echo "🔍 Step 2: Testing Spot Affinity Policy"
+      echo -e "\n📋 Test Suite: Spot Affinity Policy"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "Creating test namespace with spot label..."
       # Create test namespace and deployment
       cat <<EOF | kubectl apply -f -
       apiVersion: v1
@@ -113,6 +117,7 @@ spec:
           worker-type: spot
       EOF
       
+      echo "Creating test deployment..."
       cat <<EOF | kubectl apply -f -
       apiVersion: apps/v1
       kind: Deployment
@@ -134,34 +139,37 @@ spec:
               image: nginx:latest
       EOF
       
-      echo "⏳ Waiting for deployment to be mutated..."
+      echo "⏳ Waiting for deployment mutation..."
       sleep 10
       
       # Check deployment for spot affinity
       DEPLOYMENT=$(kubectl get deployment -n {{ .Release.Name }}-test-spot test-deployment -o json)
       
+      echo "Checking spot configuration..."
       TOLERATIONS=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.tolerations')
       if [[ $TOLERATIONS != *"kubernetes.azure.com/scalesetpriority"* ]]; then
-        echo "❌ Expected spot toleration not found"
+        echo "❌ FAILED: Spot toleration not found"
         exit 1
       fi
+      echo "✅ PASSED: Spot tolerations correctly applied"
       
       POD_ANTI_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.podAntiAffinity')
       if [[ $POD_ANTI_AFFINITY != *"kubernetes.io/hostname"* ]]; then
-        echo "❌ Expected pod anti-affinity not found"
+        echo "❌ FAILED: Pod anti-affinity not found"
         exit 1
       fi
+      echo "✅ PASSED: Pod anti-affinity correctly configured"
       
       NODE_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.nodeAffinity')
       if [[ $NODE_AFFINITY != *"kubernetes.azure.com/scalesetpriority"* ]]; then
-        echo "❌ Expected node affinity for spot instances not found"
+        echo "❌ FAILED: Node affinity for spot instances not found"
         exit 1
       fi
+      echo "✅ PASSED: Node affinity correctly configured"
       
-      echo "✅ Spot affinity configuration correctly applied"
+      echo -e "\n📋 Test Suite: mTLS Policy"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "ℹ️  SKIPPED: Istio not installed - To test mTLS policy, please install Istio first"
       
-      echo "🔍 Step 3: Testing mTLS Policy (Skipped - Istio not installed)"
-      echo "ℹ️  To test mTLS policy, please install Istio first"
-      
-      echo "✅ All tests completed successfully!"
+      echo -e "\n✨ All test suites completed successfully!"
   restartPolicy: Never 

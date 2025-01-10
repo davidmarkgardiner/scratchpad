@@ -16,8 +16,8 @@ rules:
   resources: ["peerauthentications"]
   verbs: ["get", "list", "create", "delete"]
 - apiGroups: ["wgpolicyk8s.io"]
-  resources: ["policyreports"]
-  verbs: ["get", "list"]
+  resources: ["policyreports", "clusterpolicyreports"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: [""]
   resources: ["namespaces"]
   verbs: ["get", "list", "create", "delete", "watch"]
@@ -170,9 +170,9 @@ spec:
       echo -e "\n📋 Test Suite: Istio Policy Tests"
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       
-      echo "Test 1: Prevent istio-injection label"
-      # Try to create namespace with forbidden label
-      cat <<EOF | kubectl apply -f - 2>/dev/null || true
+      echo "Test 1: Prevent istio-injection label (Audit Mode)"
+      # Create namespace with forbidden label
+      cat <<EOF | kubectl apply -f -
       apiVersion: v1
       kind: Namespace
       metadata:
@@ -181,13 +181,19 @@ spec:
           istio-injection: enabled
       EOF
       
-      # Check if namespace was created (it shouldn't be)
-      if kubectl get ns {{ .Release.Name }}-test-istio >/dev/null 2>&1; then
-        echo "❌ FAILED: Namespace with istio-injection=enabled was created when it should have been blocked"
-        kubectl delete ns {{ .Release.Name }}-test-istio
+      echo "Waiting for policy report to be generated..."
+      sleep 5
+      
+      # Check PolicyReport for the violation
+      VIOLATIONS=$(kubectl get policyreport -A -o json | jq -r '.items[].results[] | select(.policy == "validate-ns-istio-injection" and .resources[].name == "{{ .Release.Name }}-test-istio")')
+      if [[ -z "$VIOLATIONS" ]]; then
+        echo "❌ FAILED: No policy violations found for istio-injection=enabled label"
+        kubectl delete ns {{ .Release.Name }}-test-istio --ignore-not-found
         exit 1
       fi
-      echo "✅ PASSED: Successfully prevented creation of namespace with istio-injection=enabled"
+      
+      echo "✅ PASSED: Successfully detected istio-injection=enabled label violation in audit mode"
+      kubectl delete ns {{ .Release.Name }}-test-istio --ignore-not-found
       
       echo -e "\nTest 2: Istio revision label mutation"
       # Create namespace with istio.io/rev label to trigger mutation

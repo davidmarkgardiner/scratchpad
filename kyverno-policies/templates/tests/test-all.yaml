@@ -20,7 +20,7 @@ rules:
   verbs: ["get", "list"]
 - apiGroups: [""]
   resources: ["namespaces"]
-  verbs: ["get", "list", "create", "delete"]
+  verbs: ["get", "list", "create", "delete", "watch"]
 - apiGroups: ["apps"]
   resources: ["deployments"]
   verbs: ["get", "list", "create", "delete"]
@@ -167,9 +167,52 @@ spec:
       fi
       echo "✅ PASSED: Node affinity correctly configured"
       
-      echo -e "\n📋 Test Suite: mTLS Policy"
+      echo -e "\n📋 Test Suite: Istio Policy Tests"
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      echo "ℹ️  SKIPPED: Istio not installed - To test mTLS policy, please install Istio first"
+      
+      echo "Test 1: Prevent istio-injection label"
+      # Try to create namespace with forbidden label
+      cat <<EOF | kubectl apply -f - 2>/dev/null || true
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: {{ .Release.Name }}-test-istio
+        labels:
+          istio-injection: enabled
+      EOF
+      
+      # Check if namespace was created (it shouldn't be)
+      if kubectl get ns {{ .Release.Name }}-test-istio >/dev/null 2>&1; then
+        echo "❌ FAILED: Namespace with istio-injection=enabled was created when it should have been blocked"
+        kubectl delete ns {{ .Release.Name }}-test-istio
+        exit 1
+      fi
+      echo "✅ PASSED: Successfully prevented creation of namespace with istio-injection=enabled"
+      
+      echo -e "\nTest 2: Istio revision label mutation"
+      # Create namespace with istio.io/rev label to trigger mutation
+      cat <<EOF | kubectl apply -f -
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: {{ .Release.Name }}-test-istio-rev
+        labels:
+          istio.io/rev: ""
+      EOF
+      
+      sleep 5
+      
+      # Check if label was mutated
+      ISTIO_REV=$(kubectl get ns {{ .Release.Name }}-test-istio-rev -o jsonpath='{.metadata.labels.istio\.io/rev}')
+      if [[ "$ISTIO_REV" != "asm-1-23" ]]; then
+        echo "❌ FAILED: Namespace istio.io/rev label was not mutated to asm-1-23"
+        echo "Current value: $ISTIO_REV"
+        exit 1
+      fi
+      echo "✅ PASSED: Successfully mutated istio.io/rev label to asm-1-23"
+      
+      # Cleanup
+      kubectl delete ns {{ .Release.Name }}-test-istio-rev --ignore-not-found
       
       echo -e "\n✨ All test suites completed successfully!"
   restartPolicy: Never 

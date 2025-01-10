@@ -46,6 +46,15 @@ services:
     type: ClusterIP
     port: 443
     targetPort: 9443
+    ports:
+      - name: https
+        port: 443
+        protocol: TCP
+        targetPort: https
+      - name: metrics-port
+        port: 8000
+        protocol: TCP
+        targetPort: metrics-port
   metrics:
     type: ClusterIP
     port: 8000
@@ -57,7 +66,13 @@ serviceMonitor:
   interval: 30s
   scrapeTimeout: 10s
   labels:
+    app: kyverno
     release: prometheus-stack
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: admission-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
 
 components:
   admissionController:

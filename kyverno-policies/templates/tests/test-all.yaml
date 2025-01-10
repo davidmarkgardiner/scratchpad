@@ -184,10 +184,23 @@ spec:
       echo "Waiting for policy report to be generated..."
       sleep 5
       
-      # Check PolicyReport for the violation
-      VIOLATIONS=$(kubectl get policyreport -A -o json | jq -r '.items[].results[] | select(.policy == "validate-ns-istio-injection" and .resources[].name == "{{ .Release.Name }}-test-istio")')
-      if [[ -z "$VIOLATIONS" ]]; then
+      # Debug: Show available policy reports
+      echo "Checking policy reports..."
+      kubectl get policyreport -A
+      
+      # Check PolicyReport for the violation with more robust error handling
+      VIOLATIONS=$(kubectl get policyreport -A -o json | jq -r '
+        [.items | select(. != null) | .[] | 
+         .results | select(. != null) | .[] | 
+         select(.policy == "validate-ns-istio-injection" and 
+                (.resources | select(. != null) | .[] | .name == "{{ .Release.Name }}-test-istio"))] | 
+        length')
+      
+      echo "Found $VIOLATIONS violation(s)"
+      if [[ "$VIOLATIONS" == "0" ]]; then
         echo "❌ FAILED: No policy violations found for istio-injection=enabled label"
+        echo "Debug: Showing all policy reports content:"
+        kubectl get policyreport -A -o yaml
         kubectl delete ns {{ .Release.Name }}-test-istio --ignore-not-found
         exit 1
       fi

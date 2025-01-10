@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-test-policy-readiness
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-weight: "100"  # Run absolutely last
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-test-policy-readiness
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-weight: "100"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+- apiGroups: ["kyverno.io"]
+  resources: ["clusterpolicies"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-test-policy-readiness
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-weight: "100"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-test-policy-readiness
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-test-policy-readiness
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-test-policy-readiness
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-weight: "100"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ .Release.Name }}-test-policy-readiness
+  containers:
+  - name: test
+    image: bitnami/kubectl:latest
+    command:
+    - /bin/bash
+    - -c
+    - |
+      # Wait longer for policies and other tests to complete
+      sleep 30
+      
+      # Expected policies
+      EXPECTED_POLICIES=(
+        "audit-cluster-peerauthentication-mtls"
+        "mutate-cluster-namespace-istiolabel"
+        "mutate-ns-deployment-spotaffinity"
+        "require-resource-limits"
+        "validate-ns-istio-injection"
+      )
+      
+      # Check each expected policy
+      for policy in "${EXPECTED_POLICIES[@]}"; do
+        echo "Checking policy: $policy"
+        
+        # Get policy status
+        POLICY_STATUS=$(kubectl get clusterpolicy "$policy" -o json)
+        if [ $? -ne 0 ]; then
+          echo "❌ Policy $policy not found"
+          exit 1
+        fi
+        
+        # Check if policy is ready
+        READY_STATUS=$(echo "$POLICY_STATUS" | jq -r '.status.ready')
+        if [ "$READY_STATUS" != "true" ]; then
+          echo "❌ Policy $policy is not ready"
+          echo "Status: $(echo "$POLICY_STATUS" | jq -r '.status.message')"
+          exit 1
+        fi
+        
+        echo "✅ Policy $policy is ready"
+      done
+      
+      echo "✅ All policies are ready and properly configured"
+  restartPolicy: Never 

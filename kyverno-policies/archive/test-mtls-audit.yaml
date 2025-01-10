@@ -4,7 +4,7 @@ metadata:
   name: {{ .Release.Name }}-test-mtls-audit
   namespace: {{ .Release.Namespace }}
   annotations:
-    helm.sh/hook: test-success
+    helm.sh/hook: test
     helm.sh/hook-weight: "-5"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 ---
@@ -13,7 +13,7 @@ kind: ClusterRole
 metadata:
   name: {{ .Release.Name }}-test-mtls-audit
   annotations:
-    helm.sh/hook: test-success
+    helm.sh/hook: test
     helm.sh/hook-weight: "-4"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 rules:
@@ -29,7 +29,7 @@ kind: ClusterRoleBinding
 metadata:
   name: {{ .Release.Name }}-test-mtls-audit
   annotations:
-    helm.sh/hook: test-success
+    helm.sh/hook: test
     helm.sh/hook-weight: "-3"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 roleRef:
@@ -48,7 +48,7 @@ metadata:
   name: {{ .Release.Name }}-test-mtls-audit-compliant
   namespace: {{ .Release.Namespace }}
   annotations:
-    helm.sh/hook: test-success
+    helm.sh/hook: test
     helm.sh/hook-weight: "-2"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:
@@ -62,7 +62,7 @@ metadata:
   name: {{ .Release.Name }}-test-mtls-audit-noncompliant
   namespace: {{ .Release.Namespace }}
   annotations:
-    helm.sh/hook: test-success
+    helm.sh/hook: test
     helm.sh/hook-weight: "-2"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:
@@ -75,7 +75,7 @@ metadata:
   name: {{ .Release.Name }}-test-mtls-audit
   namespace: {{ .Release.Namespace }}
   annotations:
-    helm.sh/hook: test-success
+    helm.sh/hook: test
     helm.sh/hook-weight: "-1"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:

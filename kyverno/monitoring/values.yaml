@@ -1,0 +1,80 @@
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  namespace: kyverno
+  labels:
+    instance: kyverno
+    part-of: kyverno
+
+replicaCount: 1
+
+images:
+  kyverno:
+    repository: ghcr.io/kyverno/kyverno
+    tag: v1.11.4
+    pullPolicy: IfNotPresent
+  backgroundController:
+    repository: ghcr.io/kyverno/background-controller
+    tag: v1.11.4
+    pullPolicy: IfNotPresent
+  cleanupController:
+    repository: ghcr.io/kyverno/cleanup-controller
+    tag: v1.11.4
+    pullPolicy: IfNotPresent
+  reportsController:
+    repository: ghcr.io/kyverno/reports-controller
+    tag: v1.11.4
+    pullPolicy: IfNotPresent
+
+resources:
+  kyverno:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  controllers:
+    limits:
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+services:
+  kyverno:
+    type: ClusterIP
+    port: 443
+    targetPort: 9443
+  metrics:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+
+serviceMonitor:
+  enabled: true
+  namespace: kyverno
+  interval: 30s
+  scrapeTimeout: 10s
+  labels:
+    release: prometheus-stack
+
+components:
+  admissionController:
+    name: admission-controller
+    service:
+      purpose: service
+    metricsService:
+      purpose: metrics
+  backgroundController:
+    name: background-controller
+    metricsService:
+      purpose: metrics
+  cleanupController:
+    name: cleanup-controller
+    metricsService:
+      purpose: metrics
+  reportsController:
+    name: reports-controller
+    metricsService:
+      purpose: metrics 

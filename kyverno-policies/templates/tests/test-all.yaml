@@ -72,6 +72,18 @@ spec:
       trap cleanup EXIT
 
       print_header
+
+      # Define symbols using hex codes
+      CHECK_MARK=$(echo -e '\xe2\x9c\x85')     # ✅
+      CROSS_MARK=$(echo -e '\xe2\x9d\x8c')     # ❌
+      TEST_TUBE=$(echo -e '\xf0\x9f\xa7\xaa')  # 🧪
+      HOURGLASS=$(echo -e '\xe2\x8f\xb3')      # ⏳
+      BROOM=$(echo -e '\xf0\x9f\xa7\xb9')      # 🧹
+      CLIPBOARD=$(echo -e '\xf0\x9f\x93\x8b')  # 📋
+      INFO=$(echo -e '\xe2\x84\xb9\xef\xb8\x8f') # ℹ️
+      SPARKLES=$(echo -e '\xe2\x9c\xa8')       # ✨
+      BORDER="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      
       
       # Wait for policies to be ready
       echo "⏳ Waiting for policies to be ready..."
@@ -118,7 +130,7 @@ spec:
       EOF
       
       echo "Creating test deployment..."
-      cat <<EOF | kubectl apply -f -
+      DEPLOY_RESULT=$(cat <<EOF | kubectl apply -f - 2>&1 || true
       apiVersion: apps/v1
       kind: Deployment
       metadata:
@@ -133,35 +145,81 @@ spec:
           metadata:
             labels:
               app: test-app
+              istio-injection: disabled
           spec:
             containers:
             - name: nginx
               image: nginx:latest
       EOF
+      )
+      
+      if [[ $DEPLOY_RESULT == *"error"* ]] && [[ $DEPLOY_RESULT != *"validate-ns-istio-injection"* ]]; then
+        echo "❌ FAILED: Unexpected error creating deployment:"
+        echo "$DEPLOY_RESULT"
+        exit 1
+      fi
+      
+      if [[ $DEPLOY_RESULT == *"validate-ns-istio-injection"* ]]; then
+        echo "ℹ️  Deployment rejected by istio policy as expected, retrying with istio-injection disabled..."
+        DEPLOY_RESULT=$(cat <<EOF | kubectl apply -f - 2>&1 || true
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: test-deployment
+          namespace: {{ .Release.Name }}-test-spot
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: test-app
+          template:
+            metadata:
+              labels:
+                app: test-app
+                istio-injection: disabled
+            spec:
+              containers:
+              - name: nginx
+                image: nginx:latest
+        EOF
+        )
+      fi
       
       echo "⏳ Waiting for deployment mutation..."
       sleep 10
       
+      echo "Fetching deployment status..."
+      kubectl get deployment -n {{ .Release.Name }}-test-spot test-deployment -o yaml
+      
       # Check deployment for spot affinity
-      DEPLOYMENT=$(kubectl get deployment -n {{ .Release.Name }}-test-spot test-deployment -o json)
+      echo "Checking deployment configuration..."
+      DEPLOYMENT=$(kubectl get deployment -n {{ .Release.Name }}-test-spot test-deployment -o json 2>&1)
+      if [[ $DEPLOYMENT == *"error"* ]] || [[ $DEPLOYMENT == *"not found"* ]]; then
+        echo "❌ FAILED: Could not get deployment:"
+        echo "$DEPLOYMENT"
+        exit 1
+      fi
       
       echo "Checking spot configuration..."
-      TOLERATIONS=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.tolerations')
-      if [[ $TOLERATIONS != *"kubernetes.azure.com/scalesetpriority"* ]]; then
+      TOLERATIONS=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.tolerations // empty')
+      echo "Found tolerations: $TOLERATIONS"
+      if [[ -z "$TOLERATIONS" ]] || [[ $TOLERATIONS != *"kubernetes.azure.com/scalesetpriority"* ]]; then
         echo "❌ FAILED: Spot toleration not found"
         exit 1
       fi
       echo "✅ PASSED: Spot tolerations correctly applied"
       
-      POD_ANTI_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.podAntiAffinity')
-      if [[ $POD_ANTI_AFFINITY != *"kubernetes.io/hostname"* ]]; then
+      POD_ANTI_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.podAntiAffinity // empty')
+      echo "Found pod anti-affinity: $POD_ANTI_AFFINITY"
+      if [[ -z "$POD_ANTI_AFFINITY" ]] || [[ $POD_ANTI_AFFINITY != *"kubernetes.io/hostname"* ]]; then
         echo "❌ FAILED: Pod anti-affinity not found"
         exit 1
       fi
       echo "✅ PASSED: Pod anti-affinity correctly configured"
       
-      NODE_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.nodeAffinity')
-      if [[ $NODE_AFFINITY != *"kubernetes.azure.com/scalesetpriority"* ]]; then
+      NODE_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.nodeAffinity // empty')
+      echo "Found node affinity: $NODE_AFFINITY"
+      if [[ -z "$NODE_AFFINITY" ]] || [[ $NODE_AFFINITY != *"kubernetes.azure.com/scalesetpriority"* ]]; then
         echo "❌ FAILED: Node affinity for spot instances not found"
         exit 1
       fi
@@ -172,7 +230,7 @@ spec:
       
       echo "Test 1: Prevent istio-injection label"
       # Try to create namespace with forbidden label
-      cat <<EOF | kubectl apply -f - 2>/dev/null || true
+      RESULT=$(cat <<EOF | kubectl apply -f - 2>&1 || true
       apiVersion: v1
       kind: Namespace
       metadata:
@@ -180,14 +238,46 @@ spec:
         labels:
           istio-injection: enabled
       EOF
+      )
       
-      # Check if namespace was created (it shouldn't be)
-      if kubectl get ns {{ .Release.Name }}-test-istio >/dev/null 2>&1; then
-        echo "❌ FAILED: Namespace with istio-injection=enabled was created when it should have been blocked"
-        kubectl delete ns {{ .Release.Name }}-test-istio
+      if [[ $RESULT != *"denied the request"* ]]; then
+        echo "❌ FAILED: Expected policy to deny the request, but got: $RESULT"
+        kubectl delete ns {{ .Release.Name }}-test-istio --ignore-not-found
         exit 1
       fi
-      echo "✅ PASSED: Successfully prevented creation of namespace with istio-injection=enabled"
+      echo "✅ PASSED: Policy successfully blocked namespace creation with istio-injection=enabled"
+      
+      # Test deployment rejection
+      echo -e "\nTesting deployment rejection..."
+      RESULT=$(cat <<EOF | kubectl apply -f - 2>&1 || true
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: test-deployment
+        namespace: default
+        labels:
+          istio-injection: enabled
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: test-app
+        template:
+          metadata:
+            labels:
+              app: test-app
+          spec:
+            containers:
+            - name: nginx
+              image: nginx:latest
+      EOF
+      )
+      
+      if [[ $RESULT != *"denied the request"* ]]; then
+        echo "❌ FAILED: Expected policy to deny the deployment, but got: $RESULT"
+        exit 1
+      fi
+      echo "✅ PASSED: Policy successfully blocked deployment with istio-injection=enabled"
       
       echo -e "\nTest 2: Istio revision label mutation"
       # Create namespace with istio.io/rev label to trigger mutation

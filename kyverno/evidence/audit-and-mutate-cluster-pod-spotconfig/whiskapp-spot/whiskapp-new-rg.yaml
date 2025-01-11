@@ -1,12 +1,12 @@
 apiVersion: kro.run/v1alpha1
 kind: ResourceGroup
 metadata:
-  name: whiskapp-spot
+  name: whiskyapp-spot
   namespace: kro
 spec:
   schema:
     apiVersion: v1alpha1
-    kind: WhiskAppSpot
+    kind: WhiskyAppSpot
     spec:
       name: string | required=true description="Name of the whisky app"
       namespace: string | required=true description="Namespace for deployment"

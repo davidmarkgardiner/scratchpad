@@ -1,0 +1,81 @@
+# apiVersion: kyverno.io/v1
+# kind: ClusterPolicy
+# metadata:
+#   name: audit-cluster-pod-spotconfig
+#   annotations:
+#     policies.kyverno.io/title: Audit Spot Instance Configuration
+#     policies.kyverno.io/category: Pod Security
+#     policies.kyverno.io/severity: medium
+#     policies.kyverno.io/description: >-
+#       This policy audits if pods have the correct toleration and node affinity
+#       configuration for Azure spot instances.
+# spec:
+#   validationFailureAction: audit
+#   background: true
+#   rules:
+#   - name: check-spot-config
+#     match:
+#       any:
+#       - resources:
+#           kinds:
+#           - Pod
+#           namespaces:
+#           - test-app
+#     validate:
+#       message: "Pod must have correct spot instance toleration and node affinity configuration"
+#       pattern:
+#         spec:
+#           tolerations:
+#           - key: "kubernetes.azure.com/scalesetpriority"
+#             operator: "Equal"
+#             value: "spot"
+#             effect: "NoSchedule"
+#           affinity:
+#             nodeAffinity:
+#               requiredDuringSchedulingIgnoredDuringExecution:
+#                 nodeSelectorTerms:
+#                 - matchExpressions:
+#                   - key: "kubernetes.azure.com/scalesetpriority"
+#                     operator: In
+#                     values:
+#                     - "spot"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-cluster-pod-spotconfig
+  annotations:
+    policies.kyverno.io/title: Mutate Spot Instance Configuration
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy automatically adds the required toleration and node affinity
+      configuration for Azure spot instances to pods.
+spec:
+  mutateExisting: true
+  rules:
+  - name: add-spot-config
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - test-app
+    mutate:
+      patchStrategicMerge:
+        spec:
+          tolerations:
+          - key: "kubernetes.azure.com/scalesetpriority"
+            operator: "Equal"
+            value: "spot"
+            effect: "NoSchedule"
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: "kubernetes.azure.com/scalesetpriority"
+                    operator: In
+                    values:
+                    - "spot"

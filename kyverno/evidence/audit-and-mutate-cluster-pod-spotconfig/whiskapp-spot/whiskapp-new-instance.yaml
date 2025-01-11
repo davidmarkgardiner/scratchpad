@@ -1,0 +1,19 @@
+apiVersion: kro.run/v1alpha1
+kind: WhiskyAppSpot
+metadata:
+  name: whiskyapp-spot
+  namespace: test-app
+spec:
+  name: whiskyapp-spot
+  namespace: test-app
+  image: nginx:1.25.3
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "256Mi"
+  istio:
+    enabled: false 

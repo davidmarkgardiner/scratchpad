@@ -1,0 +1,214 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: whiskyapp-spot-test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  labels:
+    app.kubernetes.io/name: whiskyapp-spot-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: whiskyapp-spot-test-cluster
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: whiskyapp-spot-test-cluster
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+subjects:
+- kind: ServiceAccount
+  name: whiskyapp-spot-test
+  namespace: test-app
+roleRef:
+  kind: ClusterRole
+  name: whiskyapp-spot-test-cluster
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: whiskyapp-spot-test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+- apiGroups: ["kro.run"]
+  resources: ["whiskyappspots"]
+  verbs: ["create", "delete", "get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods", "events", "namespaces", "replicationcontrollers", "services", "pods/log"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: whiskyapp-spot-test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+subjects:
+- kind: ServiceAccount
+  name: whiskyapp-spot-test
+roleRef:
+  kind: Role
+  name: whiskyapp-spot-test
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "whiskyapp-spot-test"
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  labels:
+    app.kubernetes.io/name: whiskyapp-spot-test
+spec:
+  serviceAccountName: whiskyapp-spot-test
+  containers:
+  - name: test
+    image: bitnami/kubectl:1.28
+    command:
+    - /bin/bash
+    - -c
+    - |
+      set -ex
+      
+      function cleanup {
+        echo "Cleaning up resources..."
+        kubectl delete whiskyappspot whiskyapp-spot -n test-app --wait=true || true
+      }
+      
+      trap cleanup EXIT
+      
+      # Create namespace if it doesn't exist
+      if ! kubectl get namespace test-app 2>/dev/null; then
+        kubectl create namespace test-app
+      fi
+      
+      # Label namespace for spot instances
+      kubectl label namespace test-app worker-type=spot --overwrite
+      
+      # Deploy the WhiskyAppSpot resource
+      cat <<EOF | kubectl apply -f -
+      apiVersion: kro.run/v1alpha1
+      kind: WhiskyAppSpot
+      metadata:
+        name: whiskyapp-spot
+        namespace: test-app
+        labels:
+          app: whiskyapp-spot
+          app.kubernetes.io/name: whiskyapp-spot
+      spec:
+        name: whiskyapp-spot
+        namespace: test-app
+        image: nginx:1.25.3
+        replicas: 1
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "1000m"
+            memory: "256Mi"
+        istio:
+          enabled: false
+        containerPort: 80
+      EOF
+      
+      echo "Waiting for WhiskyAppSpot deployment..."
+      # Wait for the WhiskyAppSpot to be created and its pod to be ready
+      sleep 2  # Give time for the controller to create the deployment
+      
+      # Wait for pod to be created and get its name
+      echo "Waiting for pod to be created..."
+      POD_NAME=""
+      for i in {1..12}; do
+        POD_NAME=$(kubectl get pod -l app=whiskyapp-spot -n test-app -o name 2>/dev/null || true)
+        if [ ! -z "$POD_NAME" ]; then
+          break
+        fi
+        echo "Attempt $i: Pod not found yet, waiting..."
+        echo "Current pods in namespace:"
+        kubectl get pods -n test-app
+        echo "Recent events:"
+        kubectl get events -n test-app --sort-by='.lastTimestamp'
+        sleep 2
+      done
+      
+      if [ -z "$POD_NAME" ]; then
+        echo "Error: Pod was not created within timeout"
+        echo "Final namespace state:"
+        kubectl get all -n test-app
+        echo "Final events:"
+        kubectl get events -n test-app --sort-by='.lastTimestamp'
+        exit 1
+      fi
+      
+      echo "Pod $POD_NAME found, waiting for it to be ready..."
+      if ! kubectl wait --for=condition=ready "$POD_NAME" -n test-app --timeout=30s; then
+        echo "Error: Pod failed to become ready"
+        echo "Pod details:"
+        kubectl describe "$POD_NAME" -n test-app
+        echo "Pod logs:"
+        kubectl logs "$POD_NAME" -n test-app
+        exit 1
+      fi
+      
+      echo "Getting pod details..."
+      # Get the pod details and verify mutations
+      POD_YAML=$(kubectl get "$POD_NAME" -n test-app -o yaml)
+      
+      # Check for spot toleration
+      echo "Checking spot tolerations..."
+      if ! echo "$POD_YAML" | grep -A 5 "tolerations:" | grep -q "kubernetes.azure.com/scalesetpriority"; then
+        echo "Error: Missing scalesetpriority toleration"
+        echo "Full pod YAML:"
+        kubectl get "$POD_NAME" -n test-app -o yaml
+        exit 1
+      fi
+      if ! echo "$POD_YAML" | grep -A 5 "tolerations:" | grep -q "spot"; then
+        echo "Error: Missing spot toleration value"
+        echo "Full pod YAML:"
+        kubectl get "$POD_NAME" -n test-app -o yaml
+        exit 1
+      fi
+      
+      # Check for node affinity
+      echo "Checking node affinity..."
+      if ! echo "$POD_YAML" | grep -A 10 "nodeAffinity:" | grep -q "kubernetes.azure.com/scalesetpriority"; then
+        echo "Error: Missing scalesetpriority node affinity"
+        echo "Full pod YAML:"
+        kubectl get "$POD_NAME" -n test-app -o yaml
+        exit 1
+      fi
+      if ! echo "$POD_YAML" | grep -A 10 "nodeAffinity:" | grep -q "spot"; then
+        echo "Error: Missing spot node affinity value"
+        echo "Full pod YAML:"
+        kubectl get "$POD_NAME" -n test-app -o yaml
+        exit 1
+      fi
+      
+      echo "All mutation checks passed successfully!"
+  restartPolicy: Never 

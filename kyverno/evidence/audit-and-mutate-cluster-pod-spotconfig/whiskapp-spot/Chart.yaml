@@ -1,0 +1,5 @@
+apiVersion: v2
+name: whiskyapp-spot-test
+description: A Helm chart for testing WhiskyAppSpot mutations
+version: 0.1.0
+type: application 

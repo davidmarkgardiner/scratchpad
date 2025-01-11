@@ -21,11 +21,9 @@ spec:
     exclude:
       any:
       - resources:
-          kinds:
-          - Deployment
           namespaces:
           - policies-test-spot
-          - policies-test-stio-rev
+          - policies-test-istio-rev
     validate:
       message: "Resource limits are required for all containers in Deployments"
       pattern:

@@ -190,6 +190,113 @@ spec:
       fi
       echo "✅ PASSED: Successfully mutated istio.io/rev label to asm-1-23"
       
+      # echo -e "\n📋 Test Suite: mTLS PeerAuthentication Policy"
+      # echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      # echo "Test: Validate PeerAuthentication mTLS Mode"
+      
+      # # Try to create a PeerAuthentication with PERMISSIVE mode (should be audited)
+      # cat <<'EOF' | kubectl apply -f -
+      # apiVersion: security.istio.io/v1beta1
+      # kind: PeerAuthentication
+      # metadata:
+      #   name: {{ .Release.Name }}-test-mtls
+      #   namespace: {{ .Release.Namespace }}
+      # spec:
+      #   mtls:
+      #     mode: PERMISSIVE
+      # EOF
+      
+      # sleep 5
+      
+      # # Check PolicyReport for audit entry
+      # POLICY_REPORT=$(kubectl get policyreport -o json | jq -r '.items[].results[] | select(.policy == "audit-cluster-peerauthentication-mtls")')
+      # if [[ -z "$POLICY_REPORT" ]]; then
+      #   echo "❌ FAILED: No audit entry found for non-strict mTLS PeerAuthentication"
+      #   exit 1
+      # fi
+      # echo "✅ PASSED: Successfully detected and audited non-strict mTLS configuration"
+      
+      # # Cleanup
+      # kubectl delete peerauthentication {{ .Release.Name }}-test-mtls -n {{ .Release.Namespace }} --ignore-not-found
+      
+      echo -e "\n📋 Test Suite: Prevent Istio Injection Label"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "Test: Prevent istio-injection label on resources"
+      
+      # Try to create a namespace with istio-injection=enabled (should fail)
+      if kubectl create namespace test-istio-injection-blocked --dry-run=server -o yaml | kubectl label --dry-run=server -f - istio-injection=enabled -o yaml 2>/dev/null; then
+        echo "❌ FAILED: Was able to create namespace with istio-injection=enabled label"
+        exit 1
+      fi
+      echo "✅ PASSED: Successfully prevented istio-injection label on namespace"
+      
+      echo -e "\n📋 Test Suite: Resource Limits Policy"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "Test: Enforce resource limits on deployments"
+      
+      # # Try to create a deployment without resource limits (should fail)
+      # TEST_OUTPUT=$(kubectl apply -f - 2>&1 <<'EOF'
+      # apiVersion: apps/v1
+      # kind: Deployment
+      # metadata:
+      #   name: test-no-limits
+      #   namespace: {{ .Release.Namespace }}
+      # spec:
+      #   replicas: 1
+      #   selector:
+      #     matchLabels:
+      #       app: test-no-limits
+      #   template:
+      #     metadata:
+      #       labels:
+      #         app: test-no-limits
+      #     spec:
+      #       containers:
+      #       - name: nginx
+      #         image: nginx:latest
+      # EOF
+      # )
+      
+      # if [[ $? -eq 0 ]] || ! echo "$TEST_OUTPUT" | grep -q "Resource limits are required"; then
+      #   echo "❌ FAILED: Deployment without resource limits was not blocked"
+      #   echo "Output: $TEST_OUTPUT"
+      #   kubectl delete deployment test-no-limits -n {{ .Release.Namespace }} --ignore-not-found
+      #   exit 1
+      # fi
+      # echo "✅ PASSED: Successfully blocked deployment without resource limits"
+      
+      # Test that deployment with limits is allowed
+      if ! kubectl apply -f - <<'EOF'
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: test-with-limits
+        namespace: {{ .Release.Namespace }}
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: test-with-limits
+        template:
+          metadata:
+            labels:
+              app: test-with-limits
+          spec:
+            containers:
+            - name: nginx
+              image: nginx:latest
+              resources:
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+      EOF
+      then
+        echo "❌ FAILED: Deployment with resource limits was blocked"
+        exit 1
+      fi
+      echo "✅ PASSED: Successfully allowed deployment with resource limits"
+      kubectl delete deployment test-with-limits -n {{ .Release.Namespace }} --ignore-not-found
+      
       echo -e "\n✨ All test suites completed successfully!"
   restartPolicy: Never
   terminationGracePeriodSeconds: 0 

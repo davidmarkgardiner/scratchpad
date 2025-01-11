@@ -14,6 +14,7 @@ metadata:
     policies.kyverno.io/title: Audit Istio Strict mTLS
   name: audit-cluster-peerauthentication-mtls
 spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: true
   rules:
   - name: validate-mtls

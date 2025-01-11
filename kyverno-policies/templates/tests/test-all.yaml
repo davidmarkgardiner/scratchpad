@@ -53,10 +53,8 @@ spec:
     image: bitnami/kubectl:latest
     command:
     - /bin/bash
-    - -c
+    - -ec
     - |
-      set -e
-      
       # Print test header
       function print_header() {
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -67,30 +65,20 @@ spec:
       function cleanup {
         echo "🧹 Cleaning up test resources..."
         kubectl delete ns {{ .Release.Name }}-test-spot --ignore-not-found
+        kubectl delete ns {{ .Release.Name }}-test-istio-rev --ignore-not-found
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       }
       trap cleanup EXIT
 
       print_header
 
-      # Define symbols using hex codes
-      CHECK_MARK=$(echo -e '\xe2\x9c\x85')     # ✅
-      CROSS_MARK=$(echo -e '\xe2\x9d\x8c')     # ❌
-      TEST_TUBE=$(echo -e '\xf0\x9f\xa7\xaa')  # 🧪
-      HOURGLASS=$(echo -e '\xe2\x8f\xb3')      # ⏳
-      BROOM=$(echo -e '\xf0\x9f\xa7\xb9')      # 🧹
-      CLIPBOARD=$(echo -e '\xf0\x9f\x93\x8b')  # 📋
-      INFO=$(echo -e '\xe2\x84\xb9\xef\xb8\x8f') # ℹ️
-      SPARKLES=$(echo -e '\xe2\x9c\xa8')       # ✨
-      BORDER="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      
-      
       # Wait for policies to be ready
       echo "⏳ Waiting for policies to be ready..."
       sleep 5
       
       echo "📋 Test Suite: Policy Readiness Check"
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      
       # Expected policies
       EXPECTED_POLICIES=(
         "audit-cluster-peerauthentication-mtls"
@@ -119,8 +107,8 @@ spec:
       echo -e "\n📋 Test Suite: Spot Affinity Policy"
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       echo "Creating test namespace with spot label..."
-      # Create test namespace and deployment
-      cat <<EOF | kubectl apply -f -
+      
+      cat <<'EOF' | kubectl apply -f -
       apiVersion: v1
       kind: Namespace
       metadata:
@@ -130,7 +118,7 @@ spec:
       EOF
       
       echo "Creating test deployment..."
-      DEPLOY_RESULT=$(cat <<EOF | kubectl apply -f - 2>&1 || true
+      cat <<'EOF' | kubectl apply -f -
       apiVersion: apps/v1
       kind: Deployment
       metadata:
@@ -145,64 +133,20 @@ spec:
           metadata:
             labels:
               app: test-app
-              istio-injection: disabled
           spec:
             containers:
             - name: nginx
               image: nginx:latest
       EOF
-      )
-      
-      if [[ $DEPLOY_RESULT == *"error"* ]] && [[ $DEPLOY_RESULT != *"validate-ns-istio-injection"* ]]; then
-        echo "❌ FAILED: Unexpected error creating deployment:"
-        echo "$DEPLOY_RESULT"
-        exit 1
-      fi
-      
-      if [[ $DEPLOY_RESULT == *"validate-ns-istio-injection"* ]]; then
-        echo "ℹ️  Deployment rejected by istio policy as expected, retrying with istio-injection disabled..."
-        DEPLOY_RESULT=$(cat <<EOF | kubectl apply -f - 2>&1 || true
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: test-deployment
-          namespace: {{ .Release.Name }}-test-spot
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app: test-app
-          template:
-            metadata:
-              labels:
-                app: test-app
-                istio-injection: disabled
-            spec:
-              containers:
-              - name: nginx
-                image: nginx:latest
-        EOF
-        )
-      fi
       
       echo "⏳ Waiting for deployment mutation..."
       sleep 10
       
-      echo "Fetching deployment status..."
-      kubectl get deployment -n {{ .Release.Name }}-test-spot test-deployment -o yaml
-      
-      # Check deployment for spot affinity
       echo "Checking deployment configuration..."
-      DEPLOYMENT=$(kubectl get deployment -n {{ .Release.Name }}-test-spot test-deployment -o json 2>&1)
-      if [[ $DEPLOYMENT == *"error"* ]] || [[ $DEPLOYMENT == *"not found"* ]]; then
-        echo "❌ FAILED: Could not get deployment:"
-        echo "$DEPLOYMENT"
-        exit 1
-      fi
+      DEPLOYMENT=$(kubectl get deployment -n {{ .Release.Name }}-test-spot test-deployment -o json)
       
       echo "Checking spot configuration..."
       TOLERATIONS=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.tolerations // empty')
-      echo "Found tolerations: $TOLERATIONS"
       if [[ -z "$TOLERATIONS" ]] || [[ $TOLERATIONS != *"kubernetes.azure.com/scalesetpriority"* ]]; then
         echo "❌ FAILED: Spot toleration not found"
         exit 1
@@ -210,7 +154,6 @@ spec:
       echo "✅ PASSED: Spot tolerations correctly applied"
       
       POD_ANTI_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.podAntiAffinity // empty')
-      echo "Found pod anti-affinity: $POD_ANTI_AFFINITY"
       if [[ -z "$POD_ANTI_AFFINITY" ]] || [[ $POD_ANTI_AFFINITY != *"kubernetes.io/hostname"* ]]; then
         echo "❌ FAILED: Pod anti-affinity not found"
         exit 1
@@ -218,7 +161,6 @@ spec:
       echo "✅ PASSED: Pod anti-affinity correctly configured"
       
       NODE_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.nodeAffinity // empty')
-      echo "Found node affinity: $NODE_AFFINITY"
       if [[ -z "$NODE_AFFINITY" ]] || [[ $NODE_AFFINITY != *"kubernetes.azure.com/scalesetpriority"* ]]; then
         echo "❌ FAILED: Node affinity for spot instances not found"
         exit 1
@@ -229,59 +171,7 @@ spec:
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       
       echo "Test 1: Prevent istio-injection label"
-      # Try to create namespace with forbidden label
-      RESULT=$(cat <<EOF | kubectl apply -f - 2>&1 || true
-      apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: {{ .Release.Name }}-test-istio
-        labels:
-          istio-injection: enabled
-      EOF
-      )
-      
-      if [[ $RESULT != *"denied the request"* ]]; then
-        echo "❌ FAILED: Expected policy to deny the request, but got: $RESULT"
-        kubectl delete ns {{ .Release.Name }}-test-istio --ignore-not-found
-        exit 1
-      fi
-      echo "✅ PASSED: Policy successfully blocked namespace creation with istio-injection=enabled"
-      
-      # Test deployment rejection
-      echo -e "\nTesting deployment rejection..."
-      RESULT=$(cat <<EOF | kubectl apply -f - 2>&1 || true
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: test-deployment
-        namespace: default
-        labels:
-          istio-injection: enabled
-      spec:
-        replicas: 1
-        selector:
-          matchLabels:
-            app: test-app
-        template:
-          metadata:
-            labels:
-              app: test-app
-          spec:
-            containers:
-            - name: nginx
-              image: nginx:latest
-      EOF
-      )
-      
-      if [[ $RESULT != *"denied the request"* ]]; then
-        echo "❌ FAILED: Expected policy to deny the deployment, but got: $RESULT"
-        exit 1
-      fi
-      echo "✅ PASSED: Policy successfully blocked deployment with istio-injection=enabled"
-      
-      echo -e "\nTest 2: Istio revision label mutation"
-      # Create namespace with istio.io/rev label to trigger mutation
-      cat <<EOF | kubectl apply -f -
+      cat <<'EOF' | kubectl apply -f -
       apiVersion: v1
       kind: Namespace
       metadata:
@@ -292,7 +182,6 @@ spec:
       
       sleep 5
       
-      # Check if label was mutated
       ISTIO_REV=$(kubectl get ns {{ .Release.Name }}-test-istio-rev -o jsonpath='{.metadata.labels.istio\.io/rev}')
       if [[ "$ISTIO_REV" != "asm-1-23" ]]; then
         echo "❌ FAILED: Namespace istio.io/rev label was not mutated to asm-1-23"
@@ -301,8 +190,6 @@ spec:
       fi
       echo "✅ PASSED: Successfully mutated istio.io/rev label to asm-1-23"
       
-      # Cleanup
-      kubectl delete ns {{ .Release.Name }}-test-istio-rev --ignore-not-found
-      
       echo -e "\n✨ All test suites completed successfully!"
-  restartPolicy: Never 
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 0 

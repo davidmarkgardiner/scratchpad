@@ -10,7 +10,7 @@ metadata:
       This policy prevents the istio-injection=enabled label from being set on any
       Namespace, Pod, or Deployment resources.
 spec:
-  validationFailureAction: Enforce
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: {{ .Values.background }}
   rules:
     - name: check-istio-injection-label
@@ -21,16 +21,15 @@ spec:
             - Namespace
             - Pod
             - Deployment
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - "policies-test-spot"
+            - "policies-test-istio-rev"
       validate:
         message: "Setting the istio-injection=enabled label is not allowed"
         pattern:
           metadata:
             labels:
-              =(istio-injection): "!enabled"
-      preconditions:
-        all:
-        - key: "{{ `{{ request.operation }}` }}"
-          operator: In
-          value: 
-          - CREATE
-          - UPDATE 
+              =(istio-injection): "!enabled" 

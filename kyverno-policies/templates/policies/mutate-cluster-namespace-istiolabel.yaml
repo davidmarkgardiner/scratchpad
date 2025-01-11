@@ -9,6 +9,7 @@ metadata:
     policies.kyverno.io/severity: medium
     policies.kyverno.io/title: Required Istio Revision Label
 spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
   rules:
   - name: add-istio-revision-label
     match:

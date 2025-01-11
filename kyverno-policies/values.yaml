@@ -1,5 +1,5 @@
 policyKind: ClusterPolicy
-validationFailureAction: Audit
+validationFailureAction: Enforce
 podSecurityStandard: baseline
 podSecuritySeverity: medium
 background: true 

@@ -1,0 +1,29 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-spot-affinity-mutation
+spec:
+  steps:
+  - name: step-01-create-namespaces
+    try:
+    - apply:
+        file: namespaces.yaml
+
+  - name: step-02-apply-policy
+    try:
+    - apply:
+        file: policy.yaml
+
+  - name: step-03-test-spot-namespace
+    try:
+    - apply:
+        file: deployment-spot.yaml
+    - assert:
+        file: assert-spot-deployment.yaml
+
+  - name: step-04-test-regular-namespace
+    try:
+    - apply:
+        file: deployment-regular.yaml
+    - assert:
+        file: assert-regular-deployment.yaml 

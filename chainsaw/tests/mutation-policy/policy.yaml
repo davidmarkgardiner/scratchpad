@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: sample-mutation-policy
+spec:
+  rules:
+  - name: add-labels
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            environment: "test" 

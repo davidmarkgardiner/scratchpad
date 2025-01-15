@@ -1,0 +1,19 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-mutation-policy
+spec:
+  steps:
+  - name: step-01-apply-policy
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: assert.yaml
+  
+  - name: step-02-test-mutation
+    try:
+    - apply:
+        file: resource.yaml
+    - assert:
+        file: assert-mutation.yaml 

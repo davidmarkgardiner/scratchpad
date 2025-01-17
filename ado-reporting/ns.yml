@@ -8,13 +8,11 @@
     echo "##[section]Starting Data Validation Tests"
     echo "##vso[task.setprogress value=0;]Initializing validation tests..."
     
-    # Before test execution
-    echo "##[command]Running validation tests: go test -v validation_test.go"
-    echo "##vso[task.logissue type=debug]Starting validation in $(System.DefaultWorkingDirectory)/validation"
-    
-    # Run the actual test command
-    if ! go test -v validation_test.go; then
-      echo "##vso[task.logissue type=error;sourcepath=validation_test.go]Validation tests failed"
+    # Capture the output and error in variables
+    if ! output=$(go test -v validation_test.go 2>&1); then
+      error_msg=$(echo "$output" | tail -n 3)
+      echo "##vso[task.logissue type=error;sourcepath=validation_test.go]$error_msg"
+      echo "##[error]Validation Error: $error_msg"
       echo "##vso[task.complete result=Failed;]Data validation failed"
       exit 1
     fi
@@ -32,9 +30,10 @@
     echo "##[section]Starting Manifest File Creation"
     echo "##vso[task.setprogress value=0;]Initializing manifest creation..."
     
-    echo "##[command]Running: go run createFiles.go"
-    if ! go run createFiles.go; then
-      echo "##vso[task.logissue type=error;sourcepath=createFiles.go]Failed to create manifest files"
+    if ! output=$(go run createFiles.go 2>&1); then
+      error_msg=$(echo "$output" | tail -n 2)
+      echo "##vso[task.logissue type=error;sourcepath=createFiles.go]$error_msg"
+      echo "##[error]Manifest Creation Error: $error_msg"
       echo "##vso[task.complete result=Failed;]Manifest creation failed"
       exit 1
     fi
@@ -69,9 +68,10 @@
     echo "##[section]Updating Kustomization"
     echo "##vso[task.setprogress value=0;]Starting kustomization update..."
     
-    echo "##[command]Running: go run updateKust.go"
-    if ! go run updateKust.go; then
-      echo "##vso[task.logissue type=error;sourcepath=updateKust.go]Failed to update kustomization"
+    if ! output=$(go run updateKust.go 2>&1); then
+      error_msg=$(echo "$output" | tail -n 2)
+      echo "##vso[task.logissue type=error;sourcepath=updateKust.go]$error_msg"
+      echo "##[error]Kustomization Error: $error_msg"
       echo "##vso[task.complete result=Failed;]Kustomization update failed"
       exit 1
     fi

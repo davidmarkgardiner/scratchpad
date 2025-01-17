@@ -8,13 +8,11 @@
     echo "##[section]Starting Data Validation Tests"
     echo "##vso[task.setprogress value=0;]Initializing validation tests..."
     
-    # Capture the output and error in variables
     if ! output=$(go test -v validation_test.go 2>&1); then
       error_msg=$(echo "$output" | tail -n 3)
-      echo "##vso[task.logissue type=error;sourcepath=validation_test.go]$error_msg"
-      echo "##[error]Validation Error: $error_msg"
-      echo "##vso[task.complete result=Failed;]Data validation failed"
-      exit 1
+      echo "##vso[task.setvariable variable=ErrorMessage;]Validation failed: $error_msg"
+      echo "##vso[task.setvariable variable=HasError;]true"
+      return 1 2>/dev/null || exit 0
     fi
     
     echo "##vso[task.setprogress value=100;]Validation completed"
@@ -32,10 +30,9 @@
     
     if ! output=$(go run createFiles.go 2>&1); then
       error_msg=$(echo "$output" | tail -n 2)
-      echo "##vso[task.logissue type=error;sourcepath=createFiles.go]$error_msg"
-      echo "##[error]Manifest Creation Error: $error_msg"
-      echo "##vso[task.complete result=Failed;]Manifest creation failed"
-      exit 1
+      echo "##vso[task.setvariable variable=ErrorMessage;]Manifest creation failed: $error_msg"
+      echo "##vso[task.setvariable variable=HasError;]true"
+      return 1 2>/dev/null || exit 0
     fi
     
     echo "##vso[task.setprogress value=100;]Manifest files created successfully"
@@ -70,10 +67,9 @@
     
     if ! output=$(go run updateKust.go 2>&1); then
       error_msg=$(echo "$output" | tail -n 2)
-      echo "##vso[task.logissue type=error;sourcepath=updateKust.go]$error_msg"
-      echo "##[error]Kustomization Error: $error_msg"
-      echo "##vso[task.complete result=Failed;]Kustomization update failed"
-      exit 1
+      echo "##vso[task.setvariable variable=ErrorMessage;]Kustomization update failed: $error_msg"
+      echo "##vso[task.setvariable variable=HasError;]true"
+      return 1 2>/dev/null || exit 0
     fi
     
     echo "##vso[task.setprogress value=100;]Kustomization updated successfully"
@@ -82,14 +78,12 @@
 # Final status check
 - script: |
     echo "##[section]Pipeline Execution Summary"
-    echo "Validation Status: $(ValidationStatus)"
-    echo "Manifest Status: $(ManifestStatus)"
-    echo "Kustomize Status: $(KustomizeStatus)"
     
-    if [ "$(ValidationStatus)" != "Passed" ] || [ "$(ManifestStatus)" != "Created" ] || [ "$(KustomizeStatus)" != "Updated" ]; then
-      echo "##vso[task.logissue type=error]One or more steps failed"
-      echo "##vso[task.complete result=Failed;]Pipeline failed with errors"
-      exit 1
+    if [ "$(HasError)" = "true" ]; then
+      # Return the consolidated error message without exit code
+      echo "##[error]$(ErrorMessage)"
+      echo "##vso[task.complete result=Failed;]$(ErrorMessage)"
+      exit 0
     else
       echo "##vso[task.complete result=Succeeded;]Pipeline completed successfully"
     fi

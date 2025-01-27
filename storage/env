@@ -1,7 +1,7 @@
 export APP_NAME=at39473
 export ENV=dev
 export STORAGE_SKU=Standard_LRS
-export STORAGE_ACCOUNT=cirrusplstoragev2test
+export STORAGE_ACCOUNT=xxxxxxx
 export STORAGE_SIZE=4Gi
 export ACCESS_MODE=ReadWriteMany
 export SHARE_NAME=app

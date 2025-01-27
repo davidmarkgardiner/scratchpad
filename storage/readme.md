@@ -1,0 +1,1 @@
+source env && envsubst < new.yaml > output.yaml

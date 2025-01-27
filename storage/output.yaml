@@ -15,7 +15,7 @@ mountOptions:
   - nobrl
 parameters:
   skuName: Standard_LRS
-  storageAccount: cirrusplstoragev2test
+  storageAccount: xxxxxx
   csi.storage.k8s.io/provisioner-secret-name: at39473-file-secret
   csi.storage.k8s.io/provisioner-secret-namespace: at39473-dev-ns
   csi.storage.k8s.io/node-stage-secret-name: at39473-file-secret

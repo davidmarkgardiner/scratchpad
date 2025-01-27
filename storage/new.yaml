@@ -1,0 +1,56 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ${APP_NAME}-file-sc
+provisioner: file.csi.azure.com
+allowVolumeExpansion: true
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0777
+  - uid=0
+  - gid=0
+  - mfsymlinks
+  - cache=strict
+  - actimeo=30
+  - nobrl
+parameters:
+  skuName: ${STORAGE_SKU}
+  storageAccount: ${STORAGE_ACCOUNT}
+  csi.storage.k8s.io/provisioner-secret-name: ${APP_NAME}-file-secret
+  csi.storage.k8s.io/provisioner-secret-namespace: ${APP_NAME}-${ENV}-ns
+  csi.storage.k8s.io/node-stage-secret-name: ${APP_NAME}-file-secret
+  csi.storage.k8s.io/node-stage-secret-namespace: ${APP_NAME}-${ENV}-ns
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ${APP_NAME}-pv
+  namespace: ${APP_NAME}-${ENV}-ns
+spec:
+  capacity:
+    storage: ${STORAGE_SIZE}
+  accessModes:
+    - ${ACCESS_MODE}
+  storageClassName: ${APP_NAME}-file-sc
+  azureFile:
+    secretName: ${APP_NAME}-file-secret
+    shareName: ${SHARE_NAME}
+    readOnly: false
+  persistentVolumeReclaimPolicy: Retain
+  claimRef:
+    namespace: ${NAMESPACE}
+    name: ${PVC_NAME}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${APP_NAME}-pvc
+  namespace: ${APP_NAME}-${ENV}-ns
+spec:
+  accessModes:
+    - ${ACCESS_MODE}
+  resources:
+    requests:
+      storage: ${STORAGE_SIZE}
+  volumeName: ${APP_NAME}-pv
+  storageClassName: ${APP_NAME}-file-sc

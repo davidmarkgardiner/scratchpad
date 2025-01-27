@@ -1,0 +1,52 @@
+# Cluster-scoped StorageClass
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ${STORAGE_CLASS_NAME}
+  labels:
+    env: ${ENVIRONMENT}
+spec:
+  provisioner: file.csi.azure.com
+  parameters:
+    skuName: ${STORAGE_SKU}
+    storageAccount: ${STORAGE_ACCOUNT_NAME}
+    resourceGroup: ${RESOURCE_GROUP}
+    location: ${LOCATION}
+---
+# Cluster-scoped PV
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ${PV_NAME}
+  labels:
+    env: ${ENVIRONMENT}
+    app: ${APP_NAME}
+spec:
+  capacity:
+    storage: ${STORAGE_SIZE}
+  accessModes:
+    - ${ACCESS_MODE}
+  storageClassName: ${STORAGE_CLASS_NAME}
+  csi:
+    driver: file.csi.azure.com
+    volumeHandle: ${VOLUME_HANDLE}
+  claimRef:
+    namespace: ${NAMESPACE}
+    name: ${PVC_NAME}
+---
+# Namespace-scoped PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${PVC_NAME}
+  namespace: ${NAMESPACE}
+  labels:
+    env: ${ENVIRONMENT}
+    app: ${APP_NAME}
+spec:
+  accessModes:
+    - ${ACCESS_MODE}
+  resources:
+    requests:
+      storage: ${STORAGE_SIZE}
+  storageClassName: ${STORAGE_CLASS_NAME}

@@ -1,0 +1,456 @@
+# Common configurations
+commonLabels:
+  app.kubernetes.io/part-of: kyverno
+  app.kubernetes.io/managed-by: helm
+
+# Main service configuration
+replicaCount: 1
+
+# Node selection
+nodeSelector:
+  kubernetes.io/os: linux
+  kubernetes.azure.com/mode: system
+
+priorityClassName: system-cluster-critical
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  ingressFrom: []
+
+# CRDs configuration
+crds:
+  install: true
+  migration:
+    image:
+      repository: kyverno/kyverno
+      tag: v1.13.2
+    enabled: false
+
+global:
+  tolerations:
+    - key: "CriticalAddonsOnly"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoSchedule"
+  image:
+    registry: ~
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - "ALL"
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  runAsUser: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+ports:
+  - name: http
+    containerPort: 8000
+    protocol: TCP
+
+lifecycle:
+  preStop:
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - "sleep 10 && nginx -s quit"
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /health/liveness
+    port: 9443
+    scheme: HTTPS
+  initialDelaySeconds: 15
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/readiness
+    port: 9443
+    scheme: HTTPS
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Main service
+service:
+  port: 443
+  type: ClusterIP
+  labels:
+    app.kubernetes.io/component: service
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    service-type: webhook
+    purpose: service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9443"
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  metricsService:
+    labels:
+      app.kubernetes.io/component: service
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: metrics
+      purpose: metrics
+
+services:
+  kyverno:
+    type: ClusterIP
+    port: 443
+    targetPort: 9443
+  metrics:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+
+metering:
+  disabled: false
+  config: prometheus
+  port: 8000
+
+# Cleanup Controller service
+cleanupController:
+  image:
+    repository: kyverno/cleanup-controller
+    tag: v1.13.2
+  enabled: true
+  service:
+    port: 443
+    type: ClusterIP
+    labels:
+      app.kubernetes.io/component: cleanup-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: webhook
+      purpose: service
+  metricsService:
+    labels:
+      app.kubernetes.io/component: cleanup-controller2
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: metrics
+      purpose: metrics
+
+# Background Controller configuration
+backgroundController:
+  image:
+    repository: kyverno/background-controller
+    tag: v1.13.2
+  enabled: true
+  rbac:
+    create: true
+  service:
+    port: 443
+    type: ClusterIP
+    labels:
+      app.kubernetes.io/component: background-scan
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      purpose: service
+  metricsService:
+    labels:
+      app.kubernetes.io/component: background-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: metrics
+      purpose: metrics
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - "ALL"
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    runAsUser: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  ports:
+    - name: http
+      containerPort: 8000
+      protocol: TCP
+  lifecycle:
+    preStop:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - "sleep 10 && nginx -s quit"
+
+# Reports Controller configuration
+reportsController:
+  image:
+    repository: kyverno/reports-controller
+    tag: v1.13.2
+  enabled: true
+  rbac:
+    create: true
+  service:
+    port: 443
+    type: ClusterIP
+    labels:
+      app.kubernetes.io/component: report-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      purpose: service
+  metricsService:
+    labels:
+      app.kubernetes.io/component: reports-controller2
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: metrics
+      purpose: metrics
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - "ALL"
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    runAsUser: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  ports:
+    - name: http
+      containerPort: 8000
+      protocol: TCP
+  lifecycle:
+    preStop:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - "sleep 10 && nginx -s quit"
+
+admissionController:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      app: kyverno
+      release: prometheus-stack
+    namespace: kyverno
+    interval: 30s
+    scrapeTimeout: 25s
+    secure: false
+    tlsConfig: {}
+    relabelings: []
+    metricRelabelings: []
+  initContainer:
+    image:
+      repository: kyverno/kyvernopre
+      tag: v1.13.2
+  container:
+    image:
+      repository: kyverno/kyverno
+      tag: v1.13.2
+  metricsService:
+    labels:
+      app.kubernetes.io/component: admission-controller2
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+      service-type: metrics
+      purpose: metrics
+
+webhooksCleanup:
+  image:
+    repository: kyverno/kyverno
+    tag: v1.13.2
+  enabled: false
+  autoDeleteWebhooks:
+    enabled: false
+
+policyReportsCleanup:
+  image:
+    repository: kyverno/kyverno
+    tag: v1.13.2
+  enabled: false
+
+resources:
+  admissionController:
+    limits:
+      cpu: "1"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+  background:
+    limits:
+      cpu: "1"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+  cleanup:
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+  reports:
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+grafana:
+  enabled: false
+
+config:
+  create: true
+  preserve: true
+  name: ~
+  annotations: {}
+  enableDefaultRegistryMutation: true
+  defaultRegistry: docker.io
+  excludeGroups:
+    - system:nodes
+  excludeUsernames: []
+  excludeRoles: []
+  excludeClusterRoles: []
+  generateSuccessEvents: false
+  resourceFilters:
+    - "[Event,*,*]"
+    - "[*/*,kube-system,*]"
+    - "[*/*,kube-public,*]"
+    - "[*/*,kube-node-lease,*]"
+    - "[Node,*,*]"
+    - "[Node/*,*,*]"
+    - "[APIService,*,*]"
+    - "[APIService/*,*,*]"
+    - "[TokenReview,*,*]"
+    - "[SubjectAccessReview,*,*]"
+    - "[SelfSubjectAccessReview,*,*]"
+    - "[Binding,*,*]"
+    - "[Pod/binding,*,*]"
+    - "[ReplicaSet,*,*]"
+    - "[ReplicaSet/*,*,*]"
+    - "[EphemeralReport,*,*]"
+    - "[ClusterEphemeralReport,*,*]"
+    - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}]'
+    - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:core]'
+    - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:additional]'
+    - '[ClusterRole,*,{{ template "kyverno.background-controller.roleName" . }}]'
+    - '[ClusterRole,*,{{ template "kyverno.background-controller.roleName" . }}:core]'
+    - '[ClusterRole,*,{{ template "kyverno.background-controller.roleName" . }}:additional]'
+    - '[ClusterRole,*,{{ template "kyverno.cleanup-controller.roleName" . }}]'
+    - '[ClusterRole,*,{{ template "kyverno.cleanup-controller.roleName" . }}:core]'
+    - '[ClusterRole,*,{{ template "kyverno.cleanup-controller.roleName" . }}:additional]'
+    - '[ClusterRole,*,{{ template "kyverno.reports-controller.roleName" . }}]'
+    - '[ClusterRole,*,{{ template "kyverno.reports-controller.roleName" . }}:core]'
+    - '[ClusterRole,*,{{ template "kyverno.reports-controller.roleName" . }}:additional]'
+    - '[ClusterRoleBinding,*,{{ template "kyverno.admission-controller.roleName" . }}]'
+    - '[ClusterRoleBinding,*,{{ template "kyverno.background-controller.roleName" . }}]'
+    - '[ClusterRoleBinding,*,{{ template "kyverno.cleanup-controller.roleName" . }}]'
+    - '[ClusterRoleBinding,*,{{ template "kyverno.reports-controller.roleName" . }}]'
+    - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceAccountName" . }}]'
+    - '[ServiceAccount/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceAccountName" . }}]'
+    - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.serviceAccountName" . }}]'
+    - '[ServiceAccount/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.serviceAccountName" . }}]'
+    - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.serviceAccountName" . }}]'
+    - '[ServiceAccount/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.serviceAccountName" . }}]'
+    - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.serviceAccountName" . }}]'
+    - '[ServiceAccount/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.serviceAccountName" . }}]'
+    - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.roleName" . }}]'
+    - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.roleName" . }}]'
+    - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.roleName" . }}]'
+    - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.roleName" . }}]'
+    - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.roleName" . }}]'
+    - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.roleName" . }}]'
+    - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.roleName" . }}]'
+    - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.roleName" . }}]'
+    - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.config.configMapName" . }}]'
+    - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.config.metricsConfigMapName" . }}]'
+    - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+    - '[Deployment/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+    - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+    - '[Deployment/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+    - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+    - '[Deployment/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+    - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+    - '[Deployment/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+    - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}-*]'
+    - '[Pod/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}-*]'
+    - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}-*]'
+    - '[Pod/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}-*]'
+    - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}-*]'
+    - '[Pod/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}-*]'
+    - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}-*]'
+    - '[Pod/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}-*]'
+    - '[Job,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-hook-pre-delete]'
+    - '[Job/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-hook-pre-delete]'
+    - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+    - '[NetworkPolicy/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+    - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+    - '[NetworkPolicy/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+    - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+    - '[NetworkPolicy/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+    - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+    - '[NetworkPolicy/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+    - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+    - '[PodDisruptionBudget/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+    - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+    - '[PodDisruptionBudget/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+    - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+    - '[PodDisruptionBudget/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+    - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+    - '[PodDisruptionBudget/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}]'
+    - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}-metrics]'
+    - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}-metrics]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}-metrics]'
+    - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}-metrics]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+    - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}-metrics]'
+    - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}-metrics]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}-metrics]'
+    - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}-metrics]'
+    - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.admission-controller.name" . }}]'
+    - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.background-controller.name" . }}]'
+    - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.cleanup-controller.name" . }}]'
+    - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.reports-controller.name" . }}]'
+    - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
+    - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
+  updateRequestThreshold: 1000
+  webhooks:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - aks-istio-ingress
+            - aks-istio-system
+            - appdynamics
+            - aso
+            - certmanager
+            - external-dns
+            - external-secrets
+            - flux-system
+            - gatekeeper-system
+  webhookAnnotations:
+    "admissions.enforcer/disabled": "true"
+  webhookLabels: {}
+  matchConditions: []
+  excludeKyvernoNamespace: true
+  resourceFiltersExcludeNamespaces: []
+  resourceFiltersExclude: []
+  resourceFiltersIncludeNamespaces: []
+  resourceFiltersInclude: []

@@ -1,0 +1,260 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-test-all
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-test-all
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+- apiGroups: ["kyverno.io"]
+  resources: ["clusterpolicies"]
+  verbs: ["get", "list"]
+- apiGroups: ["security.istio.io"]
+  resources: ["peerauthentications"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: ["wgpolicyk8s.io"]
+  resources: ["policyreports"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "create", "delete", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-test-all
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-test-all
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-test-all
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-test-all
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      serviceAccountName: {{ .Release.Name }}-test-all
+      containers:
+      - name: test
+        image: bitnami/kubectl:latest
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        command:
+        - /bin/bash
+        - -ec
+        - |
+          # Print test header
+          function print_header() {
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🧪 Running Kyverno Policy Tests"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          }
+
+          function cleanup {
+            echo "🧹 Cleaning up test resources..."
+            kubectl delete ns {{ .Release.Name }}-test-spot --ignore-not-found
+            kubectl delete ns {{ .Release.Name }}-test-istio-rev --ignore-not-found
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          }
+          trap cleanup EXIT
+
+          print_header
+
+          # Wait for policies to be ready
+          echo "⏳ Waiting for policies to be ready..."
+          sleep 5
+          
+          echo "📋 Test Suite: Policy Readiness Check"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Expected policies
+          EXPECTED_POLICIES=(
+            "audit-cluster-peerauthentication-mtls"
+            "mutate-cluster-namespace-istiolabel"
+            "mutate-ns-deployment-spotaffinity"
+            "require-resource-limits"
+            "validate-ns-istio-injection"
+          )
+          
+          for policy in "${EXPECTED_POLICIES[@]}"; do
+            echo "Testing: $policy"
+            POLICY_STATUS=$(kubectl get clusterpolicy "$policy" -o json)
+            if [ $? -ne 0 ]; then
+              echo "❌ FAILED: Policy $policy not found"
+              exit 1
+            fi
+            READY_STATUS=$(echo "$POLICY_STATUS" | jq -r '.status.ready')
+            if [ "$READY_STATUS" != "true" ]; then
+              echo "❌ FAILED: Policy $policy is not ready"
+              echo "Status: $(echo "$POLICY_STATUS" | jq -r '.status.message')"
+              exit 1
+            fi
+            echo "✅ PASSED: Policy $policy is ready and active"
+          done
+          
+          echo -e "\n📋 Test Suite: Spot Affinity Policy"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Creating test namespace with spot label..."
+          
+          cat <<'EOF' | kubectl apply -f -
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: {{ .Release.Name }}-test-spot
+            labels:
+              worker-type: spot
+          EOF
+          
+          echo "Creating test deployment..."
+          cat <<'EOF' | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: test-deployment
+            namespace: {{ .Release.Name }}-test-spot
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: test-app
+            template:
+              metadata:
+                labels:
+                  app: test-app
+              spec:
+                containers:
+                - name: nginx
+                  image: nginx:latest
+          EOF
+          
+          echo "⏳ Waiting for deployment mutation..."
+          sleep 10
+          
+          echo "Checking deployment configuration..."
+          DEPLOYMENT=$(kubectl get deployment -n {{ .Release.Name }}-test-spot test-deployment -o json)
+          
+          echo "Checking spot configuration..."
+          TOLERATIONS=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.tolerations // empty')
+          if [[ -z "$TOLERATIONS" ]] || [[ $TOLERATIONS != *"kubernetes.azure.com/scalesetpriority"* ]]; then
+            echo "❌ FAILED: Spot toleration not found"
+            exit 1
+          fi
+          echo "✅ PASSED: Spot tolerations correctly applied"
+          
+          POD_ANTI_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.podAntiAffinity // empty')
+          if [[ -z "$POD_ANTI_AFFINITY" ]] || [[ $POD_ANTI_AFFINITY != *"kubernetes.io/hostname"* ]]; then
+            echo "❌ FAILED: Pod anti-affinity not found"
+            exit 1
+          fi
+          echo "✅ PASSED: Pod anti-affinity correctly configured"
+          
+          NODE_AFFINITY=$(echo "$DEPLOYMENT" | jq -r '.spec.template.spec.affinity.nodeAffinity // empty')
+          if [[ -z "$NODE_AFFINITY" ]] || [[ $NODE_AFFINITY != *"kubernetes.azure.com/scalesetpriority"* ]]; then
+            echo "❌ FAILED: Node affinity for spot instances not found"
+            exit 1
+          fi
+          echo "✅ PASSED: Node affinity correctly configured"
+          
+          echo -e "\n📋 Test Suite: Istio Policy Tests"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          echo "Test 1: Prevent istio-injection label"
+          cat <<'EOF' | kubectl apply -f -
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: {{ .Release.Name }}-test-istio-rev
+            labels:
+              istio.io/rev: ""
+          EOF
+          
+          sleep 5
+          
+          ISTIO_REV=$(kubectl get ns {{ .Release.Name }}-test-istio-rev -o jsonpath='{.metadata.labels.istio\.io/rev}')
+          if [[ "$ISTIO_REV" != "asm-1-23" ]]; then
+            echo "❌ FAILED: Namespace istio.io/rev label was not mutated to asm-1-23"
+            echo "Current value: $ISTIO_REV"
+            exit 1
+          fi
+          echo "✅ PASSED: Successfully mutated istio.io/rev label to asm-1-23"
+          
+          echo -e "\n📋 Test Suite: Prevent Istio Injection Label"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Test: Prevent istio-injection label on resources"
+          
+          if kubectl create namespace test-istio-injection-blocked --dry-run=server -o yaml | kubectl label --dry-run=server -f - istio-injection=enabled -o yaml 2>/dev/null; then
+            echo "❌ FAILED: Was able to create namespace with istio-injection=enabled label"
+            exit 1
+          fi
+          echo "✅ PASSED: Successfully prevented istio-injection label on namespace"
+          
+          echo -e "\n📋 Test Suite: Resource Limits Policy"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Test: Enforce resource limits on deployments"
+          
+          if ! kubectl apply -f - <<'EOF'
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: test-with-limits
+            namespace: {{ .Release.Namespace }}
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: test-with-limits
+            template:
+              metadata:
+                labels:
+                  app: test-with-limits
+              spec:
+                containers:
+                - name: nginx
+                  image: nginx:latest
+                  resources:
+                    limits:
+                      memory: "128Mi"
+                      cpu: "100m"
+          EOF
+          then
+            echo "❌ FAILED: Deployment with resource limits was blocked"
+            exit 1
+          fi
+          echo "✅ PASSED: Successfully allowed deployment with resource limits"
+          kubectl delete deployment test-with-limits -n {{ .Release.Namespace }} --ignore-not-found
+          
+          echo -e "\n✨ All test suites completed successfully!"
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 0 

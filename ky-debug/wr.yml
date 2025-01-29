@@ -4,6 +4,12 @@ templating:
   debug: false
   version: ~
 
+# Image configuration
+image:
+  registry: ghcr.io
+  tag: v1.13.2
+  pullPolicy: IfNotPresent
+
 # Common configurations
 commonLabels:
   app.kubernetes.io/part-of: kyverno
@@ -16,6 +22,10 @@ replicaCount: 1
 nodeSelector:
   kubernetes.io/os: linux
   kubernetes.azure.com/mode: system
+
+# Skip tests
+test:
+  enabled: false
 
 priorityClassName: system-cluster-critical
 
@@ -243,6 +253,20 @@ reportsController:
           - "sleep 10 && nginx -s quit"
 
 admissionController:
+  rbac:
+    create: true
+  container:
+    image:
+      registry: ghcr.io
+      repository: kyverno/kyverno
+      tag: v1.13.2
+      pullPolicy: IfNotPresent
+  initContainer:
+    image:
+      registry: ghcr.io
+      repository: kyverno/kyvernopre
+      tag: v1.13.2
+      pullPolicy: IfNotPresent
   serviceMonitor:
     enabled: true
     additionalLabels:
@@ -255,14 +279,6 @@ admissionController:
     tlsConfig: {}
     relabelings: []
     metricRelabelings: []
-  initContainer:
-    image:
-      repository: kyverno/kyvernopre
-      tag: v1.13.2
-  container:
-    image:
-      repository: kyverno/kyverno
-      tag: v1.13.2
   metricsService:
     labels:
       app.kubernetes.io/component: admission-controller2

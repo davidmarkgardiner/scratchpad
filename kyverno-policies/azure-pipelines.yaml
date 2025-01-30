@@ -1,0 +1,64 @@
+trigger:
+  branches:
+    include:
+    - main
+    - feature/*
+  paths:
+    include:
+    - kyverno-policies/*
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  KUBECONFIG: $(Pipeline.Workspace)/kubeconfig
+
+stages:
+- stage: Test
+  jobs:
+  - job: PolicyTests
+    steps:
+    - task: KubectlInstaller@0
+      inputs:
+        kubectlVersion: 'latest'
+    
+    # Download kubeconfig from library secure files
+    - task: DownloadSecureFile@1
+      name: kubeconfig
+      inputs:
+        secureFile: 'kubeconfig'
+    
+    # Copy kubeconfig to workspace
+    - script: |
+        mkdir -p $(Pipeline.Workspace)
+        cp $(kubeconfig.secureFilePath) $(KUBECONFIG)
+      displayName: 'Setup kubeconfig'
+
+    # Install Go
+    - task: GoTool@0
+      inputs:
+        version: '1.19'
+    
+    # Run tests using the script
+    - script: |
+        cd kyverno-policies
+        chmod +x tests/run-tests.sh
+        ./tests/run-tests.sh
+      displayName: 'Run Policy Tests'
+      env:
+        KUBECONFIG: $(KUBECONFIG)
+
+    # Publish test results
+    - task: PublishTestResults@2
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/test-results.xml'
+        failTaskOnFailedTests: true
+        testRunTitle: 'Kyverno Policy Tests'
+
+    # Clean up
+    - script: |
+        rm -f $(KUBECONFIG)
+      displayName: 'Cleanup'
+      condition: always() 

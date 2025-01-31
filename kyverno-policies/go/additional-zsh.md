@@ -118,3 +118,78 @@ source /usr/share/doc/fzf/examples/completion.zsh
 ```
 
 Would you like me to explain any of these tools or provide more configuration examples?
+
+You can add these aliases to your `.zshrc` file. Here's how:
+
+1. Open your `.zshrc` file in a text editor:
+```bash
+nano ~/.zshrc
+```
+
+2. Add the aliases by pasting them at the end of the file:
+```bash
+# Directory navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+# Better defaults
+alias grep='grep --color=auto'
+alias mkdir='mkdir -pv'
+alias df='df -h'
+alias du='du -h'
+
+# Git shortcuts
+alias gs='git status'
+alias gp='git pull'
+alias gph='git push'
+alias gc='git commit'
+alias gch='git checkout'
+
+# Kubernetes
+alias k='kubectl'
+alias kns='kubens'
+alias kctx='kubectx'
+alias kg='kubectl get'
+alias kd='kubectl describe'
+```
+
+3. Save the file:
+- If using nano: Press `Ctrl + O` to save, then `Enter`, then `Ctrl + X` to exit
+
+4. Apply the changes by either:
+```bash
+source ~/.zshrc
+```
+or simply restart your terminal.
+
+Alternatively, you can add them all in one command:
+```bash
+cat << 'EOL' >> ~/.zshrc
+
+# Directory navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+# Better defaults
+alias grep='grep --color=auto'
+alias mkdir='mkdir -pv'
+alias df='df -h'
+alias du='du -h'
+
+# Git shortcuts
+alias gs='git status'
+alias gp='git pull'
+alias gph='git push'
+alias gc='git commit'
+alias gch='git checkout'
+
+# Kubernetes
+alias k='kubectl'
+alias kns='kubens'
+alias kctx='kubectx'
+alias kg='kubectl get'
+alias kd='kubectl describe'
+EOL
+```

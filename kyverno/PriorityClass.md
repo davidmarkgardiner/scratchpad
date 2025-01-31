@@ -1,3 +1,4 @@
+```
 nameOverride: ""
 fullnameOverride: ""
 
@@ -75,9 +76,9 @@ components:
     metricsService:
       purpose: metrics 
 
-
+```
 ---
-
+```
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
@@ -93,3 +94,4 @@ metadata:
 value: 900000
 globalDefault: false
 description: "This priority class should be used for Kyverno controller pods."
+```

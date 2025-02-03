@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -43,10 +44,20 @@ type TestSuite struct {
 // - Creating a test namespace
 // - Providing cleanup functionality
 func setupTestSuite(t *testing.T) *TestSuite {
-	// Load kubernetes config
-	config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+	// Try local kubeconfig first, then fall back to default location
+	localKubeconfig := "kubeconfig"
+	var config *rest.Config
+	var err error
+
+	// Try local kubeconfig first
+	config, err = clientcmd.BuildConfigFromFlags("", localKubeconfig)
 	if err != nil {
-		t.Fatalf("Error building kubeconfig: %v", err)
+		t.Logf("Local kubeconfig not found, trying default location: %v", err)
+		// Fall back to default kubeconfig location
+		config, err = clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+		if err != nil {
+			t.Fatalf("Error building kubeconfig: %v", err)
+		}
 	}
 
 	// Create clientset

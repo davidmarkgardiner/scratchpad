@@ -12,53 +12,87 @@ pool:
 
 variables:
   KUBECONFIG: $(Pipeline.Workspace)/kubeconfig
+  GO111MODULE: 'on'
+  GOPATH: '$(Pipeline.Workspace)/go'
+  GOBIN:  '$(GOPATH)/bin'
 
-stages:
-- stage: Test
-  jobs:
-  - job: PolicyTests
-    steps:
-    - task: KubectlInstaller@0
-      inputs:
-        kubectlVersion: 'latest'
+steps:
+- task: KubectlInstaller@0
+  inputs:
+    kubectlVersion: 'latest'
+
+# Download kubeconfig from library secure files
+- task: DownloadSecureFile@1
+  name: kubeconfig
+  inputs:
+    secureFile: 'kubeconfig'
+
+# Copy kubeconfig to workspace
+- script: |
+    mkdir -p $(Pipeline.Workspace)
+    cp $(kubeconfig.secureFilePath) $(KUBECONFIG)
+  displayName: 'Setup kubeconfig'
+
+# Install Go
+- task: GoTool@0
+  inputs:
+    version: '1.19'
+
+# Set up Go environment
+- script: |
+    mkdir -p '$(GOBIN)'
+    echo '##vso[task.prependpath]$(GOBIN)'
+    echo '##vso[task.prependpath]$(GOROOT)/bin'
+  displayName: 'Set up Go environment'
+
+# Initialize Go modules and get dependencies
+- script: |
+    cd kyverno-policies
+    # Remove any existing module files
+    rm -f go.mod go.sum || true
     
-    # Download kubeconfig from library secure files
-    - task: DownloadSecureFile@1
-      name: kubeconfig
-      inputs:
-        secureFile: 'kubeconfig'
+    # Initialize module
+    go mod init github.com/yourusername/kyverno-policies
     
-    # Copy kubeconfig to workspace
-    - script: |
-        mkdir -p $(Pipeline.Workspace)
-        cp $(kubeconfig.secureFilePath) $(KUBECONFIG)
-      displayName: 'Setup kubeconfig'
-
-    # Install Go
-    - task: GoTool@0
-      inputs:
-        version: '1.19'
+    # Add required dependencies
+    go get github.com/kyverno/kyverno@v1.8.0
+    go get k8s.io/api@v0.26.0
+    go get k8s.io/apimachinery@v0.26.0
+    go get k8s.io/client-go@v0.26.0
+    go get sigs.k8s.io/controller-runtime@v0.14.0
+    go get istio.io/api@master
+    go get istio.io/client-go@master
+    go get github.com/Azure/azure-sdk-for-go@v67.0.0
     
-    # Run tests using the script
-    - script: |
-        cd kyverno-policies
-        chmod +x tests/run-tests.sh
-        ./tests/run-tests.sh
-      displayName: 'Run Policy Tests'
-      env:
-        KUBECONFIG: $(KUBECONFIG)
+    # Tidy up dependencies
+    go mod tidy
+  displayName: 'Initialize Go modules'
 
-    # Publish test results
-    - task: PublishTestResults@2
-      condition: succeededOrFailed()
-      inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: '**/test-results.xml'
-        failTaskOnFailedTests: true
-        testRunTitle: 'Kyverno Policy Tests'
+# Run tests
+- script: |
+    cd kyverno-policies
+    go test -v ./tests/... 2>&1 | tee test-output.txt
+    
+    # Convert test output to JUnit format (you might need a converter tool here)
+    # Example using go-junit-report:
+    go install github.com/jstemmer/go-junit-report/v2@latest
+    cat test-output.txt | go-junit-report > test-results.xml
+  displayName: 'Run Go tests'
+  env:
+    KUBECONFIG: $(KUBECONFIG)
+    GO111MODULE: 'on'
 
-    # Clean up
-    - script: |
-        rm -f $(KUBECONFIG)
-      displayName: 'Cleanup'
-      condition: always() 
+# Publish test results
+- task: PublishTestResults@2
+  condition: succeededOrFailed()
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/test-results.xml'
+    failTaskOnFailedTests: true
+    testRunTitle: 'Kyverno Policy Tests'
+
+# Clean up
+- script: |
+    rm -f $(KUBECONFIG)
+  displayName: 'Cleanup'
+  condition: always() 

@@ -74,3 +74,6 @@ resources:
 - Monitor actual usage to fine-tune these values
 
 Would you like me to help you analyze a specific deployment's resource configuration? Or would you like to see the actual memory usage of your pods to help determine appropriate values?
+kubectl get pods --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,MEMORY_REQUESTS:.spec.containers[*].resources.requests.memory,MEMORY_LIMITS:.spec.containers[*].resources.limits.memory | grep "<none>"
+
+kubectl get pods --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,MEMORY_REQUESTS:.spec.containers[*].resources.requests.memory,MEMORY_LIMITS:.spec.containers[*].resources.limits.memory

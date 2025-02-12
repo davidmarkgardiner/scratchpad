@@ -99,7 +99,7 @@ spec:
             --tenant $AZURE_TENANT_ID
           
           echo "Setting subscription..."
-          az account set -s 133d5755-4074-4d6e-ad38-eb2a6ad12903
+          az account set -s xxxxx
           
           echo "Current subscription:"
           az account show

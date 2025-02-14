@@ -50,3 +50,81 @@ Benefits of using Kyverno:
 5. Supports generating reports and alerts for policy violations
 
 The policy will prevent any ResourceGroup creation in namespaces labeled with `resourcegroup-restricted: "true"`, while allowing them in other namespaces.
+
+
+
+---
+
+Yes, we can modify the Kyverno policy to allow ResourceGroups only in specific namespaces and block them everywhere else. Here's how:
+
+```yaml:block-resourcegroups-policy.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-resourcegroups
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: allow-resourcegroups-only-in-allowed-namespaces
+    match:
+      any:
+      - resources:
+          kinds:
+          - kro.run/v1alpha1/ResourceGroup
+    validate:
+      message: "ResourceGroups are only allowed in authorized namespaces (kro-system, platform-team)"
+      deny:
+        conditions:
+        - key: "{{request.namespace.metadata.name}}"
+          operator: NotIn
+          value: 
+          - "kro-system"
+          - "platform-team"
+          - "infra-team"
+```
+
+This policy:
+1. Matches all ResourceGroup creation attempts
+2. Only allows them in the explicitly listed namespaces (`kro-system`, `platform-team`, `infra-team`)
+3. Blocks creation in all other namespaces
+
+You can also use labels instead of hardcoding namespace names:
+
+```yaml:block-resourcegroups-policy-with-labels.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-resourcegroups
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: allow-resourcegroups-only-in-allowed-namespaces
+    match:
+      any:
+      - resources:
+          kinds:
+          - kro.run/v1alpha1/ResourceGroup
+    validate:
+      message: "ResourceGroups are only allowed in namespaces with label 'resourcegroup-allowed: true'"
+      deny:
+        conditions:
+        - key: "{{request.namespace.metadata.labels.resourcegroup-allowed}}"
+          operator: NotEquals
+          value: "true"
+```
+
+Then you can label allowed namespaces:
+
+```yaml:allowed-namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-team
+  labels:
+    resourcegroup-allowed: "true"
+```
+
+The label approach is more flexible as you can easily add new allowed namespaces without modifying the policy.
+

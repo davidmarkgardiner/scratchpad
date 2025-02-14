@@ -1,0 +1,146 @@
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: system-pool
+spec:
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: Never
+  template:
+    metadata:
+      labels:
+        node-type: system
+    spec:
+      nodeClassRef:
+        name: system-nodes
+      taints:
+        - key: CriticalAddonsOnly
+          value: "true"
+          effect: NoSchedule
+      requirements:
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values: ["D"]
+        - key: karpenter.azure.com/sku-version
+          operator: In
+          values: ["3"]
+---
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: spot-pool
+spec:
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: 24h
+  template:
+    metadata:
+      labels:
+        node-type: spot
+    spec:
+      nodeClassRef:
+        name: spot-nodes
+      taints:
+        - key: spot
+          value: "true"
+          effect: NoSchedule
+      requirements:
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values: ["D"]
+---
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: gpu-pool
+spec:
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: Never
+  template:
+    metadata:
+      labels:
+        node-type: gpu
+    spec:
+      nodeClassRef:
+        name: gpu-nodes
+      taints:
+        - key: nvidia.com/gpu
+          value: "true"
+          effect: NoSchedule
+      requirements:
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values: ["NC"]
+        - key: karpenter.azure.com/sku-gpu-count
+          operator: Gt
+          values: ["0"]
+---
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: batch-pool
+spec:
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: 12h
+  template:
+    metadata:
+      labels:
+        node-type: batch
+    spec:
+      nodeClassRef:
+        name: batch-nodes
+      taints:
+        - key: workload-type
+          value: batch
+          effect: NoSchedule
+      requirements:
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values: ["F"]  # Compute optimized
+---
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: infra-pool
+spec:
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: Never
+  template:
+    metadata:
+      labels:
+        node-type: infrastructure
+    spec:
+      nodeClassRef:
+        name: infra-nodes
+      taints:
+        - key: workload-type
+          value: infrastructure
+          effect: NoSchedule
+      requirements:
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values: ["D"]
+        - key: karpenter.azure.com/sku-version
+          operator: In
+          values: ["3"] 

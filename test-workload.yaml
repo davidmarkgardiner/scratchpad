@@ -38,6 +38,9 @@ spec:
       - key: "high-performance"
         operator: "Exists"
         effect: "NoSchedule"
+      - key: "CriticalAddonsOnly"
+        operator: "Exists"
+        effect: "NoSchedule"
       containers:
       - name: nginx
         image: nginx:latest

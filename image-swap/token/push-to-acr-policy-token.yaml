@@ -1,0 +1,96 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: push-to-acr-token
+  annotations:
+    policies.kyverno.io/title: Push Images to ACR using Registry Token
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      This policy generates jobs to push missing images to Azure Container Registry using registry token authentication.
+spec:
+  background: false
+  rules:
+    - name: verify-images
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      verifyImages:
+      - imageReferences:
+        - "*"
+        repository: crdevcr.azurecr.io
+        required: true
+        mutateDigest: false
+    - name: generate-push-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "push-image-{{ request.object.metadata.name }}"
+        namespace: "{{ request.object.metadata.namespace }}"
+        synchronize: false
+        data:
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+              spec:
+                containers:
+                - name: push-image
+                  image: mcr.microsoft.com/azure-cli
+                  env:
+                  - name: ACR_USERNAME
+                    valueFrom:
+                      secretKeyRef:
+                        name: acr-credentials
+                        key: username
+                  - name: ACR_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: acr-credentials
+                        key: password
+                  command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    set -e
+                    echo "Starting image push process..."
+                    
+                    # Get image details
+                    IMAGE="{{ request.object.spec.containers[0].image }}"
+                    IMAGE_NAME=$(echo "$IMAGE" | sed 's/.*\///')
+                    echo "Image: $IMAGE"
+                    echo "Image name: $IMAGE_NAME"
+                    
+                    # Login to ACR using registry token
+                    echo "$ACR_PASSWORD" | docker login crdevcr.azurecr.io -u $ACR_USERNAME --password-stdin
+                    
+                    # Pull from Docker Hub and push to ACR
+                    docker pull "docker.io/$IMAGE_NAME"
+                    docker tag "docker.io/$IMAGE_NAME" "crdevcr.azurecr.io/$IMAGE_NAME"
+                    docker push "crdevcr.azurecr.io/$IMAGE_NAME"
+                    
+                    echo "Process complete"
+                restartPolicy: Never
+            backoffLimit: 3 

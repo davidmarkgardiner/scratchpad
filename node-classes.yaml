@@ -5,6 +5,13 @@ metadata:
 spec:
   imageFamily: AzureLinux
   osDiskSizeGB: 128
+  customData: |
+    #cloud-config
+    package_update: true
+    package_upgrade: true
+    packages:
+      - docker.io
+      - docker-compose
 ---
 apiVersion: karpenter.azure.com/v1alpha2
 kind: AKSNodeClass
@@ -13,6 +20,13 @@ metadata:
 spec:
   imageFamily: AzureLinux
   osDiskSizeGB: 128
+  customData: |
+    #cloud-config
+    package_update: true
+    package_upgrade: true
+    packages:
+      - docker.io
+      - docker-compose
 ---
 apiVersion: karpenter.azure.com/v1alpha2
 kind: AKSNodeClass
@@ -21,6 +35,14 @@ metadata:
 spec:
   imageFamily: AzureLinux
   osDiskSizeGB: 256
+  customData: |
+    #cloud-config
+    package_update: true
+    package_upgrade: true
+    packages:
+      - docker.io
+      - docker-compose
+      - nvidia-docker2
 ---
 apiVersion: karpenter.azure.com/v1alpha2
 kind: AKSNodeClass
@@ -29,6 +51,13 @@ metadata:
 spec:
   imageFamily: AzureLinux
   osDiskSizeGB: 128
+  customData: |
+    #cloud-config
+    package_update: true
+    package_upgrade: true
+    packages:
+      - docker.io
+      - docker-compose
 ---
 apiVersion: karpenter.azure.com/v1alpha2
 kind: AKSNodeClass
@@ -36,4 +65,11 @@ metadata:
   name: infra-nodes
 spec:
   imageFamily: AzureLinux
-  osDiskSizeGB: 128 
+  osDiskSizeGB: 128
+  customData: |
+    #cloud-config
+    package_update: true
+    package_upgrade: true
+    packages:
+      - docker.io
+      - docker-compose 

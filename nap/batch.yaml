@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-batch-workload
+spec:
+  template:
+    spec:
+      # 1. Add toleration to match the batch pool taint
+      tolerations:
+      - key: "workload-type"
+        operator: "Equal"
+        value: "batch"
+        effect: "NoSchedule"
+      
+      # 2. Add node affinity to prefer/require batch nodes
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values: ["batch"]
+          # Optional: prefer F-series VMs
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: "karpenter.azure.com/sku-family"
+                operator: In
+                values: ["F"]
+      
+      containers:
+      - name: your-container
+        image: your-image:tag
+        # Add resource requests/limits appropriate for batch workloads
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"

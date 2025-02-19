@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-namespace-pass
+  labels:
+    istio-injection: "disabled"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-namespace-fail
+  labels:
+    istio-injection: enabled 

@@ -1,5 +1,12 @@
-kyverno test . -f all-tests.yaml
+# Example Test Output
 
+## Command
+```bash
+kyverno test . -f all-tests.yaml
+```
+
+## Initial Output
+```
 WARNING: test file (all-tests.yaml) uses a deprecated schema that will be removed in 1.14
 Loading test  ( all-tests.yaml ) ...
   Loading values/variables ...
@@ -7,8 +14,14 @@ Loading test  ( all-tests.yaml ) ...
   Loading resources ...
   Loading exceptions ...
   Applying 5 policies to 10 resources ...
+```
 
-policy mutate-cluster-namespace-istiolabel applied to default/Deployment/test-deployment-fail:
+## Mutation Results
+
+### 1. Default Namespace Deployments
+
+#### test-deployment-fail
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,69 +44,13 @@ spec:
           requests:
             cpu: 250m
             memory: 256Mi
+```
+*Result: Mutation has been applied successfully.*
 
----
+### 2. Spot Namespace Deployments
 
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to default/Deployment/test-deployment-fail:
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: test-deployment-fail
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - image: nginx:latest
-        name: nginx
-        resources:
-          requests:
-            cpu: 250m
-            memory: 256Mi
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-cluster-namespace-istiolabel applied to spot-namespace/Deployment/test-deployment-1:
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: nginx
-  name: test-deployment-1
-  namespace: spot-namespace
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - image: nginx:latest
-        name: nginx
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to spot-namespace/Deployment/test-deployment-1:
+#### test-deployment-1
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -147,13 +104,13 @@ spec:
         key: kubernetes.azure.com/scalesetpriority
         operator: Equal
         value: spot
+```
+*Result: Mutation has been applied successfully.*
 
----
+### 3. Namespace Configurations
 
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-cluster-namespace-istiolabel applied to default/Namespace/test-namespace-fail:
+#### test-namespace-fail
+```yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -161,137 +118,25 @@ metadata:
     istio-injection: enabled
   name: test-namespace-fail
   namespace: default
+```
+*Result: Mutation has been applied successfully.*
 
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to default/Namespace/test-namespace-fail:
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio-injection: enabled
-  name: test-namespace-fail
-  namespace: default
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-cluster-namespace-istiolabel applied to default/Namespace/test-namespace-1:
+#### test-namespace-1 and test-namespace-2
+```yaml
 apiVersion: v1
 kind: Namespace
 metadata:
   labels:
     istio.io/rev: asm-1-23
-  name: test-namespace-1
+  name: test-namespace-1  # or test-namespace-2
   namespace: default
+```
+*Result: Mutation has been applied successfully.*
 
----
+### 4. PeerAuthentication Resources
 
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to default/Namespace/test-namespace-1:
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio.io/rev: asm-1-23
-  name: test-namespace-1
-  namespace: default
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-cluster-namespace-istiolabel applied to default/Namespace/test-namespace-2:
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio.io/rev: asm-1-23
-  name: test-namespace-2
-  namespace: default
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to default/Namespace/test-namespace-2:
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio.io/rev: asm-1-23
-  name: test-namespace-2
-  namespace: default
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-cluster-namespace-istiolabel applied to non-spot-namespace/Deployment/test-deployment-2:
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: nginx
-  name: test-deployment-2
-  namespace: non-spot-namespace
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - image: nginx:latest
-        name: nginx
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to non-spot-namespace/Deployment/test-deployment-2:
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: nginx
-  name: test-deployment-2
-  namespace: non-spot-namespace
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - image: nginx:latest
-        name: nginx
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-cluster-namespace-istiolabel applied to istio-system/PeerAuthentication/test-peer-auth-pass:
+#### test-peer-auth-pass
+```yaml
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -300,28 +145,11 @@ metadata:
 spec:
   mtls:
     mode: STRICT
+```
+*Result: Mutation has been applied successfully.*
 
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to istio-system/PeerAuthentication/test-peer-auth-pass:
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: test-peer-auth-pass
-  namespace: istio-system
-spec:
-  mtls:
-    mode: STRICT
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-cluster-namespace-istiolabel applied to istio-system/PeerAuthentication/test-peer-auth-fail:
+#### test-peer-auth-fail
+```yaml
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -332,137 +160,23 @@ metadata:
 spec:
   mtls:
     mode: PERMISSIVE
+```
+*Result: Mutation has been applied successfully.*
 
----
+## Test Results Summary
 
+| ID | Policy | Rule | Resource | Result | Reason |
+|----|---------|------|-----------|---------|---------|
+| 1 | require-resource-limits | check-resource-limits | Deployment/test-deployment-pass | Pass | Ok |
+| 2 | validate-ns-istio-injection | check-istio-injection-label | Namespace/test-namespace-pass | Pass | Ok |
+| 3 | validate-ns-istio-injection | check-istio-injection-label | Namespace/test-namespace-fail | Pass | Ok |
+| 4 | mutate-cluster-namespace-istiolabel | add-istio-revision-label | Namespace/test-namespace-1 | Pass | Ok |
+| 5 | mutate-cluster-namespace-istiolabel | add-istio-revision-label | Namespace/test-namespace-2 | Pass | Ok |
+| 6 | mutate-ns-deployment-spotaffinity | insert-pod-antiaffinity | Deployment/test-deployment-1 | Pass | Ok |
+| 7 | mutate-ns-deployment-spotaffinity | insert-pod-antiaffinity | Deployment/test-deployment-2 | Pass | Excluded |
+| 8 | audit-cluster-peerauthentication-mtls | validate-mtls | PeerAuthentication/test-peer-auth-pass | Pass | Ok |
+| 9 | audit-cluster-peerauthentication-mtls | validate-mtls | PeerAuthentication/test-peer-auth-fail | Pass | Ok |
 
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to istio-system/PeerAuthentication/test-peer-auth-fail:
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  annotations:
-    policies.kyverno.io/scored: "false"
-  name: test-peer-auth-fail
-  namespace: istio-system
-spec:
-  mtls:
-    mode: PERMISSIVE
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-cluster-namespace-istiolabel applied to default/Deployment/test-deployment-pass:
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: test-deployment-pass
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - image: nginx:latest
-        name: nginx
-        resources:
-          limits:
-            cpu: 500m
-            memory: 512Mi
-          requests:
-            cpu: 250m
-            memory: 256Mi
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to default/Deployment/test-deployment-pass:
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: test-deployment-pass
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - image: nginx:latest
-        name: nginx
-        resources:
-          limits:
-            cpu: 500m
-            memory: 512Mi
-          requests:
-            cpu: 250m
-            memory: 256Mi
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-cluster-namespace-istiolabel applied to default/Namespace/test-namespace-pass:
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio-injection: disabled
-  name: test-namespace-pass
-  namespace: default
-
----
-
-
-Mutation:
-Mutation has been applied successfully.
-policy mutate-ns-deployment-spotaffinity applied to default/Namespace/test-namespace-pass:
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio-injection: disabled
-  name: test-namespace-pass
-  namespace: default
-
----
-
-
-Mutation:
-Mutation has been applied successfully.  Checking results ...
-
-│────│───────────────────────────────────────│─────────────────────────────│────────────────────────────────────────│────────│──────────│
-│ ID │ POLICY                                │ RULE                        │ RESOURCE                               │ RESULT │ REASON   │
-│────│───────────────────────────────────────│─────────────────────────────│────────────────────────────────────────│────────│──────────│
-│ 1  │ require-resource-limits               │ check-resource-limits       │ Deployment/test-deployment-pass        │ Pass   │ Ok       │
-│ 2  │ validate-ns-istio-injection           │ check-istio-injection-label │ Namespace/test-namespace-pass          │ Pass   │ Ok       │
-│ 3  │ validate-ns-istio-injection           │ check-istio-injection-label │ Namespace/test-namespace-fail          │ Pass   │ Ok       │
-│ 4  │ mutate-cluster-namespace-istiolabel   │ add-istio-revision-label    │ Namespace/test-namespace-1             │ Pass   │ Ok       │
-│ 5  │ mutate-cluster-namespace-istiolabel   │ add-istio-revision-label    │ Namespace/test-namespace-2             │ Pass   │ Ok       │
-│ 6  │ mutate-ns-deployment-spotaffinity     │ insert-pod-antiaffinity     │ Deployment/test-deployment-1           │ Pass   │ Ok       │
-│ 7  │ mutate-ns-deployment-spotaffinity     │ insert-pod-antiaffinity     │ Deployment/test-deployment-2           │ Pass   │ Excluded │
-│ 8  │ audit-cluster-peerauthentication-mtls │ validate-mtls               │ PeerAuthentication/test-peer-auth-pass │ Pass   │ Ok       │
-│ 9  │ audit-cluster-peerauthentication-mtls │ validate-mtls               │ PeerAuthentication/test-peer-auth-fail │ Pass   │ Ok       │
-│────│───────────────────────────────────────│─────────────────────────────│────────────────────────────────────────│────────│──────────│
-
-
-Test Summary: 9 tests passed and 0 tests failed
+**Final Result**: 9 tests passed and 0 tests failed
 
 (base) 

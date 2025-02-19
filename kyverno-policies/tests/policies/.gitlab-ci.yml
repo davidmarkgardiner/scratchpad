@@ -10,9 +10,15 @@ test-kyverno-policies:
   stage: test
   image: ubuntu:22.04
   before_script:
+    # Debug: Show current location and directory structure
+    - echo "Current working directory: $PWD"
+    - echo "Listing directory contents:"
+    - ls -la
+    - echo "Listing parent directory:"
+    - ls -la ..
     # Install required packages
     - apt-get update
-    - apt-get install -y curl wget
+    - apt-get install -y curl wget tree
     # Install Kyverno CLI
     - wget -q https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
     - mkdir -p /tmp/kyverno
@@ -20,6 +26,9 @@ test-kyverno-policies:
     - mv /tmp/kyverno/kyverno /usr/local/bin/
     - chmod +x /usr/local/bin/kyverno
     - rm -rf /tmp/kyverno
+    # Debug: Show full directory tree
+    - echo "Full directory structure:"
+    - tree .
     # Create the test environment
     - chmod +x setup.sh
     - ./setup.sh
@@ -43,6 +52,10 @@ validate-kyverno-policies:
   stage: test
   image: ubuntu:22.04
   before_script:
+    # Debug: Show current location and directory structure
+    - echo "Current working directory: $PWD"
+    - echo "Listing directory contents:"
+    - ls -la
     # Install required packages
     - apt-get update
     - apt-get install -y curl wget
@@ -54,6 +67,9 @@ validate-kyverno-policies:
     - chmod +x /usr/local/bin/kyverno
     - rm -rf /tmp/kyverno
   script:
+    # Debug: Confirm location before validation
+    - echo "Location before validation: $PWD"
+    - ls -la
     # Validate all policy files
     - kyverno validate .
   rules:

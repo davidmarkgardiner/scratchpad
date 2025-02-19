@@ -15,9 +15,11 @@ test-kyverno-policies:
     - apt-get install -y curl wget
     # Install Kyverno CLI
     - wget -q https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
-    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
-    - mv kyverno-cli /usr/local/bin/kyverno
+    - mkdir -p /tmp/kyverno
+    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz -C /tmp/kyverno
+    - mv /tmp/kyverno/kyverno /usr/local/bin/
     - chmod +x /usr/local/bin/kyverno
+    - rm -rf /tmp/kyverno
     # Create the test environment
     - chmod +x setup.sh
     - ./setup.sh
@@ -46,9 +48,11 @@ validate-kyverno-policies:
     - apt-get install -y curl wget
     # Install Kyverno CLI
     - wget -q https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
-    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
-    - mv kyverno-cli /usr/local/bin/kyverno
+    - mkdir -p /tmp/kyverno
+    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz -C /tmp/kyverno
+    - mv /tmp/kyverno/kyverno /usr/local/bin/
     - chmod +x /usr/local/bin/kyverno
+    - rm -rf /tmp/kyverno
   script:
     # Validate all policy files
     - kyverno validate .

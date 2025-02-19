@@ -5,6 +5,34 @@
 kyverno test . -f all-tests.yaml
 ```
 
+## CI/CD Integration
+
+### GitLab CI
+```yaml
+test-kyverno-policies:
+  stage: test
+  script:
+    - kyverno test . -f all-tests.yaml --junit-path=kyverno-test-results.xml
+  artifacts:
+    reports:
+      junit: kyverno-test-results.xml
+```
+
+### Azure DevOps Pipeline
+```yaml
+steps:
+- script: |
+    kyverno test . -f all-tests.yaml --junit-path=$(System.DefaultWorkingDirectory)/kyverno-test-results.xml
+  displayName: 'Run Kyverno Tests'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/kyverno-test-results.xml'
+    failTaskOnFailedTests: true
+    testRunTitle: 'Kyverno Policy Tests'
+```
+
 ## Initial Output
 ```
 WARNING: test file (all-tests.yaml) uses a deprecated schema that will be removed in 1.14

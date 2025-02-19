@@ -34,7 +34,7 @@ test-kyverno-policies:
     - ./setup.sh
   script:
     # Run the tests and generate JUnit report
-    - kyverno test . --junit-path=kyverno-test-results.xml
+    - kyverno test . --output junit > kyverno-test-results.xml
   artifacts:
     when: always
     reports:

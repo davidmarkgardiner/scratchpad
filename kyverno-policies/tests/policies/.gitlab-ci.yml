@@ -3,15 +3,21 @@ stages:
   - test
 
 variables:
-  KYVERNO_VERSION: v1.11.4  # Specify the version you want to use
+  KYVERNO_VERSION: v1.13.4  # Specify the version you want to use
 
 # Job to validate and test Kyverno policies
 test-kyverno-policies:
   stage: test
-  image: 
-    name: ghcr.io/kyverno/kyverno-cli:${KYVERNO_VERSION}
-    entrypoint: ["/bin/sh", "-c"]
+  image: ubuntu:22.04
   before_script:
+    # Install required packages
+    - apt-get update
+    - apt-get install -y curl wget
+    # Install Kyverno CLI
+    - wget -q https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
+    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
+    - mv kyverno-cli /usr/local/bin/kyverno
+    - chmod +x /usr/local/bin/kyverno
     # Create the test environment
     - chmod +x setup.sh
     - ./setup.sh
@@ -33,18 +39,19 @@ test-kyverno-policies:
 # Optional: Add policy validation job
 validate-kyverno-policies:
   stage: test
-  image: 
-    name: ghcr.io/kyverno/kyverno-cli:${KYVERNO_VERSION}
-    entrypoint: ["/bin/sh", "-c"]
+  image: ubuntu:22.04
+  before_script:
+    # Install required packages
+    - apt-get update
+    - apt-get install -y curl wget
+    # Install Kyverno CLI
+    - wget -q https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
+    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
+    - mv kyverno-cli /usr/local/bin/kyverno
+    - chmod +x /usr/local/bin/kyverno
   script:
     # Validate all policy files
-    - |
-      for policy in *.yaml; do
-        if [[ $policy == *policy.yaml ]]; then
-          echo "Validating $policy..."
-          kyverno validate $policy
-        fi
-      done
+    - kyverno validate .
   rules:
     - changes:
       - "*policy.yaml" 

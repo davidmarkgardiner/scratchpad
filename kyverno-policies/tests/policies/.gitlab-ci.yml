@@ -1,0 +1,50 @@
+---
+stages:
+  - test
+
+variables:
+  KYVERNO_VERSION: v1.11.4  # Specify the version you want to use
+
+# Job to validate and test Kyverno policies
+test-kyverno-policies:
+  stage: test
+  image: 
+    name: ghcr.io/kyverno/kyverno-cli:${KYVERNO_VERSION}
+    entrypoint: ["/bin/sh", "-c"]
+  before_script:
+    # Create the test environment
+    - chmod +x setup.sh
+    - ./setup.sh
+  script:
+    # Run the tests and generate JUnit report
+    - kyverno test . --junit-path=kyverno-test-results.xml
+  artifacts:
+    when: always
+    reports:
+      junit: kyverno-test-results.xml
+    paths:
+      - kyverno-test-results.xml
+  rules:
+    - changes:  # Only run when policy files change
+      - "*.yaml"
+      - "setup.sh"
+      - ".gitlab-ci.yml"
+
+# Optional: Add policy validation job
+validate-kyverno-policies:
+  stage: test
+  image: 
+    name: ghcr.io/kyverno/kyverno-cli:${KYVERNO_VERSION}
+    entrypoint: ["/bin/sh", "-c"]
+  script:
+    # Validate all policy files
+    - |
+      for policy in *.yaml; do
+        if [[ $policy == *policy.yaml ]]; then
+          echo "Validating $policy..."
+          kyverno validate $policy
+        fi
+      done
+  rules:
+    - changes:
+      - "*policy.yaml" 

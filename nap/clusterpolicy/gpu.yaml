@@ -1,0 +1,56 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: route-gpu-workloads
+  annotations:
+    policies.kyverno.io/title: Route GPU Workloads
+    policies.kyverno.io/category: Workload Distribution
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      This policy adds node affinity and tolerations to route GPU workloads
+      to GPU nodes based on namespace labels.
+spec:
+  validationFailureAction: audit
+  rules:
+    - name: route-gpu-workloads
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+                - key: workload-type
+                  operator: In
+                  values:
+                    - gpu
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "nvidia.com/gpu"
+                    operator: "Equal"
+                    value: "true"
+                    effect: "NoSchedule"
+                +(affinity):
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                      - matchExpressions:
+                        - key: node-type
+                          operator: In
+                          values:
+                            - gpu
+                  podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                    - weight: 100
+                      podAffinityTerm:
+                        labelSelector:
+                          matchExpressions:
+                          - key: app
+                            operator: In
+                            values:
+                            - {{ `"{{ request.object.spec.template.metadata.labels.app }}"` }}
+                        topologyKey: kubernetes.io/hostname

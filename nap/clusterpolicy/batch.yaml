@@ -1,0 +1,56 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: route-batch-workloads
+  annotations:
+    policies.kyverno.io/title: Route Batch Workloads
+    policies.kyverno.io/category: Workload Distribution
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      This policy adds node affinity and tolerations to route high performance workloads
+      to batch nodes based on namespace labels.
+spec:
+  validationFailureAction: audit
+  rules:
+    - name: route-batch-workloads
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+                - key: workload-type
+                  operator: In
+                  values:
+                    - high-performance
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "workload-type"
+                    operator: "Equal"
+                    value: "batch"
+                    effect: "NoSchedule"
+                +(affinity):
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                      - matchExpressions:
+                        - key: node-type
+                          operator: In
+                          values:
+                            - batch
+                  podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                    - weight: 100
+                      podAffinityTerm:
+                        labelSelector:
+                          matchExpressions:
+                          - key: app
+                            operator: In
+                            values:
+                            - {{ `"{{ request.object.spec.template.metadata.labels.app }}"` }}
+                        topologyKey: kubernetes.io/hostname

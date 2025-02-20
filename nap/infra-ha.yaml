@@ -104,3 +104,36 @@ This configuration ensures:
 4. Nodes won't be consolidated or expired
 5. Infrastructure services remain highly available
 
+apiVersion: karpenter.azure.com/v1alpha2
+kind: AKSNodeClass
+metadata:
+  name: surge-nodes
+spec:
+  imageFamily: AzureLinux
+  osDiskSizeGB: 128
+---
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: surge-pool
+spec:
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: 24h  # Surge nodes expire after 24 hours
+  template:
+    metadata:
+      labels:
+        node-type: surge
+    spec:
+      nodeClassRef:
+        name: surge-nodes
+      requirements:
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values: ["D"]  # Using D-series VMs
+        - key: karpenter.azure.com/sku-version
+          operator: In
+          values: ["3"]  # v3 series for better price/performance

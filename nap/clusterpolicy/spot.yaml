@@ -1,0 +1,67 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: route-spot-workloads
+  annotations:
+    policies.kyverno.io/title: Route Default Workloads to Spot
+    policies.kyverno.io/category: Workload Distribution
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      This policy adds node affinity and tolerations to route default workloads
+      to spot nodes when they don't have specific workload type requirements.
+spec:
+  validationFailureAction: audit
+  rules:
+    - name: route-default-to-spot
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+                - key: workload-type
+                  operator: NotIn
+                  values:
+                    - gpu
+                    - high-performance
+                    - infrastructure
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "spot"
+                    operator: "Equal"
+                    value: "true"
+                    effect: "NoSchedule"
+                  - key: "kubernetes.azure.com/scalesetpriority"
+                    operator: "Equal"
+                    value: "spot"
+                    effect: "NoSchedule"
+                +(affinity):
+                  podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                    - weight: 100
+                      podAffinityTerm:
+                        labelSelector:
+                          matchExpressions:
+                          - key: app
+                            operator: In
+                            values:
+                            - {{ `"{{ request.object.spec.template.metadata.labels.app }}"` }}
+                        topologyKey: kubernetes.io/hostname
+                  nodeAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                      - weight: 100
+                        preference:
+                          matchExpressions:
+                            - key: node-type
+                              operator: In
+                              values:
+                                - spot
+                            - key: "kubernetes.azure.com/scalesetpriority"
+                              operator: In
+                              values:
+                                - "spot"

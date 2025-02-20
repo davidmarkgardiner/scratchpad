@@ -24,6 +24,11 @@ spec:
                   operator: In
                   values:
                     - infrastructure
+      preconditions:
+        all:
+        - key: "{{ request.object.spec.template.metadata.labels.app || '' }}"
+          operator: NotEquals
+          value: ""
       mutate:
         patchStrategicMerge:
           spec:
@@ -53,11 +58,4 @@ spec:
                             operator: In
                             values:
                             - "{{ request.object.spec.template.metadata.labels.app }}"
-                        topologyKey: kubernetes.io/hostname
-                +(topologySpreadConstraints):
-                  - maxSkew: 1
-                    topologyKey: topology.kubernetes.io/zone
-                    whenUnsatisfied: DoNotSchedule
-                    labelSelector:
-                      matchLabels:
-                        app: "{{ request.object.spec.template.metadata.labels.app }}" 
+                        topologyKey: kubernetes.io/hostname 

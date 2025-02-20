@@ -8,12 +8,14 @@ policies:
   - mutate-cluster-namespace-istiolabel-policy.yaml
   - mutate-ns-deployment-spotaffinity-policy.yaml
   - audit-cluster-peerauthentication-mtls-policy.yaml
+  - check-deprecated-apis-policy.yaml
 resources:
   - resource.yaml
   - istio-resources.yaml
   - istio-label-resources.yaml
   - spot-affinity-resources.yaml
   - mtls-resources.yaml
+  - deprecated-api-resources.yaml
 variables: values.yaml
 results:
   # Resource Limits Tests
@@ -81,4 +83,54 @@ results:
     resources:
       - test-peer-auth-fail
     kind: PeerAuthentication
+    result: fail
+
+  # Deprecated APIs Tests for 1.30 and 1.31
+  - policy: check-deprecated-apis
+    rule: validate-v1-30-removals
+    resources:
+      - test-cronjob-deprecated
+    kind: CronJob
+    result: fail
+  - policy: check-deprecated-apis
+    rule: validate-v1-30-removals
+    resources:
+      - test-hpa-v2beta1-deprecated
+    kind: HorizontalPodAutoscaler
+    result: fail
+  - policy: check-deprecated-apis
+    rule: validate-v1-30-removals
+    resources:
+      - test-endpointslice-deprecated
+    kind: EndpointSlice
+    result: fail
+  - policy: check-deprecated-apis
+    rule: validate-v1-30-removals
+    resources:
+      - test-storage-deprecated
+    kind: CSIStorageCapacity
+    result: fail
+  - policy: check-deprecated-apis
+    rule: validate-v1-31-removals
+    resources:
+      - test-ingress-deprecated
+    kind: Ingress
+    result: fail
+  - policy: check-deprecated-apis
+    rule: validate-v1-31-removals
+    resources:
+      - test-ingress-valid
+    kind: Ingress
+    result: pass
+  - policy: check-deprecated-apis
+    rule: validate-v1-31-removals
+    resources:
+      - test-priorityclass-deprecated
+    kind: PriorityClass
+    result: fail
+  - policy: check-deprecated-apis
+    rule: validate-v1-31-removals
+    resources:
+      - test-lease-deprecated
+    kind: Lease
     result: fail 

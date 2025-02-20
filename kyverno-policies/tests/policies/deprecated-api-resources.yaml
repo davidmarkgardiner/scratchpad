@@ -1,0 +1,114 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: test-cronjob-deprecated
+  namespace: default
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: busybox
+            command: ["echo", "Hello World"]
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: test-hpa-v2beta1-deprecated
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test-deployment
+  minReplicas: 1
+  maxReplicas: 10
+---
+apiVersion: discovery.k8s.io/v1beta1
+kind: EndpointSlice
+metadata:
+  name: test-endpointslice-deprecated
+  namespace: default
+addressType: IPv4
+ports:
+  - name: http
+    port: 80
+endpoints:
+  - addresses:
+    - "10.0.0.1"
+---
+apiVersion: storage.k8s.io/v1beta1
+kind: CSIStorageCapacity
+metadata:
+  name: test-storage-deprecated
+  namespace: default
+spec:
+  storageClassName: standard
+  capacity: 100Gi
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: test-ingress-deprecated
+  namespace: default
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: test-service
+          servicePort: 80
+---
+apiVersion: scheduling.k8s.io/v1beta1
+kind: PriorityClass
+metadata:
+  name: test-priorityclass-deprecated
+value: 1000
+---
+apiVersion: coordination.k8s.io/v1beta1
+kind: Lease
+metadata:
+  name: test-lease-deprecated
+  namespace: default
+spec:
+  holderIdentity: test-holder
+  leaseDurationSeconds: 15
+---
+# Valid resources that should pass
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: test-cronjob-valid
+  namespace: default
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: busybox
+            command: ["echo", "Hello World"]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-ingress-valid
+  namespace: default
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 80 

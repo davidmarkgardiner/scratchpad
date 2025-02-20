@@ -50,7 +50,7 @@ spec:
                           - key: app
                             operator: In
                             values:
-                            - {{ `"{{ request.object.spec.template.metadata.labels.app }}"` }}
+                            - "{{ request.object.spec.template.metadata.labels.app }}"
                         topologyKey: kubernetes.io/hostname
                   nodeAffinity:
                     preferredDuringSchedulingIgnoredDuringExecution:

@@ -58,10 +58,10 @@ spec:
                             operator: In
                             values:
                             - "{{ request.object.spec.template.metadata.labels.app }}"
-                        topologyKey: kubernetes.io/hostname
+                        topologyKey: azure.microsoft.com/hostname
                 +(topologySpreadConstraints):
                   - maxSkew: 1
-                    topologyKey: topology.kubernetes.io/zone
+                    topologyKey: azure.microsoft.com/zone
                     whenUnsatisfied: ScheduleAnyway
                     labelSelector:
                       matchLabels:

@@ -1,0 +1,37 @@
+apiVersion: karpenter.azure.com/v1alpha2
+kind: AKSNodeClass
+metadata:
+  name: spot-nodes
+spec:
+  imageFamily: AzureLinux
+  osDiskSizeGB: 128
+---
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: spot-pool
+spec:
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: 24h  # Spot nodes can be recycled more frequently
+  template:
+    metadata:
+      labels:
+        node-type: spot
+    spec:
+      nodeClassRef:
+        name: spot-nodes
+      taints:
+        - key: "spot"
+          value: "true"
+          effect: "NoSchedule"
+      requirements:
+        - key: "karpenter.sh/capacity-type"
+          operator: In
+          values: ["spot"]  # Use spot instances for cost savings
+        - key: "karpenter.azure.com/sku-family"
+          operator: In
+          values: ["D"]  # D-series for general purpose
+        - key: "karpenter.azure.com/sku-version"
+          operator: In
+          values: ["3"]  # v3 series for better price/performance 

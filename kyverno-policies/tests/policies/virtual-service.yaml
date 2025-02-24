@@ -1,0 +1,35 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: test-virtualservice-pass
+  namespace: prod
+spec:
+  hosts:
+  - ratings.prod.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: ratings.prod.svc.cluster.local
+        subset: v1
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+      retryOn: gateway-error,connect-failure,refused-stream
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: test-virtualservice-fail
+  namespace: prod
+spec:
+  hosts:
+  - ratings.prod.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: ratings.prod.svc.cluster.local
+        # Missing subset field which should cause validation failure
+    retries:
+      attempts: -1  # Invalid negative value
+      perTryTimeout: invalid  # Invalid timeout format
+      # Missing retryOn field which should be required 

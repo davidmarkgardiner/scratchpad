@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-virtualservice
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+    - name: check-virtualservice-config
+      match:
+        any:
+        - resources:
+            kinds:
+              - VirtualService
+      validate:
+        message: "VirtualService configuration is invalid"
+        pattern:
+          spec:
+            hosts: "*"
+            http:
+              - route:
+                  - destination:
+                      host: "?*"
+                      subset: "?*"
+                retries:
+                  attempts: ">= 0"
+                  perTryTimeout: "*s"
+                  retryOn: "?*" 

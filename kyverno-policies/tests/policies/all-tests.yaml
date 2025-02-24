@@ -9,6 +9,7 @@ policies:
   - mutate-ns-deployment-spotaffinity-policy.yaml
   - audit-cluster-peerauthentication-mtls-policy.yaml
   - check-deprecated-apis-policy.yaml
+  - validate-virtualservice-policy.yaml
 resources:
   - resource.yaml
   - istio-resources.yaml
@@ -16,8 +17,23 @@ resources:
   - spot-affinity-resources.yaml
   - mtls-resources.yaml
   - deprecated-api-resources.yaml
+  - virtual-service.yaml
 variables: values.yaml
 results:
+  # VirtualService Tests
+  - policy: validate-virtualservice
+    rule: check-virtualservice-config
+    resources:
+      - test-virtualservice-pass
+    kind: VirtualService
+    result: pass
+  - policy: validate-virtualservice
+    rule: check-virtualservice-config
+    resources:
+      - test-virtualservice-fail
+    kind: VirtualService
+    result: fail
+
   # Resource Limits Tests
   - policy: require-resource-limits
     rule: check-resource-limits

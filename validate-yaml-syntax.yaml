@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-yaml-syntax
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+    - name: check-yaml-format
+      match:
+        any:
+        - resources:
+            kinds:
+              - "*"
+      validate:
+        message: "The resource contains invalid YAML syntax"
+        pattern:
+          metadata:
+            name: "?*" 

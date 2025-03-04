@@ -1,0 +1,55 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-batch-image-env
+  annotations:
+    policies.kyverno.io/title: Extract Image Name and Tag
+    policies.kyverno.io/category: Batch Jobs
+    policies.kyverno.io/subject: Pod, Job, CronJob
+    policies.kyverno.io/description: >-
+      This policy extracts the image name and tag from container images
+      and adds them as environment variables to containers.
+spec:
+  validationFailureAction: audit
+  background: true
+  rules:
+    - name: extract-image-info-for-pods
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      mutate:
+        foreach:
+        - list: "request.object.spec.containers"
+          patchStrategicMerge:
+            spec:
+              containers:
+                - name: "{{ element.name }}"
+                  env:
+                    - name: IMAGE_NAME
+                      value: "{{ element.image }}"
+                    - name: IMAGE_TAG
+                      value: "{{ element.image }}"
+    
+    - name: extract-image-info-for-jobs
+      match:
+        any:
+        - resources:
+            kinds:
+              - Job
+              - CronJob
+      mutate:
+        foreach:
+        - list: "request.object.spec.template.spec.containers"
+          patchStrategicMerge:
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: "{{ element.name }}"
+                      env:
+                        - name: IMAGE_NAME
+                          value: "{{ element.image }}"
+                        - name: IMAGE_TAG
+                          value: "{{ element.image }}" 

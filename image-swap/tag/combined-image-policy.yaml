@@ -1,0 +1,216 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: combined-image-policy
+  annotations:
+    policies.kyverno.io/title: Combined Image Policy
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod, Job, CronJob
+    kyverno.io/kyverno-version: 1.7.2
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kubernetes-version: "1.23"
+    policies.kyverno.io/description: >-
+      This policy mutates Pod image references to use the specified Azure Container Registry,
+      validates image existence in ACR, generates jobs to push missing images,
+      and adds image name and tag as environment variables to containers.
+spec:
+  background: false
+  rules:
+    # Image Environment Variables Rules
+    - name: extract-image-info-for-pods
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      mutate:
+        foreach:
+        - list: "request.object.spec.containers"
+          patchStrategicMerge:
+            spec:
+              containers:
+                - name: "{{ element.name }}"
+                  env:
+                    - name: IMAGE_NAME
+                      value: "{{ element.image }}"
+                    - name: IMAGE_TAG
+                      value: "{{ element.image }}"
+    
+    - name: extract-image-info-for-jobs
+      match:
+        any:
+        - resources:
+            kinds:
+              - Job
+              - CronJob
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      mutate:
+        foreach:
+        - list: "request.object.spec.template.spec.containers"
+          patchStrategicMerge:
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: "{{ element.name }}"
+                      env:
+                        - name: IMAGE_NAME
+                          value: "{{ element.image }}"
+                        - name: IMAGE_TAG
+                          value: "{{ element.image }}"
+    
+    # Image Registry Replacement Rules
+    - name: verify-images
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      verifyImages:
+      - imageReferences:
+        - "*"
+        repository: crdevcr.azurecr.io
+        required: false
+        mutateDigest: false
+    
+    - name: generate-push-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      preconditions:
+        all:
+        - key: "{{ images.verified.*.verified || `false` }}"
+          operator: Equals
+          value: false
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "push-image-{{ request.object.metadata.name }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "push-image-{{ request.object.metadata.name }}"
+            labels:
+              skip-verify: "true"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+              spec:
+                containers:
+                - name: push-image
+                  image: mcr.microsoft.com/azure-cli
+                  env:
+                  - name: AZURE_CLIENT_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: acr-auth
+                        key: client-id
+                  - name: AZURE_CLIENT_SECRET
+                    valueFrom:
+                      secretKeyRef:
+                        name: acr-auth
+                        key: client-secret
+                  - name: AZURE_TENANT_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: acr-auth
+                        key: tenant-id
+                  command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    echo "Job processing image information:"
+                    echo "IMAGE_NAME: $IMAGE_NAME"
+                    echo "IMAGE_TAG: $IMAGE_TAG"
+                    echo "Performing actions based on image information..."
+                    sleep 30
+                restartPolicy: Never
+            backoffLimit: 3
+    
+    - name: mutate-container-images
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      preconditions:
+        all:
+        - key: "{{ images.verified.*.verified || `false` }}"
+          operator: AnyIn
+          value: 
+          - true
+          - false
+      mutate:
+        foreach:
+        - list: "request.object.spec.containers"
+          patchStrategicMerge:
+            spec:
+              containers:
+              - name: "{{ element.name }}"
+                image: "{{ regex_replace_all('^(localhost/|(?:[a-z0-9]+\\.)+[a-z0-9]+/)?(.*)$', element.image, 'crdevcr.azurecr.io/$2') }}"
+              imagePullSecrets:
+              - name: "acr-secret"
+    
+    - name: mutate-init-container-images
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      preconditions:
+        all:
+        - key: "{{ request.object.spec.initContainers[] || `[]` | length(@) }}"
+          operator: GreaterThanOrEquals
+          value: 1
+      mutate:
+        foreach:
+        - list: "request.object.spec.initContainers"
+          patchStrategicMerge:
+            spec:
+              initContainers:
+              - name: "{{ element.name }}"
+                image: "{{ regex_replace_all('^(localhost/|(?:[a-z0-9]+\\.)+[a-z0-9]+/)?(.*)$', element.image, 'crdevcr.azurecr.io/$2') }}" 

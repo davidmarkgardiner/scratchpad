@@ -370,7 +370,7 @@ When choosing `gatewayClassName: istio` on AKS, you're selecting Istio's impleme
 |---------|---------------|---------------------------|---------------|
 | AKS Add-on | Yes (AKS Istio add-on) | Yes (AGIC add-on) | No (needs manual install) |
 | Service Mesh | Full mesh functionality | No | No |
-| Advanced Traffic Management | Rich traffic splitting, mirroring | Basic | Basic |
+| Advanced Traffic Management | Rich traffic splitting, mirroring | Basic | Basic | 
 | Azure Integration | Uses Azure Load Balancer | Deep integration with WAF, etc. | Uses Azure Load Balancer |
 | Performance | Lightweight | Higher resource usage | Lightweight |
 

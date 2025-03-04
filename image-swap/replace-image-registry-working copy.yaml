@@ -53,73 +53,79 @@ spec:
           operator: Equals
           value: false
       generate:
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: test-acr-push-nginx
-  labels:
-    skip-verify: "true"
-spec:
-  template:
-    metadata:
-      labels:
-        skip-verify: "true"
-    spec:
-      containers:
-      - name: push-image
-        image: mcr.microsoft.com/azure-cli
-        env:
-        - name: AZURE_CLIENT_ID
-          valueFrom:
-            secretKeyRef:
-              name: acr-auth
-              key: client-id
-        - name: AZURE_CLIENT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: acr-auth
-              key: client-secret
-        - name: AZURE_TENANT_ID
-          valueFrom:
-            secretKeyRef:
-              name: acr-auth
-              key: tenant-id
-        command:
-        - /bin/bash
-        - -c
-        - |
-          set -e
-          echo "Starting image import process..."
-          
-          # Login to Azure using service principal
-          echo "Logging in to Azure..."
-          az login --service-principal \
-            --username $AZURE_CLIENT_ID \
-            --password $AZURE_CLIENT_SECRET \
-            --tenant $AZURE_TENANT_ID
-          
-          echo "Setting subscription..."
-          az account set -s xxxxx
-          
-          echo "Current subscription:"
-          az account show
-          
-          echo "Listing available ACRs:"
-          az acr list --query "[].{name:name,resourceGroup:resourceGroup}" -o table
-          
-          echo "Checking ACR access..."
-          az acr show --name crdevacr2 --resource-group dev-rg
-          
-          # Import the image directly to ACR
-          echo "Importing nginx image to ACR..."
-          az acr import \
-            --name crdevacr2 \
-            --source docker.io/library/nginx:latest \
-            --image nginx:latest
-          
-          echo "Process complete"
-      restartPolicy: Never
-  backoffLimit: 3 
+        apiVersion: batch/v1
+        kind: Job
+        name: test-acr-push-nginx
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: test-acr-push-nginx
+            labels:
+              skip-verify: "true"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+              spec:
+                containers:
+                - name: push-image
+                  image: mcr.microsoft.com/azure-cli
+                  env:
+                  - name: AZURE_CLIENT_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: acr-auth
+                        key: client-id
+                  - name: AZURE_CLIENT_SECRET
+                    valueFrom:
+                      secretKeyRef:
+                        name: acr-auth
+                        key: client-secret
+                  - name: AZURE_TENANT_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: acr-auth
+                        key: tenant-id
+                  command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    set -e
+                    echo "Starting image import process..."
+                    
+                    # Login to Azure using service principal
+                    echo "Logging in to Azure..."
+                    az login --service-principal \
+                      --username $AZURE_CLIENT_ID \
+                      --password $AZURE_CLIENT_SECRET \
+                      --tenant $AZURE_TENANT_ID
+                    
+                    echo "Setting subscription..."
+                    az account set -s xxxxx
+                    
+                    echo "Current subscription:"
+                    az account show
+                    
+                    echo "Listing available ACRs:"
+                    az acr list --query "[].{name:name,resourceGroup:resourceGroup}" -o table
+                    
+                    echo "Checking ACR access..."
+                    az acr show --name crdevacr2 --resource-group dev-rg
+                    
+                    # Import the image directly to ACR
+                    echo "Importing nginx image to ACR..."
+                    az acr import \
+                      --name crdevacr2 \
+                      --source docker.io/library/nginx:latest \
+                      --image nginx:latest
+                    
+                    echo "Process complete"
+                restartPolicy: Never
+            backoffLimit: 3
     - name: mutate-container-images
       match:
         any:

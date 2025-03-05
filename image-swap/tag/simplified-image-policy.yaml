@@ -59,7 +59,7 @@ spec:
                   - name: POD_NAMESPACE
                     value: "{{ request.namespace }}"
                   - name: IMAGE_INFO
-                    value: "{{ request.object.spec.containers[0].image | split('/') | slice(1) | join('/') }}"
+                    value: "{{ join('/', split(request.object.spec.containers[0].image, '/')[1:]) }}"
                   # - name: AZURE_CLIENT_ID
                   #   valueFrom:
                   #     secretKeyRef:
@@ -113,7 +113,7 @@ spec:
             spec:
               containers:
               - name: "{{ element.name }}"
-                image: "{{ 'docker.io/' + (element.image | split('/') | slice(1) | join('/')) }}"
+                image: "{{ concat('docker.io/', join('/', split(element.image, '/')[1:])) }}"
               imagePullSecrets:
               - name: "acr-secret"
     
@@ -141,4 +141,4 @@ spec:
             spec:
               initContainers:
               - name: "{{ element.name }}"
-                image: "{{ 'docker.io/' + (element.image | split('/') | slice(1) | join('/')) }}" 
+                image: "{{ concat('docker.io/', join('/', split(element.image, '/')[1:])) }}" 

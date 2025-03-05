@@ -59,7 +59,7 @@ spec:
                   - name: POD_NAMESPACE
                     value: "{{ request.namespace }}"
                   - name: IMAGE_INFO
-                    value: "{{ regex_replace_all('^(localhost/|(?:[a-z0-9]+\\.)+[a-z0-9]+/)?(.*)$', request.object.spec.containers[0].image, '$2') }}"
+                    value: "{{ regex_replace_all('^(?:.*?/)?([^/]+(?::[^/]+)?)$', request.object.spec.containers[0].image, '$1') }}"
                   # - name: AZURE_CLIENT_ID
                   #   valueFrom:
                   #     secretKeyRef:

@@ -59,7 +59,7 @@ spec:
                   - name: POD_NAMESPACE
                     value: "{{ request.namespace }}"
                   - name: IMAGE_INFO
-                    value: "{{ regex_replace_all_literal('.*/', request.object.spec.containers[0].image, '') }}"
+                    value: "{{ regex_replace_all_literal('^.*\\.net/', request.object.spec.containers[0].image, '') }}"
                   # - name: AZURE_CLIENT_ID
                   #   valueFrom:
                   #     secretKeyRef:
@@ -113,7 +113,7 @@ spec:
             spec:
               containers:
               - name: "{{ element.name }}"
-                image: "{{ concat('docker.io/', regex_replace_all_literal('.*/', element.image, '')) }}"
+                image: "{{ concat('docker.io/', regex_replace_all_literal('^.*\\.net/', element.image, '')) }}"
               imagePullSecrets:
               - name: "acr-secret"
     
@@ -141,4 +141,4 @@ spec:
             spec:
               initContainers:
               - name: "{{ element.name }}"
-                image: "{{ concat('docker.io/', regex_replace_all_literal('.*/', element.image, '')) }}" 
+                image: "{{ concat('docker.io/', regex_replace_all_literal('^.*\\.net/', element.image, '')) }}" 

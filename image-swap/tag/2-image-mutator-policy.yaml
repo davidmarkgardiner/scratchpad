@@ -23,7 +23,7 @@ spec:
             kinds:
             - Pod
             namespaces:
-            - at*
+            - a*
       exclude:
         any:
         - resources:
@@ -75,4 +75,65 @@ spec:
             spec:
               initContainers:
               - name: "{{ element.name }}"
-                image: "docker.io/{{ regex_replace_all_literal('^.*\\.net/', element.image, '') }}" 
+                image: "docker.io/{{ regex_replace_all_literal('^.*\\.net/', element.image, '') }}"
+    
+    - name: mutate-docker-images
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - a*
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      preconditions:
+        all:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io/') }}"
+          operator: Equals
+          value: true
+      mutate:
+        foreach:
+        - list: "request.object.spec.containers"
+          patchStrategicMerge:
+            spec:
+              containers:
+              - name: "{{ element.name }}"
+                image: "container-registry.xxx.net/{{ regex_replace_all_literal('^docker\\.io/', element.image, '') }}"
+              imagePullSecrets:
+              - name: "acr-secret"
+    
+    - name: mutate-docker-init-container-images
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - a*
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      preconditions:
+        all:
+        - key: "{{ request.object.spec.initContainers[] || `[]` | length(@) }}"
+          operator: GreaterThanOrEquals
+          value: 1
+        - key: "{{ contains(request.object.spec.initContainers[0].image, 'docker.io/') }}"
+          operator: Equals
+          value: true
+      mutate:
+        foreach:
+        - list: "request.object.spec.initContainers"
+          patchStrategicMerge:
+            spec:
+              initContainers:
+              - name: "{{ element.name }}"
+                image: "container-registry.xxx.net/{{ regex_replace_all_literal('^docker\\.io/', element.image, '') }}" 

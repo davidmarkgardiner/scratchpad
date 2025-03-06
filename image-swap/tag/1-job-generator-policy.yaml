@@ -77,7 +77,24 @@ spec:
                     echo "Job processing image information for pod $POD_NAME in namespace $POD_NAMESPACE"
                     echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
                     echo "IMAGE_INFO: $IMAGE_INFO"
-                    echo "Performing actions based on image information..."
+                    
+                    # Check if the image is from docker.io and change it to container-registry.xxx.net
+                    if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
+                      NEW_IMAGE="container-registry.xxx.net/${ORIGINAL_IMAGE#docker.io/}"
+                      echo "Image is from docker.io, changing to: $NEW_IMAGE"
+                      
+                      # Here you could add code to push the image to container-registry.xxx.net
+                      # For example:
+                      # az acr login --name containerregistryxxx
+                      # docker pull $ORIGINAL_IMAGE
+                      # docker tag $ORIGINAL_IMAGE $NEW_IMAGE
+                      # docker push $NEW_IMAGE
+                      
+                      echo "Image transformation complete"
+                    else
+                      echo "Performing actions based on image information..."
+                    fi
+                    
                     sleep 30
                 restartPolicy: Never
             backoffLimit: 3 

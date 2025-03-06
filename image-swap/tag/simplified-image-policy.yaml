@@ -39,7 +39,7 @@ spec:
       #     value: true
       preconditions:
         all:
-        - key: "{{ regex_match('.*\\.net/.*', request.object.spec.containers[0].image) }}"
+        - key: "{{ startsWith(request.object.spec.containers[0].image, 'container-registry.xxx.net/') }}"
           operator: Equals
           value: true
 

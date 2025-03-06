@@ -16,6 +16,8 @@ metadata:
       for missing images.
 spec:
   background: false
+  # IMPORTANT: Rules are processed in order. The generate-push-job rule must appear before
+  # the mutation rules to ensure the job receives the original image information.
   rules:
 
     - name: generate-push-job
@@ -35,6 +37,11 @@ spec:
       #   - key: "{{ regex_match('^container-registry\\.xxx\\.net/.*', request.object.spec.containers[0].image) }}"
       #     operator: Equals
       #     value: true
+      preconditions:
+        all:
+        - key: "{{ regex_match('.*\\.net/.*', request.object.spec.containers[0].image) }}"
+          operator: Equals
+          value: true
 
       generate:
         apiVersion: batch/v1

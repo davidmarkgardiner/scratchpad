@@ -32,16 +32,11 @@ spec:
             selector:
               matchLabels:
                 skip-verify: "true"
-      # preconditions:
-      #   all:
-      #   - key: "{{ regex_match('^container-registry\\.xxx\\.net/.*', request.object.spec.containers[0].image) }}"
-      #     operator: Equals
-      #     value: true
       preconditions:
         all:
-        - key: request.object.spec.containers[0].image
-          operator: StartsWith
-          value: container-registry.xxx.net/
+        - key: "{{ regex_match('^container-registry\\.xxx\\.net/.*', request.object.spec.containers[0].image) }}"
+          operator: Equals
+          value: true
 
       generate:
         apiVersion: batch/v1

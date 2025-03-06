@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sample-job
+  labels:
+    app: sample-job
+spec:
+  # Set maximum number of retries to 3
+  backoffLimit: 3
+  
+  # Set TTL for automatic cleanup after 1 hour (3600 seconds)
+  ttlSecondsAfterFinished: 3600
+  
+  template:
+    metadata:
+      labels:
+        app: sample-job
+    spec:
+      containers:
+      - name: sample-container
+        image: busybox
+        command: ["sh", "-c", "echo Job starting; sleep 30; echo Job completed"]
+      restartPolicy: OnFailure 

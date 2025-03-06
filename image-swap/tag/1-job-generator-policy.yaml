@@ -78,9 +78,15 @@ spec:
                     echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
                     echo "IMAGE_INFO: $IMAGE_INFO"
                     
+                    # Extract just the image/version part by removing anything before the first slash
+                    PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^.*/||')
+                    echo "Pure image/version: $PURE_IMAGE"
+                    
                     # Check if the image is from docker.io and change it to container-registry.xxx.net
                     if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
-                      NEW_IMAGE="container-registry.xxx.net/${ORIGINAL_IMAGE#docker.io/}"
+                      # Extract everything after docker.io/
+                      IMAGE_PATH="${ORIGINAL_IMAGE#docker.io/}"
+                      NEW_IMAGE="container-registry.xxx.net/$IMAGE_PATH"
                       echo "Image is from docker.io, changing to: $NEW_IMAGE"
                       
                       # Here you could add code to push the image to container-registry.xxx.net

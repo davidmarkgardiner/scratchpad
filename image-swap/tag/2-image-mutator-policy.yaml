@@ -42,7 +42,7 @@ spec:
             spec:
               containers:
               - name: "{{ element.name }}"
-                image: "docker.io/{{ regex_replace_all_literal('^.*\\.net/', element.image, '') }}"
+                image: "docker.io/{{ regex_replace_all_literal('^.*/', element.image, '') }}"
               imagePullSecrets:
               - name: "acr-secret"
     
@@ -75,7 +75,7 @@ spec:
             spec:
               initContainers:
               - name: "{{ element.name }}"
-                image: "docker.io/{{ regex_replace_all_literal('^.*\\.net/', element.image, '') }}"
+                image: "docker.io/{{ regex_replace_all_literal('^.*/', element.image, '') }}"
     
     - name: mutate-docker-images
       match:
@@ -103,7 +103,7 @@ spec:
             spec:
               containers:
               - name: "{{ element.name }}"
-                image: "container-registry.xxx.net/{{ regex_replace_all_literal('^docker\\.io/', element.image, '') }}"
+                image: "container-registry.xxx.net/{{ regex_replace_all_literal('^.*/', element.image, '') }}"
               imagePullSecrets:
               - name: "acr-secret"
     
@@ -136,4 +136,4 @@ spec:
             spec:
               initContainers:
               - name: "{{ element.name }}"
-                image: "container-registry.xxx.net/{{ regex_replace_all_literal('^docker\\.io/', element.image, '') }}" 
+                image: "container-registry.xxx.net/{{ regex_replace_all_literal('^.*/', element.image, '') }}" 

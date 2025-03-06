@@ -39,9 +39,9 @@ spec:
       #     value: true
       preconditions:
         all:
-        - key: "{{ startsWith(request.object.spec.containers[0].image, 'container-registry.xxx.net/') }}"
-          operator: Equals
-          value: true
+        - key: request.object.spec.containers[0].image
+          operator: StartsWith
+          value: container-registry.xxx.net/
 
       generate:
         apiVersion: batch/v1

@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-image-policy
+spec:
+  background: false
+  rules:
+    - name: test-generate-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      preconditions:
+        all:
+        - key: "{{ request.object.spec.containers[0].image }}"
+          operator: Contains
+          value: "container-registry.xxx.net/"
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "test-job-{{ request.object.metadata.name }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "test-job-{{ request.object.metadata.name }}"
+          spec:
+            template:
+              spec:
+                containers:
+                - name: test-container
+                  image: busybox
+                  command: ["echo", "Test job running for {{ request.object.spec.containers[0].image }}"]
+                restartPolicy: Never
+            backoffLimit: 1 

@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: regex-test-policy
+spec:
+  background: false
+  rules:
+    - name: test-regex-match
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      preconditions:
+        all:
+        - key: "{{ regex_match('container-registry\\.xxx\\.net/.*', request.object.spec.containers[0].image) }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "regex-test-job-{{ request.object.metadata.name }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "regex-test-job-{{ request.object.metadata.name }}"
+          spec:
+            template:
+              spec:
+                containers:
+                - name: test-container
+                  image: busybox
+                  command: ["echo", "Regex test job running for {{ request.object.spec.containers[0].image }}"]
+                restartPolicy: Never
+            backoffLimit: 1 

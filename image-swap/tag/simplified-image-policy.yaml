@@ -36,12 +36,12 @@ spec:
             namespaces:
               - kube-system
               - kyverno
-        - resources:
-            conditions:
-              all:
-              - key: "{{ regex_match('^container-registry\\.xxx\\.net/.*', request.object.spec.containers[0].image) }}"
-                operator: NotEquals
-                value: true
+
+      preconditions:
+        all:
+        - key: request.object.spec.containers[0].image
+          operator: Contains
+          value: container-registry.xxx.net/
 
       generate:
         apiVersion: batch/v1

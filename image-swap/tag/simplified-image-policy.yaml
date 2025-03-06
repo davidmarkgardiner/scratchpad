@@ -113,7 +113,7 @@ spec:
             spec:
               containers:
               - name: "{{ element.name }}"
-                image: "{{ concat('docker.io/', regex_replace_all_literal('^.*\\.net/', element.image, '')) }}"
+                image: "docker.io/{{ regex_replace_all_literal('^.*\\.net/', element.image, '') }}"
               imagePullSecrets:
               - name: "acr-secret"
     
@@ -141,4 +141,4 @@ spec:
             spec:
               initContainers:
               - name: "{{ element.name }}"
-                image: "{{ concat('docker.io/', regex_replace_all_literal('^.*\\.net/', element.image, '')) }}" 
+                image: "docker.io/{{ regex_replace_all_literal('^.*\\.net/', element.image, '') }}" 

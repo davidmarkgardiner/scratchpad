@@ -56,11 +56,18 @@ spec:
             labels:
               skip-verify: "true"
               image-info: "{{ regex_replace_all_literal(':', regex_replace_all_literal('^.*\\.com/', request.object.spec.containers[0].image, ''), '-') }}"
+              # Add specific labels for monitoring
+              monitoring: "true"
+              job-type: "image-push"
+              generator: "kyverno-policy-v5"
           spec:
             template:
               metadata:
                 labels:
                   skip-verify: "true"
+                  # Add the same monitoring labels to the pod template
+                  monitoring: "true"
+                  job-type: "image-push"
               spec:
                 containers:
                 - name: push-image

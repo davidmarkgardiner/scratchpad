@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-push-job-test
+  namespace: default
+  labels:
+    skip-verify: "true"
+    image-info: "test-job"
+    monitoring: "true"
+    job-type: "image-push"
+    generator: "test-script"
+spec:
+  template:
+    metadata:
+      labels:
+        skip-verify: "true"
+        monitoring: "true"
+        job-type: "image-push"
+    spec:
+      containers:
+      - name: push-image
+        image: mcr.microsoft.com/azure-cli
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "This is a test job for monitoring"
+          sleep 10
+          exit 0
+      restartPolicy: Never
+  backoffLimit: 3 

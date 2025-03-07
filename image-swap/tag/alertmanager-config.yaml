@@ -1,0 +1,80 @@
+apiVersion: monitoring.coreos.com/v1
+kind: AlertmanagerConfig
+metadata:
+  name: image-push-job-alerts
+  namespace: monitoring
+spec:
+  route:
+    groupBy: ['job_name', 'namespace']
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 1h
+    receiver: 'platform-team'
+    routes:
+    - matchers:
+      - name: alertname
+        value: ImagePushJobFailed
+      receiver: 'platform-team'
+    - matchers:
+      - name: alertname
+        value: ImagePushJobStuck
+      receiver: 'platform-team'
+    - matchers:
+      - name: alertname
+        value: ImagePushJobBackoffLimitReached
+      receiver: 'platform-team-pagerduty'
+      
+  receivers:
+  - name: 'platform-team'
+    slackConfigs:
+    - apiURL:
+        name: slack-webhook
+        key: url
+      channel: '#platform-alerts'
+      username: 'Prometheus Alert Manager'
+      color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+      title: '{{ .CommonAnnotations.summary }}'
+      text: >-
+        {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Job:* {{ .Labels.job_name }}
+          *Namespace:* {{ .Labels.namespace }}
+          {{ if .Annotations.runbook_url }}*Runbook:* <{{ .Annotations.runbook_url }}|Link>{{ end }}
+        {{ end }}
+      sendResolved: true
+      
+  - name: 'platform-team-pagerduty'
+    pagerdutyConfigs:
+    - serviceKey:
+        name: pagerduty-key
+        key: serviceKey
+      description: '{{ .CommonAnnotations.summary }}'
+      details:
+        firing: '{{ .Alerts.Firing | len }}'
+        description: '{{ .CommonAnnotations.description }}'
+        job_name: '{{ .GroupLabels.job_name }}'
+        namespace: '{{ .GroupLabels.namespace }}'
+      severity: critical
+      sendResolved: true
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: slack-webhook
+  namespace: monitoring
+type: Opaque
+data:
+  url: BASE64_ENCODED_SLACK_WEBHOOK_URL_HERE
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pagerduty-key
+  namespace: monitoring
+type: Opaque
+data:
+  serviceKey: BASE64_ENCODED_PAGERDUTY_SERVICE_KEY_HERE 

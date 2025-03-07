@@ -1,0 +1,41 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: image-push-job-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus-stack
+spec:
+  groups:
+  - name: image-push-job-alerts
+    rules:
+    - alert: ImagePushJobFailed
+      expr: kube_job_status_failed{job_name=~"image-push-job-.*"} > 0
+      for: 1m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: Image Push Job Failed
+        description: Job {{ $labels.job_name }} in namespace {{ $labels.namespace }} has failed
+        runbook_url: https://wiki.example.com/runbooks/image-push-job-failures
+    - alert: ImagePushJobStuck
+      expr: (time() - kube_job_status_start_time{job_name=~"image-push-job-.*"}) > 900 and kube_job_status_succeeded{job_name=~"image-push-job-.*"} == 0 and kube_job_status_failed{job_name=~"image-push-job-.*"} == 0
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: Image Push Job Stuck
+        description: Job {{ $labels.job_name }} in namespace {{ $labels.namespace }} has been running for more than 15 minutes
+        runbook_url: https://wiki.example.com/runbooks/image-push-job-stuck
+    - alert: ImagePushJobBackoffLimitReached
+      expr: kube_job_spec_backoff_limit{job_name=~"image-push-job-.*"} - kube_job_status_failed{job_name=~"image-push-job-.*"} <= 0
+      for: 1m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: Image Push Job Backoff Limit Reached
+        description: Job {{ $labels.job_name }} in namespace {{ $labels.namespace }} has reached its backoff limit
+        runbook_url: https://wiki.example.com/runbooks/image-push-job-backoff-limit 

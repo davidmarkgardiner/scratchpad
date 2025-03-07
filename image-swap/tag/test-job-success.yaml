@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-push-job-test-success
+  namespace: default
+  labels:
+    skip-verify: "true"
+    image-info: "test-success"
+spec:
+  template:
+    metadata:
+      labels:
+        skip-verify: "true"
+    spec:
+      containers:
+      - name: push-image
+        image: mcr.microsoft.com/azure-cli
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "This job will succeed to test success metrics"
+          echo "Performing simulated image push operation..."
+          sleep 10
+          echo "Operation completed successfully"
+          exit 0
+      restartPolicy: Never
+  backoffLimit: 3 

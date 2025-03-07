@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-push-job-test-backoff
+  namespace: default
+  labels:
+    skip-verify: "true"
+    image-info: "test-backoff"
+spec:
+  template:
+    metadata:
+      labels:
+        skip-verify: "true"
+    spec:
+      containers:
+      - name: push-image
+        image: mcr.microsoft.com/azure-cli
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "This job will fail to test backoff limit alerting"
+          # Always exit with error to trigger retries
+          exit 1
+      restartPolicy: Never
+  # Set a low backoff limit to quickly trigger the alert
+  backoffLimit: 2 

@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-push-job-test-stuck
+  namespace: default
+  labels:
+    skip-verify: "true"
+    image-info: "test-job-stuck"
+    monitoring: "true"
+    job-type: "image-push"
+    generator: "test-script"
+spec:
+  template:
+    metadata:
+      labels:
+        skip-verify: "true"
+        monitoring: "true"
+        job-type: "image-push"
+    spec:
+      containers:
+      - name: push-image
+        image: mcr.microsoft.com/azure-cli
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "This is a test job that will appear stuck for monitoring"
+          sleep 1800
+      restartPolicy: Never
+  backoffLimit: 3 

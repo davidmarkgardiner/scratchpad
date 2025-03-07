@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-push-job-test-failure
+  namespace: default
+  labels:
+    job_type: image-push
+    monitoring: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        job_type: image-push
+        monitoring: "true"
+    spec:
+      containers:
+      - name: failure
+        image: busybox
+        command: ["sh", "-c", "echo 'This job will fail' && exit 1"]
+      restartPolicy: Never
+  backoffLimit: 0 

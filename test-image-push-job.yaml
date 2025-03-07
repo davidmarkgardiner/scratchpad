@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-push-job-test-success
+  namespace: default
+  labels:
+    job_type: image-push
+    monitoring: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        job_type: image-push
+        monitoring: "true"
+    spec:
+      containers:
+      - name: success
+        image: busybox
+        command: ["sh", "-c", "echo 'Job completed successfully' && sleep 5"]
+      restartPolicy: Never
+  backoffLimit: 0 

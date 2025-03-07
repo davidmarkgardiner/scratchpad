@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-push-job-test-stuck
+  namespace: default
+  labels:
+    job_type: image-push
+    monitoring: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        job_type: image-push
+        monitoring: "true"
+    spec:
+      containers:
+      - name: stuck
+        image: busybox
+        command: ["sh", "-c", "echo 'This job will run for a long time' && sleep 1800"]
+      restartPolicy: Never
+  backoffLimit: 0 

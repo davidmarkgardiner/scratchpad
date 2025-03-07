@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-push-job-test-backoff
+  namespace: default
+  labels:
+    job_type: image-push
+    monitoring: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        job_type: image-push
+        monitoring: "true"
+    spec:
+      containers:
+      - name: backoff
+        image: busybox
+        command: ["sh", "-c", "echo 'This job will fail and hit backoff limit' && exit 1"]
+      restartPolicy: Never
+  backoffLimit: 2

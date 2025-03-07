@@ -86,7 +86,7 @@ spec:
                     echo "IMAGE_ID: $IMAGE_ID"
                     
                     # Extract just the image/version part by removing anything before the first slash
-                    PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^.*/||')
+                    PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^[^/]*/||')
                     echo "Pure image/version: $PURE_IMAGE"
                     
                     # Check if the image is from docker.io and change it to my.registry.com

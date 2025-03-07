@@ -1,0 +1,122 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspaceResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "Azure Monitor workspace resource ID"
+            }
+        },
+        "clusterResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "AKS cluster resource ID"
+            }
+        },
+        "clusterName": {
+            "type": "string",
+            "metadata": {
+                "description": "AKS cluster name"
+            }
+        },
+        "actionGroupResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "Action group resource ID for alerts"
+            }
+        }
+    },
+    "resources": [
+        {
+            "name": "image-push-job-alerts",
+            "type": "Microsoft.AlertsManagement/prometheusRuleGroups",
+            "apiVersion": "2023-03-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "description": "Alerts for image push jobs",
+                "scopes": [
+                    "[parameters('workspaceResourceId')]",
+                    "[parameters('clusterResourceId')]"
+                ],
+                "enabled": true,
+                "clusterName": "[parameters('clusterName')]",
+                "interval": "PT1M",
+                "rules": [
+                    {
+                        "alert": "ImagePushJobFailed",
+                        "expression": "kube_job_status_failed{job_name=~\"image-push-job-.*\", label_job_type=\"image-push\", label_monitoring=\"true\"} > 0",
+                        "for": "PT1M",
+                        "labels": {
+                            "team": "platform"
+                        },
+                        "annotations": {
+                            "summary": "Image Push Job Failed",
+                            "description": "Job {{ $labels.job_name }} in namespace {{ $labels.namespace }} has failed",
+                            "runbook_url": "https://wiki.example.com/runbooks/image-push-job-failures"
+                        },
+                        "enabled": true,
+                        "severity": 2,
+                        "resolveConfiguration": {
+                            "autoResolved": true,
+                            "timeToResolve": "PT5M"
+                        },
+                        "actions": [
+                            {
+                                "actionGroupId": "[parameters('actionGroupResourceId')]"
+                            }
+                        ]
+                    },
+                    {
+                        "alert": "ImagePushJobStuck",
+                        "expression": "(time() - kube_job_status_start_time{job_name=~\"image-push-job-.*\", label_job_type=\"image-push\", label_monitoring=\"true\"}) > 900 and kube_job_status_succeeded{job_name=~\"image-push-job-.*\", label_job_type=\"image-push\", label_monitoring=\"true\"} == 0 and kube_job_status_failed{job_name=~\"image-push-job-.*\", label_job_type=\"image-push\", label_monitoring=\"true\"} == 0",
+                        "for": "PT5M",
+                        "labels": {
+                            "team": "platform"
+                        },
+                        "annotations": {
+                            "summary": "Image Push Job Stuck",
+                            "description": "Job {{ $labels.job_name }} in namespace {{ $labels.namespace }} has been running for more than 15 minutes",
+                            "runbook_url": "https://wiki.example.com/runbooks/image-push-job-stuck"
+                        },
+                        "enabled": true,
+                        "severity": 2,
+                        "resolveConfiguration": {
+                            "autoResolved": true,
+                            "timeToResolve": "PT5M"
+                        },
+                        "actions": [
+                            {
+                                "actionGroupId": "[parameters('actionGroupResourceId')]"
+                            }
+                        ]
+                    },
+                    {
+                        "alert": "ImagePushJobBackoffLimitReached",
+                        "expression": "kube_job_spec_backoff_limit{job_name=~\"image-push-job-.*\", label_job_type=\"image-push\", label_monitoring=\"true\"} - kube_job_status_failed{job_name=~\"image-push-job-.*\", label_job_type=\"image-push\", label_monitoring=\"true\"} <= 0",
+                        "for": "PT1M",
+                        "labels": {
+                            "team": "platform"
+                        },
+                        "annotations": {
+                            "summary": "Image Push Job Backoff Limit Reached",
+                            "description": "Job {{ $labels.job_name }} in namespace {{ $labels.namespace }} has reached its backoff limit",
+                            "runbook_url": "https://wiki.example.com/runbooks/image-push-job-backoff-limit"
+                        },
+                        "enabled": true,
+                        "severity": 0,
+                        "resolveConfiguration": {
+                            "autoResolved": true,
+                            "timeToResolve": "PT5M"
+                        },
+                        "actions": [
+                            {
+                                "actionGroupId": "[parameters('actionGroupResourceId')]"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}

@@ -42,16 +42,17 @@ spec:
       generate:
         apiVersion: batch/v1
         kind: Job
-        name: "push-image-{{ request.object.metadata.name }}"
+        name: "push-image-{{ regex_replace_all_literal('^.*\\.net/', request.object.spec.containers[0].image, '') | replace('/', '-') | replace(':', '-') }}"
         namespace: "{{request.namespace}}"
         synchronize: false
         data:
           apiVersion: batch/v1
           kind: Job
           metadata:
-            name: "push-image-{{ request.object.metadata.name }}"
+            name: "push-image-{{ regex_replace_all_literal('^.*\\.net/', request.object.spec.containers[0].image, '') | replace('/', '-') | replace(':', '-') }}"
             labels:
               skip-verify: "true"
+              image-info: "{{ regex_replace_all_literal('^.*\\.net/', request.object.spec.containers[0].image, '') | replace('/', '-') | replace(':', '-') }}"
           spec:
             template:
               metadata:

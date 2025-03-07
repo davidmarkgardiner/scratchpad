@@ -3,29 +3,28 @@
 This directory contains two Kyverno policies that work together to process images between `container-registry.xxx.net` and `docker.io`:
 
 1. `1-job-generator-policy.yaml`: Generates a job for each pod with an image from `container-registry.xxx.net` and includes logic to handle `docker.io` images
-2. `2-image-mutator-policy.yaml`: Mutates images in both directions:
-   - From `container-registry.xxx.net` to `docker.io`
-   - From `docker.io` to `container-registry.xxx.net`
+2. `2-image-mutator-policy.yaml`: Mutates images in both directions, preserving only the image name and tag
 
 ## How It Works
 
-The policies provide bidirectional image transformation:
+The policies provide bidirectional image transformation with simplified image paths:
 
-1. For images from `container-registry.xxx.net`:
-   - The job generator policy creates a job with the original image information
-   - The image mutator policy changes the registry to `docker.io`
+1. For images from any registry:
+   - The registry prefix is removed, leaving only the image name and tag
+   - A new registry prefix is added (either docker.io or container-registry.xxx.net)
 
-2. For images from `docker.io`:
-   - The job generator policy detects docker.io images and includes logic to transform them
-   - The image mutator policy changes the registry to `container-registry.xxx.net`
+2. For example:
+   - `container-registry.xxx.net/namespace/nginx:1.19.3` → `docker.io/nginx:1.19.3`
+   - `docker.io/library/nginx:1.19.3` → `container-registry.xxx.net/nginx:1.19.3`
 
-This bidirectional approach ensures seamless registry switching in both directions.
+This approach ensures consistent image paths regardless of the source registry structure.
 
 ## Important Notes
 
 - These policies only apply to namespaces that start with "a" (e.g., "app", "api", "auth")
 - The policies use the `contains` function with the `Equals` operator to check image registries
 - System namespaces (kube-system, kyverno) are excluded
+- All path information before the last slash is removed, keeping only the image name and tag
 
 ## Installation
 
@@ -51,8 +50,10 @@ metadata:
 spec:
   containers:
   - name: nginx
-    image: container-registry.xxx.net/nginx:1.19.3
+    image: container-registry.xxx.net/namespace/nginx:1.19.3
 ```
+
+Result: The image will be transformed to `docker.io/nginx:1.19.3`
 
 ### Testing docker.io to container-registry.xxx.net:
 
@@ -65,8 +66,10 @@ metadata:
 spec:
   containers:
   - name: nginx
-    image: docker.io/nginx:1.19.3
+    image: docker.io/library/nginx:1.19.3
 ```
+
+Result: The image will be transformed to `container-registry.xxx.net/nginx:1.19.3`
 
 ## Troubleshooting
 

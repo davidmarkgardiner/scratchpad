@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kyverno-cli
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kyverno-cli
+  namespace: kyverno-cli
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-cli-role
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno-cli-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-cli-role
+subjects:
+- kind: ServiceAccount
+  name: kyverno-cli
+  namespace: kyverno-cli
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno-cli
+  namespace: kyverno-cli
+  labels:
+    app: kyverno-cli
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kyverno-cli
+  template:
+    metadata:
+      labels:
+        app: kyverno-cli
+    spec:
+      serviceAccountName: kyverno-cli
+      containers:
+      - name: kyverno-cli
+        image: ghcr.io/kyverno/kyverno-cli:v1.13.0
+        imagePullPolicy: IfNotPresent
+        command: ["sleep", "infinity"]  # Keep container running
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+---
+# Example ConfigMap with a sample policy to test
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kyverno-cli-policies
+  namespace: kyverno-cli
+data:
+  disallow-latest-tag.yaml: |
+    apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    metadata:
+      name: disallow-latest-tag
+      annotations:
+        policies.kyverno.io/title: Disallow Latest Tag
+        policies.kyverno.io/category: Best Practices
+        policies.kyverno.io/severity: medium
+        policies.kyverno.io/subject: Pod
+        policies.kyverno.io/description: >-
+          The ':latest' tag is mutable and can lead to unexpected errors if the
+          image changes. A best practice is to use an immutable tag that maps to
+          a specific version of an application Pod. This policy validates that the image
+          specifies a tag and that it is not called `latest`.
+    spec:
+      validationFailureAction: audit
+      background: true
+      rules:
+      - name: require-image-tag
+        match:
+          resources:
+            kinds:
+            - Pod
+        validate:
+          message: "An image tag is required."
+          pattern:
+            spec:
+              containers:
+              - image: "*:*"
+      - name: validate-image-tag
+        match:
+          resources:
+            kinds:
+            - Pod
+        validate:
+          message: "Using a mutable image tag e.g. 'latest' is not allowed."
+          pattern:
+            spec:
+              containers:
+              - image: "!*:latest" 

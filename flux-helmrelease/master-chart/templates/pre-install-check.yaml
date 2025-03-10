@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-pre-install-check
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  template:
+    metadata:
+      name: {{ .Release.Name }}-pre-install-check
+    spec:
+      serviceAccountName: {{ .Release.Name }}-sa
+      restartPolicy: Never
+      containers:
+        - name: pre-install-check
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -e
+              
+              echo "Running pre-install checks to ensure proper deployment order..."
+              
+              # Define the deployment tiers and their dependencies
+              declare -A DEPENDENCIES
+              
+              # Tier 1: Database (no dependencies)
+              if [ "{{ .Values.database.enabled }}" == "true" ]; then
+                echo "Database is enabled - Tier 1"
+              fi
+              
+              # Tier 2: Cache (depends on database)
+              if [ "{{ .Values.cache.enabled }}" == "true" ]; then
+                echo "Cache is enabled - Tier 2"
+                if [ "{{ .Values.database.enabled }}" != "true" ]; then
+                  echo "WARNING: Cache depends on database, but database is not enabled!"
+                  # Uncomment to enforce dependency
+                  # exit 1
+                fi
+              fi
+              
+              # Tier 3: API (depends on database and cache)
+              if [ "{{ .Values.api.enabled }}" == "true" ]; then
+                echo "API is enabled - Tier 3"
+                if [ "{{ .Values.database.enabled }}" != "true" ]; then
+                  echo "WARNING: API depends on database, but database is not enabled!"
+                  # Uncomment to enforce dependency
+                  # exit 1
+                fi
+                if [ "{{ .Values.cache.enabled }}" != "true" ]; then
+                  echo "WARNING: API depends on cache, but cache is not enabled!"
+                  # Uncomment to enforce dependency
+                  # exit 1
+                fi
+              fi
+              
+              # Tier 4: Frontend (depends on API)
+              if [ "{{ .Values.frontend.enabled }}" == "true" ]; then
+                echo "Frontend is enabled - Tier 4"
+                if [ "{{ .Values.api.enabled }}" != "true" ]; then
+                  echo "WARNING: Frontend depends on API, but API is not enabled!"
+                  # Uncomment to enforce dependency
+                  # exit 1
+                fi
+              fi
+              
+              # Independent: Monitoring (no dependencies)
+              if [ "{{ .Values.monitoring.enabled }}" == "true" ]; then
+                echo "Monitoring is enabled - Independent"
+              fi
+              
+              echo "Pre-install checks completed successfully!" 

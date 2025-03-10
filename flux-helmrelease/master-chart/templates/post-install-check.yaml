@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-post-install-check
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  template:
+    metadata:
+      name: {{ .Release.Name }}-post-install-check
+    spec:
+      serviceAccountName: {{ .Release.Name }}-sa
+      restartPolicy: Never
+      containers:
+        - name: post-install-check
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -e
+              
+              echo "Checking for non-running pods..."
+              
+              # Wait for all pods to settle (give them some time to start)
+              sleep 30
+              
+              # Get all pods in the release namespace
+              NON_RUNNING_PODS=$(kubectl get pods -n {{ .Release.Namespace }} -l "app.kubernetes.io/managed-by=Helm,app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath='{range .items[?(@.status.phase!="Running")]}{.metadata.name}{"\n"}{end}')
+              
+              if [ -n "$NON_RUNNING_PODS" ]; then
+                echo "Found non-running pods:"
+                echo "$NON_RUNNING_PODS"
+                
+                # Get more details about the non-running pods
+                for POD in $NON_RUNNING_PODS; do
+                  echo "Details for $POD:"
+                  kubectl describe pod -n {{ .Release.Namespace }} $POD
+                  echo "Logs for $POD:"
+                  kubectl logs -n {{ .Release.Namespace }} $POD --tail=50 || echo "Could not get logs"
+                done
+                
+                # Check if we should attempt to fix the pods
+                if [ "{{ .Values.global.autoFixPods | default "false" }}" == "true" ]; then
+                  echo "Attempting to restart non-running pods..."
+                  for POD in $NON_RUNNING_PODS; do
+                    kubectl delete pod -n {{ .Release.Namespace }} $POD
+                    echo "Deleted pod $POD for recreation"
+                  done
+                  
+                  # Wait for pods to be recreated
+                  sleep 30
+                  
+                  # Check again
+                  STILL_NON_RUNNING=$(kubectl get pods -n {{ .Release.Namespace }} -l "app.kubernetes.io/managed-by=Helm,app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath='{range .items[?(@.status.phase!="Running")]}{.metadata.name}{"\n"}{end}')
+                  
+                  if [ -n "$STILL_NON_RUNNING" ]; then
+                    echo "Pods are still not running after restart attempt:"
+                    echo "$STILL_NON_RUNNING"
+                    exit 1
+                  else
+                    echo "All pods are now running after restart"
+                  fi
+                else
+                  # If auto-fix is disabled, just report the issue
+                  echo "Auto-fix is disabled. Please check the non-running pods manually."
+                  exit 1
+                fi
+              else
+                echo "All pods are running correctly!"
+              fi 

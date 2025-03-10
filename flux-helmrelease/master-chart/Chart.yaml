@@ -1,0 +1,39 @@
+apiVersion: v2
+name: master-chart
+description: A master Helm chart for coordinating deployment of all application charts
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: database
+    version: 0.1.0
+    repository: file://charts/database
+    condition: database.enabled
+  - name: cache
+    version: 0.1.0
+    repository: file://charts/cache
+    condition: cache.enabled
+    # Cache depends on database being ready
+    tags:
+      - tier2
+  - name: api
+    version: 0.1.0
+    repository: file://charts/api
+    condition: api.enabled
+    # API depends on both database and cache
+    tags:
+      - tier3
+  - name: frontend
+    version: 0.1.0
+    repository: file://charts/frontend
+    condition: frontend.enabled
+    # Frontend depends on API
+    tags:
+      - tier4
+  - name: monitoring
+    version: 0.1.0
+    repository: file://charts/monitoring
+    condition: monitoring.enabled
+    # Monitoring can be deployed independently
+    tags:
+      - independent 

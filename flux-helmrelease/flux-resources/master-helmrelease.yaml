@@ -1,0 +1,57 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: master-release
+  namespace: apps
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: ./master-chart
+      sourceRef:
+        kind: GitRepository
+        name: app-gitrepo
+        namespace: flux-system
+      interval: 1m
+  # Increase timeout to allow for dependencies to be ready
+  timeout: 10m
+  install:
+    remediation:
+      retries: 3
+    # Wait for resources to be ready before marking the release as successful
+    crds: CreateReplace
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+    # Clean up on failed upgrade
+    cleanupOnFail: true
+    crds: CreateReplace
+  # Values to override in the master chart
+  values:
+    global:
+      environment: production
+      clusterDomain: cluster.local
+      imageRegistry: acr.io/mycompany
+      # Enable automatic fixing of non-running pods
+      autoFixPods: true
+      imagePullSecrets:
+        - name: acr-secret
+    
+    # Enable all components
+    database:
+      enabled: true
+    
+    cache:
+      enabled: true
+    
+    api:
+      enabled: true
+      replicas: 3
+    
+    frontend:
+      enabled: true
+      replicas: 2
+    
+    monitoring:
+      enabled: true 

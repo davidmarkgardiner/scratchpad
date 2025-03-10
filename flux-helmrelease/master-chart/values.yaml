@@ -1,0 +1,96 @@
+# Global values shared across all charts
+global:
+  environment: production
+  clusterDomain: cluster.local
+  imageRegistry: acr.io/mycompany
+  imagePullSecrets:
+    - name: acr-secret
+
+# Enable/disable specific charts
+database:
+  enabled: true
+  # Database-specific values
+  image:
+    repository: postgres
+    tag: 14.5
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: 1000m
+
+cache:
+  enabled: true
+  # Cache-specific values
+  image:
+    repository: redis
+    tag: 7.0
+  persistence:
+    enabled: true
+    size: 5Gi
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+
+api:
+  enabled: true
+  # API-specific values
+  image:
+    repository: myapi
+    tag: v1.0.0
+  replicas: 3
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+  # API depends on database and cache
+  config:
+    databaseUrl: "postgresql://postgres:password@database:5432/mydb"
+    cacheUrl: "redis://cache:6379/0"
+
+frontend:
+  enabled: true
+  # Frontend-specific values
+  image:
+    repository: myfrontend
+    tag: v1.0.0
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+  # Frontend depends on API
+  config:
+    apiUrl: "http://api:8080"
+
+monitoring:
+  enabled: true
+  # Monitoring-specific values
+  image:
+    repository: prometheus
+    tag: v2.40.0
+  persistence:
+    enabled: true
+    size: 8Gi
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: 1000m 

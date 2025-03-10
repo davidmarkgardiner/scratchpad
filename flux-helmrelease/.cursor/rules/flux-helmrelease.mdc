@@ -1,0 +1,53 @@
+---
+description: flux helm release
+globs: 
+alwaysApply: false
+---
+You are tasked with creating a deployment plan for multiple Helm charts while ensuring proper order due to dependencies between applications. This task is crucial for maintaining a stable and functional deployment process. You will also need to address the issue of non-running pods after deployment.
+
+<!-- First, review the list of Helm charts and their dependencies: -->
+
+Just make up some example templates for now we can worry about actual apps later
+we use aks, gitops and flux cd
+the charts are all deployed together using master chart file and helm release.
+
+<!-- 
+<helm_charts>
+{{HELM_CHARTS}}
+</helm_charts>
+
+<dependencies>
+{{DEPENDENCIES}}
+</dependencies> -->
+
+To deploy the charts in the correct order, follow these steps:
+
+1. Analyze the dependencies between the charts.
+2. Create a deployment order based on these dependencies, ensuring that charts with no dependencies are deployed first.
+3. Use Helm's built-in dependency management features to handle inter-chart dependencies.
+
+To ensure proper ordering during deployment:
+
+1. Use the `--wait` flag with `helm install` or `helm upgrade` commands to wait for resources to be ready before proceeding.
+2. Implement pre-install and post-install hooks in your charts to control the deployment flow.
+
+Consider creating a wrapper chart that includes all the individual charts as dependencies. This approach allows you to:
+
+1. Define the correct order of deployment in the wrapper chart's `requirements.yaml` file.
+2. Use conditions in the wrapper chart to control which subcharts are installed or upgraded.
+
+To handle non-running pods after deployment:
+
+1. Create a post-install hook in your wrapper chart or individual charts that checks for non-running pods.
+2. If non-running pods are found, implement logic to delete and recreate them or trigger a rollback if necessary.
+
+Now, please provide a deployment plan for the given charts, including:
+
+1. The proposed order of deployment with justification based on the dependencies.
+2. Any additional steps or precautions to ensure a successful deployment.
+
+Present your deployment plan within <deployment_plan> tags.
+
+Finally, provide the Helm commands you would use to deploy the charts in the correct order, including any necessary flags or hooks. Present these commands within <helm_commands> tags.
+
+Remember to consider the dependencies, use appropriate wait flags, and include a mechanism to check for and handle non-running pods after deployment.

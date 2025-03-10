@@ -18,12 +18,14 @@ spec:
   install:
     remediation:
       retries: 3
+    # Explicitly handle CRDs
     crds: CreateReplace
   upgrade:
     remediation:
       retries: 3
       remediateLastFailure: true
     cleanupOnFail: true
+    # Explicitly handle CRDs during upgrades
     crds: CreateReplace
   # Only enable tier1 components
   values:
@@ -33,10 +35,19 @@ spec:
       imageRegistry: acr.io/mycompany
       imagePullSecrets:
         - name: acr-secret
+      # Enable automatic CRD installation
+      autoInstallCRDs: true
+      # Global CRDs that are required for all components
+      requiredCRDs:
+        - "ingressroutes.traefik.containo.us"
+        - "middlewares.traefik.containo.us"
     
     # Only enable database
     database:
       enabled: true
+      # Database doesn't require any CRDs
+      requiresCRDs: false
+      requiredCRDs: []
     
     # Disable other components
     cache:

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-init-container
+  namespace: app1
+spec:
+  initContainers:
+  - name: init-nginx
+    image: docker.io/busybox:1.28
+    command: ['sh', '-c', 'echo "Init container running"']
+  containers:
+  - name: nginx
+    image: docker.io/nginx:1.19.0
+  imagePullSecrets:
+  - name: "acr-secret" 

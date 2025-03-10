@@ -1,0 +1,58 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: assertions-test
+policies:
+  - tag/2-image-mutator-policy.yaml
+  - tag/5-job-generator-policy.yaml
+resources:
+  - resources/pod-container-registry.yaml
+  - resources/pod-docker-io.yaml
+  - resources/pod-my-registry.yaml
+checks:
+  # Check image-mutator policy
+  - match:
+      policy: image-mutator
+      rule: mutate-container-images
+      resource:
+        kind: Pod
+        namespace: app1
+        name: test-pod-container-registry
+    assert:
+      - path: /spec/containers/0/image
+        value: docker.io/nginx:1.19.0
+      - path: /spec/imagePullSecrets/0/name
+        value: acr-secret
+  
+  - match:
+      policy: image-mutator
+      rule: mutate-docker-images
+      resource:
+        kind: Pod
+        namespace: app1
+        name: test-pod-docker-io
+    assert:
+      - path: /spec/containers/0/image
+        value: container-registry.xxx.net/nginx:1.19.0
+      - path: /spec/imagePullSecrets/0/name
+        value: acr-secret
+  
+  # Check job-generator policy
+  - match:
+      policy: image-job-generator-v5
+      rule: generate-push-job
+      resource:
+        kind: Pod
+        namespace: default
+        name: test-pod-my-registry
+    assert:
+      - path: /metadata/name
+        value: image-push-job-nginx-1.19.0
+      - path: /metadata/labels/monitoring
+        value: "true"
+      - path: /metadata/labels/job-type
+        value: image-push
+      - path: /spec/template/spec/containers/0/env/2/name
+        value: ORIGINAL_IMAGE
+      - path: /spec/template/spec/containers/0/env/2/value
+        value: my.registry.com/nginx:1.19.0 

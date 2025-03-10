@@ -1,0 +1,93 @@
+
+Applying 4 policy rule(s) to 4 resource(s)...
+
+policy image-mutator applied to app1/Pod/test-pod-container-registry:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-container-registry
+  namespace: app1
+spec:
+  containers:
+  - image: container-registry.xxx.net/nginx:1.19.0
+    name: nginx
+  imagePullSecrets:
+  - name: acr-secret
+
+---
+
+
+Mutation:
+Mutation has been applied successfully.
+policy image-mutator applied to app1/Pod/test-pod-docker-io:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-docker-io
+  namespace: app1
+spec:
+  containers:
+  - image: container-registry.xxx.net/nginx:1.19.0
+    name: nginx
+  imagePullSecrets:
+  - name: acr-secret
+
+---
+
+
+Mutation:
+Mutation has been applied successfully.
+policy image-mutator applied to app1/Pod/test-pod-skip-verify:
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    skip-verify: "true"
+  name: test-pod-skip-verify
+  namespace: app1
+spec:
+  containers:
+  - image: container-registry.xxx.net/nginx:1.19.0
+    name: nginx
+
+---
+
+
+Mutation:
+Mutation has been applied successfully.
+policy image-mutator applied to app1/Pod/test-pod-init-container:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-init-container
+  namespace: app1
+spec:
+  containers:
+  - image: container-registry.xxx.net/nginx:1.19.0
+    name: nginx
+  imagePullSecrets:
+  - name: acr-secret
+  initContainers:
+  - command:
+    - sh
+    - -c
+    - echo "Init container running"
+    image: container-registry.xxx.net/busybox:1.28
+    name: init-nginx
+
+---
+
+
+Mutation:
+Mutation has been applied successfully.
+skipped mutate policy image-mutator -> resource app1/Pod/test-pod-container-registry
+
+skipped mutate policy image-mutator -> resource app1/Pod/test-pod-container-registry
+
+skipped mutate policy image-mutator -> resource app1/Pod/test-pod-docker-io
+
+skipped mutate policy image-mutator -> resource app1/Pod/test-pod-docker-io
+
+skipped mutate policy image-mutator -> resource app1/Pod/test-pod-docker-io
+
+pass: 7, fail: 0, warn: 0, error: 0, skip: 5 

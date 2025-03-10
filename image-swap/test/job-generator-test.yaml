@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: job-generator-test
+policies:
+  - tag/5-job-generator-policy.yaml
+resources:
+  - resources/pod-my-registry.yaml
+  - resources/pod-skip-verify.yaml
+results:
+  - policy: image-job-generator-v5
+    rule: generate-push-job
+    resources:
+      - default/Pod/test-pod-my-registry
+    generatedResource: resources/generated-job.yaml
+    result: pass
+  
+  - policy: image-job-generator-v5
+    rule: generate-push-job
+    resources:
+      - app1/Pod/test-pod-skip-verify
+    result: skip 

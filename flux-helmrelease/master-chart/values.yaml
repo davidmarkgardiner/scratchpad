@@ -5,6 +5,14 @@ global:
   imageRegistry: acr.io/mycompany
   imagePullSecrets:
     - name: acr-secret
+  # Enable automatic fixing of non-running pods
+  autoFixPods: true
+  # Enable automatic installation of missing CRDs
+  autoInstallCRDs: true
+  # Global CRDs that are required for all components
+  requiredCRDs:
+    - "ingressroutes.traefik.containo.us"
+    - "middlewares.traefik.containo.us"
 
 # Enable/disable specific charts
 database:
@@ -23,6 +31,9 @@ database:
     limits:
       memory: 2Gi
       cpu: 1000m
+  # CRDs required by the database component
+  requiresCRDs: false
+  requiredCRDs: []
 
 cache:
   enabled: true
@@ -40,6 +51,9 @@ cache:
     limits:
       memory: 1Gi
       cpu: 500m
+  # CRDs required by the cache component
+  requiresCRDs: false
+  requiredCRDs: []
 
 api:
   enabled: true
@@ -59,6 +73,11 @@ api:
   config:
     databaseUrl: "postgresql://postgres:password@database:5432/mydb"
     cacheUrl: "redis://cache:6379/0"
+  # CRDs required by the API component
+  requiresCRDs: true
+  requiredCRDs:
+    - "apirequests.myapi.example.com"
+    - "apiconfigs.myapi.example.com"
 
 frontend:
   enabled: true
@@ -77,6 +96,9 @@ frontend:
   # Frontend depends on API
   config:
     apiUrl: "http://api:8080"
+  # CRDs required by the frontend component
+  requiresCRDs: false
+  requiredCRDs: []
 
 monitoring:
   enabled: true
@@ -93,4 +115,12 @@ monitoring:
       cpu: 500m
     limits:
       memory: 2Gi
-      cpu: 1000m 
+      cpu: 1000m
+  # CRDs required by the monitoring component
+  requiresCRDs: true
+  requiredCRDs:
+    - "prometheuses.monitoring.coreos.com"
+    - "servicemonitors.monitoring.coreos.com"
+    - "podmonitors.monitoring.coreos.com"
+    - "alertmanagers.monitoring.coreos.com"
+    - "prometheusrules.monitoring.coreos.com" 

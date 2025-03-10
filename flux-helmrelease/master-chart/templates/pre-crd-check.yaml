@@ -1,0 +1,165 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-pre-crd-check
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"  # Run before the pre-install-check
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  template:
+    metadata:
+      name: {{ .Release.Name }}-pre-crd-check
+    spec:
+      serviceAccountName: {{ .Release.Name }}-sa
+      restartPolicy: Never
+      containers:
+        - name: pre-crd-check
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -e
+              
+              echo "Checking for required CRDs before installation..."
+              
+              # Define required CRDs based on enabled components
+              declare -a REQUIRED_CRDS=()
+              
+              # Database CRDs
+              if [ "{{ .Values.database.enabled }}" == "true" ]; then
+                # Add any CRDs required by the database component
+                {{- if .Values.database.requiresCRDs }}
+                REQUIRED_CRDS+=(
+                  {{- range .Values.database.requiredCRDs }}
+                  "{{ . }}"
+                  {{- end }}
+                )
+                {{- end }}
+              fi
+              
+              # Cache CRDs
+              if [ "{{ .Values.cache.enabled }}" == "true" ]; then
+                # Add any CRDs required by the cache component
+                {{- if .Values.cache.requiresCRDs }}
+                REQUIRED_CRDS+=(
+                  {{- range .Values.cache.requiredCRDs }}
+                  "{{ . }}"
+                  {{- end }}
+                )
+                {{- end }}
+              fi
+              
+              # API CRDs
+              if [ "{{ .Values.api.enabled }}" == "true" ]; then
+                # Add any CRDs required by the API component
+                {{- if .Values.api.requiresCRDs }}
+                REQUIRED_CRDS+=(
+                  {{- range .Values.api.requiredCRDs }}
+                  "{{ . }}"
+                  {{- end }}
+                )
+                {{- end }}
+              fi
+              
+              # Frontend CRDs
+              if [ "{{ .Values.frontend.enabled }}" == "true" ]; then
+                # Add any CRDs required by the frontend component
+                {{- if .Values.frontend.requiresCRDs }}
+                REQUIRED_CRDS+=(
+                  {{- range .Values.frontend.requiredCRDs }}
+                  "{{ . }}"
+                  {{- end }}
+                )
+                {{- end }}
+              fi
+              
+              # Monitoring CRDs
+              if [ "{{ .Values.monitoring.enabled }}" == "true" ]; then
+                # Add monitoring CRDs - these are commonly required
+                REQUIRED_CRDS+=(
+                  "prometheuses.monitoring.coreos.com"
+                  "servicemonitors.monitoring.coreos.com"
+                  "podmonitors.monitoring.coreos.com"
+                  "alertmanagers.monitoring.coreos.com"
+                  "prometheusrules.monitoring.coreos.com"
+                )
+              fi
+              
+              # Add any global CRDs that are always required
+              {{- if .Values.global.requiredCRDs }}
+              REQUIRED_CRDS+=(
+                {{- range .Values.global.requiredCRDs }}
+                "{{ . }}"
+                {{- end }}
+              )
+              {{- end }}
+              
+              # Check if CRDs exist
+              MISSING_CRDS=()
+              for CRD in "${REQUIRED_CRDS[@]}"; do
+                echo "Checking for CRD: $CRD"
+                if ! kubectl get crd "$CRD" &>/dev/null; then
+                  MISSING_CRDS+=("$CRD")
+                  echo "CRD $CRD is missing!"
+                else
+                  echo "CRD $CRD exists."
+                fi
+              done
+              
+              # If there are missing CRDs, fail the installation
+              if [ ${#MISSING_CRDS[@]} -gt 0 ]; then
+                echo "ERROR: The following required CRDs are missing:"
+                for CRD in "${MISSING_CRDS[@]}"; do
+                  echo "  - $CRD"
+                done
+                
+                # Check if we should auto-install CRDs
+                if [ "{{ .Values.global.autoInstallCRDs | default "false" }}" == "true" ]; then
+                  echo "Auto-install of CRDs is enabled. Attempting to install missing CRDs..."
+                  
+                  # This is where you would add logic to install the CRDs
+                  # For example, applying CRD manifests from a ConfigMap or from the chart
+                  
+                  # For Prometheus Operator CRDs
+                  if [[ " ${MISSING_CRDS[*]} " =~ "prometheuses.monitoring.coreos.com" ]]; then
+                    echo "Installing Prometheus Operator CRDs..."
+                    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_prometheuses.yaml
+                    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+                    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
+                    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagers.yaml
+                    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_prometheusrules.yaml
+                  fi
+                  
+                  # Wait for CRDs to be established
+                  echo "Waiting for CRDs to be established..."
+                  sleep 10
+                  
+                  # Check again
+                  STILL_MISSING=()
+                  for CRD in "${MISSING_CRDS[@]}"; do
+                    if ! kubectl get crd "$CRD" &>/dev/null; then
+                      STILL_MISSING+=("$CRD")
+                    fi
+                  done
+                  
+                  if [ ${#STILL_MISSING[@]} -gt 0 ]; then
+                    echo "ERROR: The following CRDs are still missing after auto-install attempt:"
+                    for CRD in "${STILL_MISSING[@]}"; do
+                      echo "  - $CRD"
+                    done
+                    echo "Installation cannot proceed. Please install the missing CRDs manually."
+                    exit 1
+                  else
+                    echo "All required CRDs are now available."
+                  fi
+                else
+                  echo "Installation cannot proceed. Please install the missing CRDs first."
+                  echo "You can enable auto-installation by setting global.autoInstallCRDs=true"
+                  exit 1
+                fi
+              else
+                echo "All required CRDs are available. Installation can proceed."
+              fi 

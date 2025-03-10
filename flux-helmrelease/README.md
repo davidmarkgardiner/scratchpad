@@ -79,12 +79,35 @@ tier1-database → tier2-cache → tier3-api → tier4-frontend
 
 Monitoring has no dependencies and can deploy in parallel.
 
+### CRD Management
+
+The deployment includes a pre-install hook that checks for required CRDs before installation:
+
+1. Each component can specify required CRDs in the values.yaml file
+2. The pre-install hook checks if these CRDs exist in the cluster
+3. If CRDs are missing, the hook can either:
+   - Fail the installation (default)
+   - Automatically install the missing CRDs (if `global.autoInstallCRDs=true`)
+
+This ensures that all necessary CRDs are available before the Helm charts are installed, preventing errors during deployment.
+
+Example CRD configuration in values.yaml:
+
+```yaml
+api:
+  requiresCRDs: true
+  requiredCRDs:
+    - "apirequests.myapi.example.com"
+    - "apiconfigs.myapi.example.com"
+```
+
 ### Deployment Hooks
 
-The deployment includes two important hooks:
+The deployment includes several important hooks:
 
-1. **Pre-install Hook**: Verifies that dependencies are properly configured before installation
-2. **Post-install Hook**: Checks for non-running pods after deployment and can automatically fix issues
+1. **Pre-CRD Check**: Verifies that all required CRDs exist before installation
+2. **Pre-install Hook**: Verifies that dependencies are properly configured
+3. **Post-install Hook**: Checks for non-running pods after deployment and can automatically fix issues
 
 ## Handling Non-Running Pods
 
@@ -115,6 +138,9 @@ flux get helmreleases -n apps
 # Check the status of the pods
 kubectl get pods -n apps
 
+# View logs from the pre-CRD check
+kubectl logs -n apps job/tier1-database-pre-crd-check
+
 # View logs from the post-install check
 kubectl logs -n apps job/tier1-database-post-install-check
 </helm_commands>
@@ -123,18 +149,23 @@ kubectl logs -n apps job/tier1-database-post-install-check
 
 If pods are not running correctly after deployment:
 
-1. Check the logs of the post-install hook:
+1. Check the logs of the pre-CRD check:
+   ```
+   kubectl logs -n apps job/tier1-database-pre-crd-check
+   ```
+
+2. Check the logs of the post-install hook:
    ```
    kubectl logs -n apps job/tier1-database-post-install-check
    ```
 
-2. Manually inspect problematic pods:
+3. Manually inspect problematic pods:
    ```
    kubectl describe pod -n apps <pod-name>
    kubectl logs -n apps <pod-name>
    ```
 
-3. If needed, manually trigger a reconciliation:
+4. If needed, manually trigger a reconciliation:
    ```
    flux reconcile helmrelease tier1-database -n apps
    

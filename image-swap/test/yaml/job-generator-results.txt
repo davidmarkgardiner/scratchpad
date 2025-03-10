@@ -1,0 +1,72 @@
+
+Applying 1 policy rule(s) to 2 resource(s)...
+
+policy image-job-generator-v5 applied to default/Pod/test-pod-my-registry:
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+    generate.kyverno.io/policy-name: image-job-generator-v5
+    generate.kyverno.io/policy-namespace: ""
+    generate.kyverno.io/rule-name: generate-push-job
+    generate.kyverno.io/trigger-group: ""
+    generate.kyverno.io/trigger-kind: Pod
+    generate.kyverno.io/trigger-namespace: default
+    generate.kyverno.io/trigger-uid: ""
+    generate.kyverno.io/trigger-version: v1
+    generator: kyverno-policy-v5
+    image-info: nginx-1.19.0
+    job-type: image-push
+    monitoring: "true"
+    skip-verify: "true"
+  name: image-push-job-nginx-1.19.0
+  namespace: default
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        job-type: image-push
+        monitoring: "true"
+        skip-verify: "true"
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - "echo \"Job processing image information for pod $POD_NAME in namespace
+          $POD_NAMESPACE\"\necho \"ORIGINAL_IMAGE: $ORIGINAL_IMAGE\"\necho \"IMAGE_INFO:
+          $IMAGE_INFO\"\necho \"IMAGE_ID: $IMAGE_ID\"\n\n# Extract just the image/version
+          part by removing anything before the first slash\nPURE_IMAGE=$(echo \"$ORIGINAL_IMAGE\"
+          | sed 's|^[^/]*/||')\necho \"Pure image/version: $PURE_IMAGE\"\n\n# Check
+          if the image is from docker.io and change it to my.registry.com\nif [[ $ORIGINAL_IMAGE
+          == docker.io/* ]]; then\n  # Extract everything after docker.io/\n  IMAGE_PATH=\"${ORIGINAL_IMAGE#docker.io/}\"\n
+          \ NEW_IMAGE=\"my.registry.com/$IMAGE_PATH\"\n  echo \"Image is from docker.io,
+          changing to: $NEW_IMAGE\"\n  \n  # Here you could add code to push the image
+          to my.registry.com\n  # For example:\n  # az acr login --name myregistry\n
+          \ # docker pull $ORIGINAL_IMAGE\n  # docker tag $ORIGINAL_IMAGE $NEW_IMAGE\n
+          \ # docker push $NEW_IMAGE\n  \n  echo \"Image transformation complete\"\nelse\n
+          \ echo \"Performing actions based on image information...\"\nfi\n\nsleep
+          30\n"
+        env:
+        - name: POD_NAME
+          value: test-pod-my-registry
+        - name: POD_NAMESPACE
+          value: default
+        - name: ORIGINAL_IMAGE
+          value: my.registry.com/nginx:1.19.0
+        - name: IMAGE_INFO
+          value: nginx:1.19.0
+        - name: IMAGE_ID
+          value: nginx-1.19.0
+        image: mcr.microsoft.com/azure-cli
+        name: push-image
+      restartPolicy: Never
+
+---
+
+
+Generate:
+Generation completed successfully.
+pass: 1, fail: 0, warn: 0, error: 0, skip: 0 

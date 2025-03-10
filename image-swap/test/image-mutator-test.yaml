@@ -1,0 +1,38 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: image-mutator-test
+policies:
+  - tag/2-image-mutator-policy.yaml
+resources:
+  - resources/pod-container-registry.yaml
+  - resources/pod-docker-io.yaml
+  - resources/pod-skip-verify.yaml
+  - resources/pod-init-container.yaml
+results:
+  - policy: image-mutator
+    rule: mutate-container-images
+    resources:
+      - app1/Pod/test-pod-container-registry
+    patchedResources: resources/patched-pod-container-registry.yaml
+    result: pass
+  
+  - policy: image-mutator
+    rule: mutate-container-images
+    resources:
+      - app1/Pod/test-pod-skip-verify
+    result: skip
+  
+  - policy: image-mutator
+    rule: mutate-docker-images
+    resources:
+      - app1/Pod/test-pod-docker-io
+    patchedResources: resources/patched-pod-docker-io.yaml
+    result: pass
+  
+  - policy: image-mutator
+    rule: mutate-init-container-images
+    resources:
+      - app1/Pod/test-pod-init-container
+    patchedResources: resources/patched-pod-init-container.yaml
+    result: pass 

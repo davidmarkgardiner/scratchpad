@@ -4,11 +4,11 @@ This repository contains a deployment plan for multiple Helm charts using Flux C
 
 ## Deployment Architecture
 
-The deployment uses a master Helm chart that includes all individual application charts as dependencies. This approach allows for:
+The deployment uses a tiered approach with multiple Flux HelmReleases to ensure strict ordering of deployments:
 
-1. Proper ordering of deployments based on dependencies
-2. Centralized configuration management
-3. Simplified GitOps workflow with Flux CD
+1. Each tier has its own HelmRelease that explicitly depends on the previous tier
+2. Flux will not start deploying a tier until all the HelmReleases it depends on are ready
+3. This guarantees that tier4 (frontend) will never deploy before tier1 (database) is fully ready
 
 ## Deployment Plan
 
@@ -44,16 +44,40 @@ The deployment follows a tiered approach based on dependencies:
 ### Master Chart
 
 The master chart (`master-chart/`) contains:
-- Dependencies configuration in `Chart.yaml`
+- All application components as subcharts
 - Global and component-specific values in `values.yaml`
-- Pre-install and post-install hooks to ensure proper ordering and verify deployment health
+- Pre-install and post-install hooks to verify deployment health
 
 ### Flux Resources
 
 The Flux resources (`flux-resources/`) include:
 - `GitRepository` to track the Git repository containing the charts
-- `HelmRelease` to deploy the master chart with proper configuration
+- Multiple `HelmRelease` resources, one for each tier:
+  - `tier1-helmrelease.yaml`: Deploys the database
+  - `tier2-helmrelease.yaml`: Deploys the cache (depends on tier1)
+  - `tier3-helmrelease.yaml`: Deploys the API (depends on tier2)
+  - `tier4-helmrelease.yaml`: Deploys the frontend (depends on tier3)
+  - `monitoring-helmrelease.yaml`: Deploys monitoring (independent)
 - Namespace definition and Kustomization file
+
+### Strict Ordering with Flux
+
+The key to ensuring strict ordering is the `dependsOn` field in the HelmRelease resources:
+
+```yaml
+# Example from tier2-helmrelease.yaml
+spec:
+  dependsOn:
+    - name: tier1-database
+```
+
+This tells Flux to wait until the tier1-database HelmRelease is fully reconciled and ready before starting to deploy tier2. This creates a strict dependency chain:
+
+```
+tier1-database → tier2-cache → tier3-api → tier4-frontend
+```
+
+Monitoring has no dependencies and can deploy in parallel.
 
 ### Deployment Hooks
 
@@ -86,13 +110,13 @@ kubectl apply -k flux-resources/
 
 # Monitor the deployment
 flux get helmreleases -A
-flux get helmreleases master-release -n apps
+flux get helmreleases -n apps
 
 # Check the status of the pods
 kubectl get pods -n apps
 
 # View logs from the post-install check
-kubectl logs -n apps job/master-release-post-install-check
+kubectl logs -n apps job/tier1-database-post-install-check
 </helm_commands>
 
 ## Troubleshooting
@@ -101,7 +125,7 @@ If pods are not running correctly after deployment:
 
 1. Check the logs of the post-install hook:
    ```
-   kubectl logs -n apps job/master-release-post-install-check
+   kubectl logs -n apps job/tier1-database-post-install-check
    ```
 
 2. Manually inspect problematic pods:
@@ -112,5 +136,5 @@ If pods are not running correctly after deployment:
 
 3. If needed, manually trigger a reconciliation:
    ```
-   flux reconcile helmrelease master-release -n apps
+   flux reconcile helmrelease tier1-database -n apps
    

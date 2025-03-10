@@ -1,0 +1,49 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: monitoring
+  namespace: apps
+spec:
+  interval: 5m
+  # No dependencies - can run in parallel with other tiers
+  chart:
+    spec:
+      chart: ./master-chart
+      sourceRef:
+        kind: GitRepository
+        name: app-gitrepo
+        namespace: flux-system
+      interval: 1m
+  timeout: 5m
+  install:
+    remediation:
+      retries: 3
+    crds: CreateReplace
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+    cleanupOnFail: true
+    crds: CreateReplace
+  # Only enable monitoring components
+  values:
+    global:
+      environment: production
+      clusterDomain: cluster.local
+      imageRegistry: acr.io/mycompany
+      imagePullSecrets:
+        - name: acr-secret
+    
+    # Disable all application tiers
+    database:
+      enabled: false
+    cache:
+      enabled: false
+    api:
+      enabled: false
+    frontend:
+      enabled: false
+    
+    # Enable monitoring
+    monitoring:
+      enabled: true 

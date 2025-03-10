@@ -1,0 +1,49 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: tier1-database
+  namespace: apps
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: ./master-chart
+      sourceRef:
+        kind: GitRepository
+        name: app-gitrepo
+        namespace: flux-system
+      interval: 1m
+  # Increase timeout to allow for resources to be ready
+  timeout: 5m
+  install:
+    remediation:
+      retries: 3
+    crds: CreateReplace
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+    cleanupOnFail: true
+    crds: CreateReplace
+  # Only enable tier1 components
+  values:
+    global:
+      environment: production
+      clusterDomain: cluster.local
+      imageRegistry: acr.io/mycompany
+      imagePullSecrets:
+        - name: acr-secret
+    
+    # Only enable database
+    database:
+      enabled: true
+    
+    # Disable other components
+    cache:
+      enabled: false
+    api:
+      enabled: false
+    frontend:
+      enabled: false
+    monitoring:
+      enabled: false 

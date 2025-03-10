@@ -1,0 +1,54 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: tier4-frontend
+  namespace: apps
+spec:
+  interval: 5m
+  # Depend on tier3
+  dependsOn:
+    - name: tier3-api
+  chart:
+    spec:
+      chart: ./master-chart
+      sourceRef:
+        kind: GitRepository
+        name: app-gitrepo
+        namespace: flux-system
+      interval: 1m
+  timeout: 5m
+  install:
+    remediation:
+      retries: 3
+    crds: CreateReplace
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+    cleanupOnFail: true
+    crds: CreateReplace
+  # Only enable tier4 components
+  values:
+    global:
+      environment: production
+      clusterDomain: cluster.local
+      imageRegistry: acr.io/mycompany
+      imagePullSecrets:
+        - name: acr-secret
+    
+    # Lower tiers already deployed
+    database:
+      enabled: false
+    cache:
+      enabled: false
+    api:
+      enabled: false
+    
+    # Enable frontend
+    frontend:
+      enabled: true
+      replicas: 2
+    
+    # Monitoring is independent
+    monitoring:
+      enabled: false 

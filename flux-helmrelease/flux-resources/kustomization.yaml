@@ -7,4 +7,5 @@ resources:
   - tier2-helmrelease.yaml
   - tier3-helmrelease.yaml
   - tier4-helmrelease.yaml
-  - monitoring-helmrelease.yaml 
+  - monitoring-helmrelease.yaml
+  - kyverno-helmrelease.yaml 

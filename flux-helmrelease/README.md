@@ -37,6 +37,8 @@ The deployment follows a tiered approach based on dependencies:
 ### Independent Services
 - **Monitoring**: Prometheus monitoring stack
   - No strict dependencies, can be deployed in parallel
+- **Kyverno**: Policy engine for Kubernetes
+  - No strict dependencies, can be deployed in parallel
 </deployment_plan>
 
 ## Implementation Details
@@ -58,6 +60,7 @@ The Flux resources (`flux-resources/`) include:
   - `tier3-helmrelease.yaml`: Deploys the API (depends on tier2)
   - `tier4-helmrelease.yaml`: Deploys the frontend (depends on tier3)
   - `monitoring-helmrelease.yaml`: Deploys monitoring (independent)
+  - `kyverno-helmrelease.yaml`: Deploys Kyverno policy engine (independent)
 - Namespace definition and Kustomization file
 
 ### Strict Ordering with Flux
@@ -77,37 +80,66 @@ This tells Flux to wait until the tier1-database HelmRelease is fully reconciled
 tier1-database → tier2-cache → tier3-api → tier4-frontend
 ```
 
-Monitoring has no dependencies and can deploy in parallel.
+Monitoring and Kyverno have no dependencies and can deploy in parallel.
 
 ### CRD Management
 
-The deployment includes a pre-install hook that checks for required CRDs before installation:
+The deployment includes pre-install hooks that check for required CRDs before installation:
 
-1. Each component can specify required CRDs in the values.yaml file
-2. The pre-install hook checks if these CRDs exist in the cluster
-3. If CRDs are missing, the hook can either:
-   - Fail the installation (default)
-   - Automatically install the missing CRDs (if `global.autoInstallCRDs=true`)
+1. **General CRD Check**: Verifies CRDs for most components
+2. **Kyverno-specific CRD Check**: Dedicated check for Kyverno CRDs
+
+Each component can specify its required CRDs in the values.yaml file. The pre-install hooks check if these CRDs exist in the cluster. If CRDs are missing, the hooks can either:
+- Fail the installation (default)
+- Automatically install the missing CRDs (if `global.autoInstallCRDs=true`)
 
 This ensures that all necessary CRDs are available before the Helm charts are installed, preventing errors during deployment.
+
+The deployment checks for the following CRDs:
+
+#### Prometheus CRDs (via pre-crd-check.yaml)
+```
+prometheuses.monitoring.coreos.com
+servicemonitors.monitoring.coreos.com
+podmonitors.monitoring.coreos.com
+alertmanagers.monitoring.coreos.com
+prometheusrules.monitoring.coreos.com
+```
+
+#### Kyverno CRDs (via kyverno-crd-check.yaml)
+```
+admissionreports.kyverno.io
+backgroundscanreports.kyverno.io
+cleanuppolicies.kyverno.io
+clusteradmissionreports.kyverno.io
+clusterbackgroundscanreports.kyverno.io
+clustercleanuppolicies.kyverno.io
+clusterpolicies.kyverno.io
+policies.kyverno.io
+policyexceptions.kyverno.io
+updaterequests.kyverno.io
+```
 
 Example CRD configuration in values.yaml:
 
 ```yaml
-api:
+kyverno:
   requiresCRDs: true
   requiredCRDs:
-    - "apirequests.myapi.example.com"
-    - "apiconfigs.myapi.example.com"
+    - "admissionreports.kyverno.io"
+    - "backgroundscanreports.kyverno.io"
+    - "cleanuppolicies.kyverno.io"
+    # ... and more
 ```
 
 ### Deployment Hooks
 
 The deployment includes several important hooks:
 
-1. **Pre-CRD Check**: Verifies that all required CRDs exist before installation
-2. **Pre-install Hook**: Verifies that dependencies are properly configured
-3. **Post-install Hook**: Checks for non-running pods after deployment and can automatically fix issues
+1. **Pre-CRD Check**: Verifies that general CRDs exist before installation
+2. **Kyverno CRD Check**: Dedicated check for Kyverno CRDs
+3. **Pre-install Hook**: Verifies that dependencies are properly configured
+4. **Post-install Hook**: Checks for non-running pods after deployment and can automatically fix issues
 
 ## Handling Non-Running Pods
 
@@ -141,8 +173,14 @@ kubectl get pods -n apps
 # View logs from the pre-CRD check
 kubectl logs -n apps job/tier1-database-pre-crd-check
 
+# View logs from the Kyverno CRD check
+kubectl logs -n apps job/kyverno-kyverno-crd-check
+
 # View logs from the post-install check
 kubectl logs -n apps job/tier1-database-post-install-check
+
+# Check if Kyverno CRDs are installed
+kubectl get crd | grep kyverno
 </helm_commands>
 
 ## Troubleshooting
@@ -154,18 +192,28 @@ If pods are not running correctly after deployment:
    kubectl logs -n apps job/tier1-database-pre-crd-check
    ```
 
-2. Check the logs of the post-install hook:
+2. Check the logs of the Kyverno CRD check:
+   ```
+   kubectl logs -n apps job/kyverno-kyverno-crd-check
+   ```
+
+3. Check the logs of the post-install hook:
    ```
    kubectl logs -n apps job/tier1-database-post-install-check
    ```
 
-3. Manually inspect problematic pods:
+4. Manually inspect problematic pods:
    ```
    kubectl describe pod -n apps <pod-name>
    kubectl logs -n apps <pod-name>
    ```
 
-4. If needed, manually trigger a reconciliation:
+5. If needed, manually trigger a reconciliation:
    ```
    flux reconcile helmrelease tier1-database -n apps
+   ```
+
+6. If Kyverno CRDs are missing, you can install them manually:
+   ```
+   kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/install.yaml
    

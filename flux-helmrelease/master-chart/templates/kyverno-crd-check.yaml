@@ -1,0 +1,107 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-kyverno-crd-check
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  template:
+    metadata:
+      name: {{ .Release.Name }}-kyverno-crd-check
+    spec:
+      serviceAccountName: {{ .Release.Name }}-sa
+      restartPolicy: Never
+      containers:
+        - name: kyverno-crd-check
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -e
+              
+              echo "Checking for required Kyverno CRDs before installation..."
+              
+              # Define Kyverno CRDs
+              KYVERNO_CRDS=(
+                "admissionreports.kyverno.io"
+                "backgroundscanreports.kyverno.io"
+                "cleanuppolicies.kyverno.io"
+                "clusteradmissionreports.kyverno.io"
+                "clusterbackgroundscanreports.kyverno.io"
+                "clustercleanuppolicies.kyverno.io"
+                "clusterpolicies.kyverno.io"
+                "policies.kyverno.io"
+                "policyexceptions.kyverno.io"
+                "updaterequests.kyverno.io"
+              )
+              
+              # Check if CRDs exist
+              MISSING_CRDS=()
+              for CRD in "${KYVERNO_CRDS[@]}"; do
+                echo "Checking for Kyverno CRD: $CRD"
+                if ! kubectl get crd "$CRD" &>/dev/null; then
+                  MISSING_CRDS+=("$CRD")
+                  echo "CRD $CRD is missing!"
+                else
+                  echo "CRD $CRD exists."
+                fi
+              done
+              
+              # If there are missing CRDs, fail the installation
+              if [ ${#MISSING_CRDS[@]} -gt 0 ]; then
+                echo "ERROR: The following Kyverno CRDs are missing:"
+                for CRD in "${MISSING_CRDS[@]}"; do
+                  echo "  - $CRD"
+                done
+                
+                # Check if we should auto-install CRDs
+                if [ "{{ .Values.global.autoInstallCRDs | default "false" }}" == "true" ]; then
+                  echo "Auto-install of CRDs is enabled. Attempting to install missing Kyverno CRDs..."
+                  
+                  # Install Kyverno CRDs
+                  echo "Installing Kyverno CRDs..."
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_admissionreports.yaml
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_backgroundscanreports.yaml
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_cleanuppolicies.yaml
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_clusteradmissionreports.yaml
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_clusterbackgroundscanreports.yaml
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_clustercleanuppolicies.yaml
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_clusterpolicies.yaml
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_policies.yaml
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_policyexceptions.yaml
+                  kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/crds/kyverno.io_updaterequests.yaml
+                  
+                  # Wait for CRDs to be established
+                  echo "Waiting for Kyverno CRDs to be established..."
+                  sleep 10
+                  
+                  # Check again
+                  STILL_MISSING=()
+                  for CRD in "${MISSING_CRDS[@]}"; do
+                    if ! kubectl get crd "$CRD" &>/dev/null; then
+                      STILL_MISSING+=("$CRD")
+                    fi
+                  done
+                  
+                  if [ ${#STILL_MISSING[@]} -gt 0 ]; then
+                    echo "ERROR: The following Kyverno CRDs are still missing after auto-install attempt:"
+                    for CRD in "${STILL_MISSING[@]}"; do
+                      echo "  - $CRD"
+                    done
+                    echo "Installation cannot proceed. Please install the missing Kyverno CRDs manually."
+                    exit 1
+                  else
+                    echo "All Kyverno CRDs are now available."
+                  fi
+                else
+                  echo "Installation cannot proceed. Please install the missing Kyverno CRDs first."
+                  echo "You can enable auto-installation by setting global.autoInstallCRDs=true"
+                  exit 1
+                fi
+              else
+                echo "All Kyverno CRDs are available. Installation can proceed."
+              fi 

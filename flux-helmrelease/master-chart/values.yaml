@@ -123,4 +123,32 @@ monitoring:
     - "servicemonitors.monitoring.coreos.com"
     - "podmonitors.monitoring.coreos.com"
     - "alertmanagers.monitoring.coreos.com"
-    - "prometheusrules.monitoring.coreos.com" 
+    - "prometheusrules.monitoring.coreos.com"
+
+# Kyverno policy engine configuration
+kyverno:
+  enabled: true
+  # Kyverno-specific values
+  image:
+    repository: ghcr.io/kyverno/kyverno
+    tag: v1.10.0
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+  # CRDs required by Kyverno
+  requiresCRDs: true
+  requiredCRDs:
+    - "admissionreports.kyverno.io"
+    - "backgroundscanreports.kyverno.io"
+    - "cleanuppolicies.kyverno.io"
+    - "clusteradmissionreports.kyverno.io"
+    - "clusterbackgroundscanreports.kyverno.io"
+    - "clustercleanuppolicies.kyverno.io"
+    - "clusterpolicies.kyverno.io"
+    - "policies.kyverno.io"
+    - "policyexceptions.kyverno.io"
+    - "updaterequests.kyverno.io" 

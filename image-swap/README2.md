@@ -28,8 +28,7 @@ This repository contains Kyverno policies that are deployed using Flux GitOps ac
 │       │       ├── policy-mode-audit.yaml
 │       │       ├── resource-limits-values.yaml
 │       │       ├── istio-revision-label.yaml
-│       │       ├── image-registry-settings.yaml
-│       │       └── spot-affinity-settings.yaml
+│       │       
 │       │
 │       ├── dev/               # Development environment
 │       │   ├── kustomization.yaml
@@ -38,8 +37,7 @@ This repository contains Kyverno policies that are deployed using Flux GitOps ac
 │       │       ├── policy-mode-audit.yaml
 │       │       ├── resource-limits-values.yaml
 │       │       ├── istio-revision-label.yaml
-│       │       ├── image-registry-settings.yaml
-│       │       └── spot-affinity-settings.yaml
+│       │       
 │       │
 │       ├── preprod/           # Pre-production environment
 │       │   ├── kustomization.yaml
@@ -48,8 +46,7 @@ This repository contains Kyverno policies that are deployed using Flux GitOps ac
 │       │       ├── policy-mode-audit.yaml
 │       │       ├── resource-limits-values.yaml
 │       │       ├── istio-revision-label.yaml
-│       │       ├── image-registry-settings.yaml
-│       │       └── spot-affinity-settings.yaml
+│       │       
 │       │
 │       └── prod/              # Production environment
 │           ├── kustomization.yaml
@@ -57,8 +54,7 @@ This repository contains Kyverno policies that are deployed using Flux GitOps ac
 │               ├── policy-mode-enforce.yaml
 │               ├── resource-limits-values.yaml
 │               ├── istio-revision-label.yaml
-│               ├── image-registry-settings.yaml
-│               └── spot-affinity-settings.yaml
+│               
 │
 └── test/                      # Test configuration
     ├── flux-gitops-test.yaml  # Test for Flux GitOps deployment

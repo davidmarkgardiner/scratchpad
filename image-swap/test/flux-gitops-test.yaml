@@ -1,0 +1,66 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: flux-gitops-policies-test
+policies:
+  - resource-limits-policy.yaml
+  - prevent-istio-injection-policy.yaml
+  - mutate-cluster-namespace-istiolabel-policy.yaml
+  - mutate-ns-deployment-spotaffinity-policy.yaml
+  - audit-cluster-peerauthentication-mtls-policy.yaml
+  - check-deprecated-apis-policy.yaml
+  - validate-virtualservice-policy.yaml
+resources:
+  - resources/flux-kustomization.yaml
+  - resources/flux-gitrepository.yaml
+  - resources/flux-helmrelease.yaml
+  - resources/flux-kyverno-policy.yaml
+variables: flux-values.yaml
+results:
+  # Flux GitRepository Tests
+  - policy: validate-flux-gitrepository
+    rule: check-git-repository-url
+    resources:
+      - flux-system/GitRepository/kyverno-policies
+    kind: GitRepository
+    result: pass
+  
+  # Flux Kustomization Tests
+  - policy: validate-flux-kustomization
+    rule: check-kustomization-path
+    resources:
+      - flux-system/Kustomization/kyverno-policies
+    kind: Kustomization
+    result: pass
+  
+  # Flux HelmRelease Tests
+  - policy: validate-flux-helmrelease
+    rule: check-helm-chart-version
+    resources:
+      - kyverno/HelmRelease/kyverno
+    kind: HelmRelease
+    result: pass
+  
+  # Policy Enforcement Mode Tests
+  - policy: validate-policy-enforcement
+    rule: check-enforcement-mode
+    resources:
+      - kyverno/ClusterPolicy/resource-limits-policy
+    kind: ClusterPolicy
+    result: pass
+  
+  # Policy Validation Tests in Audit Mode
+  - policy: validate-policy-audit-mode
+    rule: check-audit-annotations
+    resources:
+      - kyverno/ClusterPolicy/audit-cluster-peerauthentication-mtls-policy
+    kind: ClusterPolicy
+    result: pass
+  
+  # Policy Validation Tests in Enforce Mode
+  - policy: validate-policy-enforce-mode
+    rule: check-enforce-annotations
+    resources:
+      - kyverno/ClusterPolicy/prevent-istio-injection-policy
+    kind: ClusterPolicy
+    result: pass 

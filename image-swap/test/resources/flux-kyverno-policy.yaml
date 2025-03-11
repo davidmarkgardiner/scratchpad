@@ -1,0 +1,62 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-limits-policy
+  namespace: kyverno
+  annotations:
+    policies.kyverno.io/title: Resource Limits Policy
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      This policy ensures all containers have resource limits defined.
+    policies.kyverno.io/mode: enforce
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+  - name: check-resource-limits
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "Resource limits are required for all containers."
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                memory: "?*"
+                cpu: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-cluster-peerauthentication-mtls-policy
+  namespace: kyverno
+  annotations:
+    policies.kyverno.io/title: Audit mTLS Policy
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: PeerAuthentication
+    policies.kyverno.io/description: >-
+      This policy audits PeerAuthentication resources to ensure mTLS is enabled.
+    policies.kyverno.io/mode: audit
+spec:
+  validationFailureAction: audit
+  background: true
+  rules:
+  - name: validate-mtls
+    match:
+      any:
+      - resources:
+          kinds:
+          - PeerAuthentication
+    validate:
+      message: "PeerAuthentication must have mTLS mode set to STRICT."
+      pattern:
+        spec:
+          mtls:
+            mode: STRICT 

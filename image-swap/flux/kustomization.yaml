@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- gitrepository.yaml
+- kyverno-policies-eng.yaml
+- kyverno-policies-dev.yaml
+- kyverno-policies-preprod.yaml
+- kyverno-policies-prod.yaml 

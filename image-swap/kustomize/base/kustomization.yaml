@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- resource-limits-policy.yaml
+- prevent-istio-injection-policy.yaml
+- mutate-cluster-namespace-istiolabel-policy.yaml
+- mutate-ns-deployment-spotaffinity-policy.yaml
+- audit-cluster-peerauthentication-mtls-policy.yaml
+- check-deprecated-apis-policy.yaml
+- validate-virtualservice-policy.yaml
+- image-swap-policy.yaml
+- job-image-swap-policy.yaml
+
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/part-of: kyverno-policies 

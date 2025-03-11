@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: image-mutator-policy
+spec:
+  rules:
+  - name: mutate-container-images
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    mutate:
+      foreach:
+      - list: "request.object.spec.containers"
+        patchStrategicMerge:
+          spec:
+            containers:
+            - name: "{{ element.name }}"
+              image: "dev-registry.example.com/{{ images.containers.{{element.name}}.path }}/{{ images.containers.{{element.name}}.name }}:{{ images.containers.{{element.name}}.tag }}" 

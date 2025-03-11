@@ -1,0 +1,48 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../base
+
+patches:
+- path: patches/policy-mode-mixed.yaml
+  target:
+    kind: ClusterPolicy
+    name: resource-limits-policy
+- path: patches/policy-mode-mixed.yaml
+  target:
+    kind: ClusterPolicy
+    name: prevent-istio-injection-policy
+- path: patches/policy-mode-audit.yaml
+  target:
+    kind: ClusterPolicy
+    name: audit-cluster-peerauthentication-mtls-policy
+- path: patches/policy-mode-audit.yaml
+  target:
+    kind: ClusterPolicy
+    name: check-deprecated-apis-policy
+- path: patches/policy-mode-audit.yaml
+  target:
+    kind: ClusterPolicy
+    name: validate-virtualservice-policy
+- path: patches/resource-limits-values.yaml
+  target:
+    kind: ClusterPolicy
+    name: resource-limits-policy
+- path: patches/istio-revision-label.yaml
+  target:
+    kind: ClusterPolicy
+    name: mutate-cluster-namespace-istiolabel-policy
+- path: patches/image-registry-settings.yaml
+  target:
+    kind: ClusterPolicy
+    name: image-mutator-policy
+- path: patches/spot-affinity-settings.yaml
+  target:
+    kind: ClusterPolicy
+    name: mutate-ns-deployment-spotaffinity-policy
+
+commonLabels:
+  environment: dev
+
+namespace: kyverno 

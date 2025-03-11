@@ -1,0 +1,8 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: policy-name-placeholder
+  annotations:
+    policies.kyverno.io/mode: audit
+spec:
+  validationFailureAction: audit 

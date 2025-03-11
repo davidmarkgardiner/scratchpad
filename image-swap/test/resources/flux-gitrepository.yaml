@@ -1,0 +1,12 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: kyverno-policies
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  url: https://github.com/example/kyverno-policies
+  ref:
+    branch: main
+  secretRef:
+    name: git-credentials 

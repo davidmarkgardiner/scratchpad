@@ -1,0 +1,12 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-cluster-namespace-istiolabel-policy
+spec:
+  rules:
+  - name: add-istio-revision-label
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            istio.io/rev: "canary-v1.16.0" 

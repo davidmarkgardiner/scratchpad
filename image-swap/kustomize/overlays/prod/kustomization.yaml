@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../base
+
+patches:
+- path: patches/policy-mode-enforce.yaml
+  target:
+    kind: ClusterPolicy
+- path: patches/resource-limits-values.yaml
+  target:
+    kind: ClusterPolicy
+    name: resource-limits-policy
+- path: patches/istio-revision-label.yaml
+  target:
+    kind: ClusterPolicy
+    name: mutate-cluster-namespace-istiolabel-policy
+- path: patches/image-registry-settings.yaml
+  target:
+    kind: ClusterPolicy
+    name: image-mutator-policy
+- path: patches/spot-affinity-settings.yaml
+  target:
+    kind: ClusterPolicy
+    name: mutate-ns-deployment-spotaffinity-policy
+
+commonLabels:
+  environment: prod
+
+namespace: kyverno 

@@ -1,0 +1,14 @@
+environment: dev
+enforceMode: true
+auditMode: false
+gitRepository:
+  url: https://github.com/example/kyverno-policies
+  branch: main
+kustomizationPath: ./kustomize/overlays/dev
+helmChartVersion: 2.7.2
+resourceLimits:
+  cpu: 500m
+  memory: 512Mi
+resourceRequests:
+  cpu: 100m
+  memory: 128Mi 

@@ -1,0 +1,42 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-deprecated-apis
+  annotations:
+    policies.kyverno.io/title: Check deprecated APIs
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/subject: Kubernetes APIs
+    kyverno.io/kyverno-version: 1.7.4
+    policies.kyverno.io/minversion: 1.7.4
+    kyverno.io/kubernetes-version: "1.31"
+    policies.kyverno.io/description: >-
+      Kubernetes APIs are sometimes deprecated and removed after a few releases.
+      As a best practice, older API versions should be replaced with newer versions.
+      This policy validates for APIs that are deprecated or removed in AKS 1.31.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+  - name: validate-v1-30-removals
+    match:
+      any:
+      - resources:
+          kinds:
+          - autoscaling/v2beta1/HorizontalPodAutoscaler
+          - batch/v1beta1/CronJob
+          - discovery.k8s.io/v1beta1/EndpointSlice
+          - storage.k8s.io/v1beta1/CSIStorageCapacity
+    validate:
+      message: "{{ request.object.apiVersion }}/{{ request.object.kind }} is deprecated and was removed in v1.30."
+      deny: {}
+  - name: validate-v1-31-removals
+    match:
+      any:
+      - resources:
+          kinds:
+          - networking.k8s.io/v1beta1/Ingress
+          - scheduling.k8s.io/v1beta1/PriorityClass
+          - coordination.k8s.io/v1beta1/Lease
+    validate:
+      message: "{{ request.object.apiVersion }}/{{ request.object.kind }} is deprecated and was removed in v1.31."
+      deny: {} 

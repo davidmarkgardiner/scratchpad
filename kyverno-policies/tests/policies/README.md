@@ -1,61 +1,77 @@
-# Kyverno Policies Test Suite
+# Kyverno Policies Test Directory
 
-This directory contains a collection of Kyverno policies and their associated tests. The test suite validates various Kubernetes resource policies including resource limits, Istio configurations, and deployment strategies.
+This directory contains tests for Kyverno policies. The structure has been organized as follows:
 
-## Policies Overview
+## Directory Structure
 
-### 1. Resource Limits Policy
-- **File**: `resource-limits-policy.yaml`
-- **Purpose**: Ensures Deployments have proper resource limits configured
-- **Test**: Validates that containers in Deployments have memory and CPU limits set
-- **Sample Test Case**: Deployment with proper resource limits (memory: 512Mi, cpu: 500m)
+- `policies/`: Contains all Kyverno policy definitions
+  - `resource-limits-policy.yaml`
+  - `prevent-istio-injection-policy.yaml`
+  - `mutate-cluster-namespace-istiolabel-policy.yaml`
+  - `mutate-ns-deployment-spotaffinity-policy.yaml`
+  - `audit-cluster-peerauthentication-mtls-policy.yaml`
+  - `check-deprecated-apis-policy.yaml`
+  - `validate-virtualservice-policy.yaml`
+  - `image-mutator-policy.yaml`
+  - `job-generator-policy.yaml`
 
-### 2. Prevent Istio Injection Policy
-- **File**: `prevent-istio-injection-policy.yaml`
-- **Purpose**: Prevents unauthorized Istio sidecar injection
-- **Test**: Validates that resources don't have the `istio-injection=enabled` label
-- **Test Cases**: 
-  - Pass: Resources without Istio injection label
-  - Fail: Resources with `istio-injection=enabled` label
+- `resources/`: Contains all test resources
+  - `resource.yaml`
+  - `istio-resources.yaml`
+  - `istio-label-resources.yaml`
+  - `spot-affinity-resources.yaml`
+  - `mtls-resources.yaml`
+  - `deprecated-api-resources.yaml`
+  - `virtual-service.yaml`
+  - `pod-container-registry.yaml`
+  - `pod-docker-io.yaml`
+  - `pod-init-container.yaml`
+  - `pod-my-registry.yaml`
+  - `pod-skip-verify.yaml`
 
-### 3. Istio Label Mutation Policy
-- **File**: `mutate-cluster-namespace-istiolabel-policy.yaml`
-- **Purpose**: Manages Istio revision labels on namespaces
-- **Test**: Verifies automatic addition of Istio revision labels
-- **Test Cases**: Namespaces with empty or outdated Istio revision labels
+- `patched/`: Contains patched resources for mutation tests
+  - `patched-deployment-1.yaml`
+  - `patched-namespace-1.yaml`
+  - `patched-namespace-2.yaml`
+  - `patched-pod-container-registry.yaml`
+  - `patched-pod-docker-io.yaml`
+  - `patched-pod-init-container.yaml`
+  - `generated-job.yaml`
 
-### 4. Spot Affinity Policy
-- **File**: `mutate-ns-deployment-spotaffinity-policy.yaml`
-- **Purpose**: Configures pod and node affinity for spot instance deployments
-- **Test**: Validates proper affinity rules for spot instance deployments
-- **Test Cases**:
-  - Pass: Deployment in spot namespace gets proper affinity rules
-  - Skip: Deployment in non-spot namespace
+- `tests/`: Contains test definitions
+  - `all-tests.yaml`: Main test file that references all policies and resources
+  - `image-swap-test.yaml`: Test file for image-swap policies
 
-### 5. mTLS Policy
-- **File**: `audit-cluster-peerauthentication-mtls-policy.yaml`
-- **Purpose**: Enforces strict mTLS in service mesh
-- **Test**: Validates PeerAuthentication resources use STRICT mode
-- **Test Cases**:
-  - Pass: PeerAuthentication with STRICT mode
-  - Fail: PeerAuthentication with PERMISSIVE mode
+- `values.yaml`: Variables used in tests
 
-## Test Structure
-- Main test configuration: `all-tests.yaml`
-- Individual test resources in separate YAML files
-- Patched resources for mutation tests
-- Variables file for namespace configurations
+## Scripts
+
+- `setup.sh`: Creates the directory structure and all necessary files for testing
+- `move_files.sh`: Utility script to move files to their respective directories
 
 ## Running Tests
-To run all tests:
+
+To run all tests, use the following command:
+
 ```bash
-kyverno test .
+kyverno test tests/all-tests.yaml
 ```
 
-## Test Results
-The test suite validates:
-- Resource configuration compliance
-- Security policies
-- Mutation rules
-- Namespace configurations
-- Service mesh settings 
+To run the image-swap tests, use:
+
+```bash
+kyverno test tests/image-swap-test.yaml
+```
+
+## Test Categories
+
+The tests cover various policy types:
+- VirtualService validation
+- Resource limits enforcement
+- Istio injection validation
+- Namespace label mutation
+- Pod anti-affinity mutation
+- mTLS validation
+- Deprecated API validation
+- Image registry mutation
+- Job generation based on image information 

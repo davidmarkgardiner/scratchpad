@@ -3,22 +3,22 @@ kind: Test
 metadata:
   name: test-all-policies
 policies:
-  - resource-limits-policy.yaml
-  - prevent-istio-injection-policy.yaml
-  - mutate-cluster-namespace-istiolabel-policy.yaml
-  - mutate-ns-deployment-spotaffinity-policy.yaml
-  - audit-cluster-peerauthentication-mtls-policy.yaml
-  - check-deprecated-apis-policy.yaml
-  - validate-virtualservice-policy.yaml
+  - ../policies/resource-limits-policy.yaml
+  - ../policies/prevent-istio-injection-policy.yaml
+  - ../policies/mutate-cluster-namespace-istiolabel-policy.yaml
+  - ../policies/mutate-ns-deployment-spotaffinity-policy.yaml
+  - ../policies/audit-cluster-peerauthentication-mtls-policy.yaml
+  - ../policies/check-deprecated-apis-policy.yaml
+  - ../policies/validate-virtualservice-policy.yaml
 resources:
-  - resource.yaml
-  - istio-resources.yaml
-  - istio-label-resources.yaml
-  - spot-affinity-resources.yaml
-  - mtls-resources.yaml
-  - deprecated-api-resources.yaml
-  - virtual-service.yaml
-variables: values.yaml
+  - ../resources/resource.yaml
+  - ../resources/istio-resources.yaml
+  - ../resources/istio-label-resources.yaml
+  - ../resources/spot-affinity-resources.yaml
+  - ../resources/mtls-resources.yaml
+  - ../resources/deprecated-api-resources.yaml
+  - ../resources/virtual-service.yaml
+variables: ../values.yaml
 results:
   # VirtualService Tests
   - policy: validate-virtualservice
@@ -63,14 +63,14 @@ results:
       - test-namespace-1
     kind: Namespace
     result: pass
-    patchedResource: patched-namespace-1.yaml
+    patchedResource: ../patched/patched-namespace-1.yaml
   - policy: mutate-cluster-namespace-istiolabel
     rule: add-istio-revision-label
     resources:
       - test-namespace-2
     kind: Namespace
     result: pass
-    patchedResource: patched-namespace-2.yaml
+    patchedResource: ../patched/patched-namespace-2.yaml
 
   # Spot Affinity Tests
   - policy: mutate-ns-deployment-spotaffinity
@@ -79,7 +79,7 @@ results:
       - test-deployment-1
     kind: Deployment
     result: pass
-    patchedResource: patched-deployment-1.yaml
+    patchedResource: ../patched/patched-deployment-1.yaml
   - policy: mutate-ns-deployment-spotaffinity
     rule: insert-pod-antiaffinity
     resources:

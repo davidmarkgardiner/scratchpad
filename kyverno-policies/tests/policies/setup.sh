@@ -8,7 +8,10 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}Setting up Kyverno Policy Test Environment...${NC}"
 
 # Create directory structure
-mkdir -p kyverno-policies/tests/policies
+mkdir -p kyverno-policies/tests/policies/policies
+mkdir -p kyverno-policies/tests/policies/resources
+mkdir -p kyverno-policies/tests/policies/patched
+mkdir -p kyverno-policies/tests/policies/tests
 
 # Change to the policies directory
 cd kyverno-policies/tests/policies
@@ -17,7 +20,7 @@ cd kyverno-policies/tests/policies
 echo -e "${GREEN}Creating policy files...${NC}"
 
 # 1. Resource Limits Policy
-cat > resource-limits-policy.yaml << 'EOL'
+cat > policies/resource-limits-policy.yaml << 'EOL'
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -58,7 +61,7 @@ spec:
 EOL
 
 # 2. Prevent Istio Injection Policy
-cat > prevent-istio-injection-policy.yaml << 'EOL'
+cat > policies/prevent-istio-injection-policy.yaml << 'EOL'
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -97,7 +100,7 @@ spec:
 EOL
 
 # 3. Mutate Cluster Namespace Istio Label Policy
-cat > mutate-cluster-namespace-istiolabel-policy.yaml << 'EOL'
+cat > policies/mutate-cluster-namespace-istiolabel-policy.yaml << 'EOL'
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -129,7 +132,7 @@ spec:
 EOL
 
 # 4. Spot Affinity Policy
-cat > mutate-ns-deployment-spotaffinity-policy.yaml << 'EOL'
+cat > policies/mutate-ns-deployment-spotaffinity-policy.yaml << 'EOL'
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -203,7 +206,7 @@ spec:
 EOL
 
 # 5. mTLS Policy
-cat > audit-cluster-peerauthentication-mtls-policy.yaml << 'EOL'
+cat > policies/audit-cluster-peerauthentication-mtls-policy.yaml << 'EOL'
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -239,8 +242,25 @@ EOL
 # Create test resources
 echo -e "${GREEN}Creating test resource files...${NC}"
 
+# Resource file
+cat > resources/resource.yaml << 'EOL'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-namespace-pass
+  labels:
+    istio-injection: "disabled"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-namespace-fail
+  labels:
+    istio-injection: enabled
+EOL
+
 # 6. Istio Resources
-cat > istio-resources.yaml << 'EOL'
+cat > resources/istio-resources.yaml << 'EOL'
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -257,7 +277,7 @@ metadata:
 EOL
 
 # 7. Istio Label Resources
-cat > istio-label-resources.yaml << 'EOL'
+cat > resources/istio-label-resources.yaml << 'EOL'
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -274,7 +294,7 @@ metadata:
 EOL
 
 # 8. Spot Affinity Resources
-cat > spot-affinity-resources.yaml << 'EOL'
+cat > resources/spot-affinity-resources.yaml << 'EOL'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -319,7 +339,7 @@ spec:
 EOL
 
 # 9. mTLS Resources
-cat > mtls-resources.yaml << 'EOL'
+cat > resources/mtls-resources.yaml << 'EOL'
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -341,114 +361,167 @@ spec:
     mode: PERMISSIVE
 EOL
 
-# 10. Create complete test configuration
-cat > all-tests.yaml << 'EOL'
-apiVersion: cli.kyverno.io/v1alpha1
-kind: Test
+# 10. Deprecated API Resources
+cat > resources/deprecated-api-resources.yaml << 'EOL'
+apiVersion: batch/v1beta1
+kind: CronJob
 metadata:
-  name: test-all-policies
-policies:
-  - resource-limits-policy.yaml
-  - prevent-istio-injection-policy.yaml
-  - mutate-cluster-namespace-istiolabel-policy.yaml
-  - mutate-ns-deployment-spotaffinity-policy.yaml
-  - audit-cluster-peerauthentication-mtls-policy.yaml
-resources:
-  - resource.yaml
-  - istio-resources.yaml
-  - istio-label-resources.yaml
-  - spot-affinity-resources.yaml
-  - mtls-resources.yaml
-variables: values.yaml
-results:
-  # Resource Limits Tests
-  - policy: require-resource-limits
-    rule: check-resource-limits
-    resources:
-      - test-deployment-pass
-    kind: Deployment
-    result: pass
-
-  # Prevent Istio Injection Tests
-  - policy: validate-ns-istio-injection
-    rule: check-istio-injection-label
-    resources:
-      - test-namespace-pass
-    kind: Namespace
-    result: pass
-  - policy: validate-ns-istio-injection
-    rule: check-istio-injection-label
-    resources:
-      - test-namespace-fail
-    kind: Namespace
-    result: fail
-
-  # Istio Label Mutation Tests
-  - policy: mutate-cluster-namespace-istiolabel
-    rule: add-istio-revision-label
-    resources:
-      - test-namespace-1
-    kind: Namespace
-    result: pass
-    patchedResource: patched-namespace-1.yaml
-  - policy: mutate-cluster-namespace-istiolabel
-    rule: add-istio-revision-label
-    resources:
-      - test-namespace-2
-    kind: Namespace
-    result: pass
-    patchedResource: patched-namespace-2.yaml
-
-  # Spot Affinity Tests
-  - policy: mutate-ns-deployment-spotaffinity
-    rule: insert-pod-antiaffinity
-    resources:
-      - test-deployment-1
-    kind: Deployment
-    result: pass
-    patchedResource: patched-deployment-1.yaml
-  - policy: mutate-ns-deployment-spotaffinity
-    rule: insert-pod-antiaffinity
-    resources:
-      - test-deployment-2
-    kind: Deployment
-    result: skip
-
-  # mTLS Tests
-  - policy: audit-cluster-peerauthentication-mtls
-    rule: validate-mtls
-    resources:
-      - test-peer-auth-pass
-    kind: PeerAuthentication
-    result: pass
-  - policy: audit-cluster-peerauthentication-mtls
-    rule: validate-mtls
-    resources:
-      - test-peer-auth-fail
-    kind: PeerAuthentication
-    result: fail
-EOL
-
-# 11. Create patched resources for mutation tests
-cat > patched-namespace-1.yaml << 'EOL'
-apiVersion: v1
-kind: Namespace
+  name: test-cronjob-deprecated
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: busybox
+            args:
+            - /bin/sh
+            - -c
+            - date; echo Hello from the Kubernetes cluster
+          restartPolicy: OnFailure
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
 metadata:
-  name: test-namespace-1
+  name: test-hpa-v2beta1-deprecated
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 50
+---
+apiVersion: discovery.k8s.io/v1beta1
+kind: EndpointSlice
+metadata:
+  name: test-endpointslice-deprecated
   labels:
-    istio.io/rev: asm-1-23
-EOL
-
-cat > patched-namespace-2.yaml << 'EOL'
-apiVersion: v1
-kind: Namespace
+    kubernetes.io/service-name: example-service
+addressType: IPv4
+ports:
+  - name: http
+    protocol: TCP
+    port: 80
+endpoints:
+  - addresses:
+      - "10.1.2.3"
+    conditions:
+      ready: true
+    hostname: pod-1
+    topology:
+      kubernetes.io/hostname: node-1
+---
+apiVersion: storage.k8s.io/v1beta1
+kind: CSIStorageCapacity
 metadata:
-  name: test-namespace-2
-  labels:
-    istio.io/rev: asm-1-23
+  name: test-storage-deprecated
+storageClassName: standard
+nodeTopology:
+  matchLabels:
+    topology.kubernetes.io/zone: us-east-1a
+capacity: 10Gi
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: test-ingress-deprecated
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: example-service
+          servicePort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-ingress-valid
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: example-service
+            port:
+              number: 80
+---
+apiVersion: scheduling.k8s.io/v1beta1
+kind: PriorityClass
+metadata:
+  name: test-priorityclass-deprecated
+value: 1000
+globalDefault: false
+description: "This is a test priority class"
+---
+apiVersion: coordination.k8s.io/v1beta1
+kind: Lease
+metadata:
+  name: test-lease-deprecated
+  namespace: default
+spec:
+  holderIdentity: test
+  leaseDurationSeconds: 60
 EOL
 
-cat > patched-deployment-1.yaml << 'EOL'
+# 11. Virtual Service
+cat > resources/virtual-service.yaml << 'EOL'
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: test-virtualservice-pass
+spec:
+  hosts:
+  - "example.com"
+  gateways:
+  - my-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /api
+    route:
+    - destination:
+        host: api-service
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: test-virtualservice-fail
+spec:
+  hosts:
+  - "example.com"
+  http:
+  - match:
+    - uri:
+        prefix: /api
+    route:
+    - destination:
+        host: api-service
+        port:
+          number: 80
+EOL
+
+# Create patched resources
+echo -e "${GREEN}Creating patched resource files...${NC}"
+
+# Patched deployment
+cat > patched/patched-deployment-1.yaml << 'EOL'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -504,75 +577,137 @@ spec:
         image: nginx:latest
 EOL
 
-# Create README
-cat > README.md << 'EOL'
-# Kyverno Policies Test Suite
-
-This directory contains a collection of Kyverno policies and their associated tests. The test suite validates various Kubernetes resource policies including resource limits, Istio configurations, and deployment strategies.
-
-## Policies Overview
-
-### 1. Resource Limits Policy
-- **File**: `resource-limits-policy.yaml`
-- **Purpose**: Ensures Deployments have proper resource limits configured
-- **Test**: Validates that containers in Deployments have memory and CPU limits set
-- **Sample Test Case**: Deployment with proper resource limits (memory: 512Mi, cpu: 500m)
-
-### 2. Prevent Istio Injection Policy
-- **File**: `prevent-istio-injection-policy.yaml`
-- **Purpose**: Prevents unauthorized Istio sidecar injection
-- **Test**: Validates that resources don't have the `istio-injection=enabled` label
-- **Test Cases**: 
-  - Pass: Resources without Istio injection label
-  - Fail: Resources with `istio-injection=enabled` label
-
-### 3. Istio Label Mutation Policy
-- **File**: `mutate-cluster-namespace-istiolabel-policy.yaml`
-- **Purpose**: Manages Istio revision labels on namespaces
-- **Test**: Verifies automatic addition of Istio revision labels
-- **Test Cases**: Namespaces with empty or outdated Istio revision labels
-
-### 4. Spot Affinity Policy
-- **File**: `mutate-ns-deployment-spotaffinity-policy.yaml`
-- **Purpose**: Configures pod and node affinity for spot instance deployments
-- **Test**: Validates proper affinity rules for spot instance deployments
-- **Test Cases**:
-  - Pass: Deployment in spot namespace gets proper affinity rules
-  - Skip: Deployment in non-spot namespace
-
-### 5. mTLS Policy
-- **File**: `audit-cluster-peerauthentication-mtls-policy.yaml`
-- **Purpose**: Enforces strict mTLS in service mesh
-- **Test**: Validates PeerAuthentication resources use STRICT mode
-- **Test Cases**:
-  - Pass: PeerAuthentication with STRICT mode
-  - Fail: PeerAuthentication with PERMISSIVE mode
-
-## Test Structure
-- Main test configuration: `all-tests.yaml`
-- Individual test resources in separate YAML files
-- Patched resources for mutation tests
-- Variables file for namespace configurations
-
-## Running Tests
-To run all tests:
-```bash
-kyverno test .
-```
-
-To run tests with JUnit output:
-```bash
-kyverno test . --junit-path=kyverno-test-results.xml
-```
+# Patched namespaces
+cat > patched/patched-namespace-1.yaml << 'EOL'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-namespace-1
+  labels:
+    istio.io/rev: asm-1-23
 EOL
 
-# Make the script executable
-chmod +x setup.sh
+cat > patched/patched-namespace-2.yaml << 'EOL'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-namespace-2
+  labels:
+    istio.io/rev: asm-1-23
+EOL
 
-echo -e "${GREEN}Setup complete! The following files have been created:${NC}"
-ls -la
+# Create test definition
+echo -e "${GREEN}Creating test definition file...${NC}"
+
+# Values file
+cat > values.yaml << 'EOL'
+spot_namespaces:
+  - spot-namespace
+  - spot-namespace-2
+istio_revision: asm-1-23
+istio_injection_label: istio-injection
+istio_revision_label: istio.io/rev
+EOL
+
+# All tests file
+cat > tests/all-tests.yaml << 'EOL'
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-all-policies
+policies:
+  - ../policies/resource-limits-policy.yaml
+  - ../policies/prevent-istio-injection-policy.yaml
+  - ../policies/mutate-cluster-namespace-istiolabel-policy.yaml
+  - ../policies/mutate-ns-deployment-spotaffinity-policy.yaml
+  - ../policies/audit-cluster-peerauthentication-mtls-policy.yaml
+  - ../policies/check-deprecated-apis-policy.yaml
+  - ../policies/validate-virtualservice-policy.yaml
+resources:
+  - ../resources/resource.yaml
+  - ../resources/istio-resources.yaml
+  - ../resources/istio-label-resources.yaml
+  - ../resources/spot-affinity-resources.yaml
+  - ../resources/mtls-resources.yaml
+  - ../resources/deprecated-api-resources.yaml
+  - ../resources/virtual-service.yaml
+variables: ../values.yaml
+results:
+  # Resource Limits Tests
+  - policy: require-resource-limits
+    rule: check-resource-limits
+    resources:
+      - test-deployment-pass
+    kind: Deployment
+    result: pass
+
+  # Prevent Istio Injection Tests
+  - policy: validate-ns-istio-injection
+    rule: check-istio-injection-label
+    resources:
+      - test-namespace-pass
+    kind: Namespace
+    result: pass
+  - policy: validate-ns-istio-injection
+    rule: check-istio-injection-label
+    resources:
+      - test-namespace-fail
+    kind: Namespace
+    result: fail
+
+  # Istio Label Mutation Tests
+  - policy: mutate-cluster-namespace-istiolabel
+    rule: add-istio-revision-label
+    resources:
+      - test-namespace-1
+    kind: Namespace
+    result: pass
+    patchedResource: ../patched/patched-namespace-1.yaml
+  - policy: mutate-cluster-namespace-istiolabel
+    rule: add-istio-revision-label
+    resources:
+      - test-namespace-2
+    kind: Namespace
+    result: pass
+    patchedResource: ../patched/patched-namespace-2.yaml
+
+  # Spot Affinity Tests
+  - policy: mutate-ns-deployment-spotaffinity
+    rule: insert-pod-antiaffinity
+    resources:
+      - test-deployment-1
+    kind: Deployment
+    result: pass
+    patchedResource: ../patched/patched-deployment-1.yaml
+  - policy: mutate-ns-deployment-spotaffinity
+    rule: insert-pod-antiaffinity
+    resources:
+      - test-deployment-2
+    kind: Deployment
+    result: skip
+
+  # mTLS Tests
+  - policy: audit-cluster-peerauthentication-mtls
+    rule: validate-mtls
+    resources:
+      - test-peer-auth-pass
+    kind: PeerAuthentication
+    result: pass
+  - policy: audit-cluster-peerauthentication-mtls
+    rule: validate-mtls
+    resources:
+      - test-peer-auth-fail
+    kind: PeerAuthentication
+    result: fail
+EOL
+
+echo -e "${GREEN}Setup complete!${NC}"
+
+echo -e "\n${BLUE}Directory structure created:${NC}"
+find . -type d | sort
 
 echo -e "\n${BLUE}To run the tests, execute:${NC}"
-echo "kyverno test ."
+echo "kyverno test tests/all-tests.yaml"
+
 echo -e "\n${BLUE}To run tests with JUnit output:${NC}"
-echo "kyverno test . --junit-path=kyverno-test-results.xml"
+echo "kyverno test tests/all-tests.yaml --junit-path=kyverno-test-results.xml"

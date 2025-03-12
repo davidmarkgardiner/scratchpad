@@ -1,0 +1,110 @@
+---
+stages:
+  - test
+
+variables:
+  KYVERNO_VERSION: v1.13.4  # Specify the Kyverno version to use
+
+# Job to test image-swap Kyverno policies
+test-image-swap-policies:
+  stage: test
+  image: ubuntu:22.04
+  before_script:
+    # Debug: Show current location and directory structure
+    - echo "Current working directory: $PWD"
+    - echo "Listing directory contents:"
+    - ls -la
+    
+    # Install required packages
+    - apt-get update
+    - apt-get install -y curl wget tree
+    
+    # Install Kyverno CLI
+    - wget -q https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
+    - mkdir -p /tmp/kyverno
+    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz -C /tmp/kyverno
+    - mv /tmp/kyverno/kyverno /usr/local/bin/
+    - chmod +x /usr/local/bin/kyverno
+    - rm -rf /tmp/kyverno
+    
+    # Debug: Show full directory tree
+    - echo "Full directory structure:"
+    - tree .
+  script:
+    # Create yaml directory for output files if it doesn't exist
+    - mkdir -p test/yaml
+    
+    # Run tests for image-mutator policy
+    - echo "Running tests for image-mutator policy..."
+    - kyverno apply tag/2-image-mutator-policy.yaml --resource test/resources/pod-container-registry.yaml,test/resources/pod-docker-io.yaml,test/resources/pod-skip-verify.yaml,test/resources/pod-init-container.yaml > test/yaml/image-mutator-results.txt
+    - cat test/yaml/image-mutator-results.txt
+    - IMAGE_MUTATOR_SUMMARY=$(grep -o "pass: [0-9]*, fail: [0-9]*, warn: [0-9]*, error: [0-9]*, skip: [0-9]*" test/yaml/image-mutator-results.txt || echo "No summary found")
+    
+    # Run tests for job-generator policy
+    - echo "Running tests for job-generator policy..."
+    - kyverno apply tag/5-job-generator-policy.yaml --resource test/resources/pod-my-registry.yaml,test/resources/pod-skip-verify.yaml > test/yaml/job-generator-results.txt
+    - cat test/yaml/job-generator-results.txt
+    - JOB_GENERATOR_SUMMARY=$(grep -o "pass: [0-9]*, fail: [0-9]*, warn: [0-9]*, error: [0-9]*, skip: [0-9]*" test/yaml/job-generator-results.txt || echo "No summary found")
+    
+    # Run combined tests using test files
+    - echo "Running combined tests..."
+    - kyverno test test/combined-test.yaml --output junit > test/yaml/combined-test-results.xml
+    - kyverno test test/image-mutator-test.yaml --output junit > test/yaml/image-mutator-test-results.xml
+    - kyverno test test/job-generator-test.yaml --output junit > test/yaml/job-generator-test-results.xml
+    - kyverno test test/assertions-test.yaml --output junit > test/yaml/assertions-test-results.xml
+    
+    # Run Flux GitOps tests if available
+    - echo "Running Flux GitOps tests..."
+    - kyverno test test/flux-gitops-test.yaml --output junit > test/yaml/flux-gitops-test-results.xml
+    
+    # Print test summary
+    - echo -e "\nTest summary:"
+    - echo "=============="
+    - echo "Image Mutator Policy: $IMAGE_MUTATOR_SUMMARY"
+    - echo "Job Generator Policy: $JOB_GENERATOR_SUMMARY"
+    - echo "All tests completed. Check the results above for details."
+  artifacts:
+    when: always
+    reports:
+      junit: 
+        - test/yaml/*-test-results.xml
+    paths:
+      - test/yaml/
+  rules:
+    - changes:  # Only run when relevant files change
+      - "tag/*.yaml"
+      - "test/**/*"
+      - ".gitlab-ci.yml"
+
+# Policy validation job
+validate-kyverno-policies:
+  stage: test
+  image: ubuntu:22.04
+  before_script:
+    # Install required packages
+    - apt-get update
+    - apt-get install -y curl wget
+    
+    # Install Kyverno CLI
+    - wget -q https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
+    - mkdir -p /tmp/kyverno
+    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz -C /tmp/kyverno
+    - mv /tmp/kyverno/kyverno /usr/local/bin/
+    - chmod +x /usr/local/bin/kyverno
+    - rm -rf /tmp/kyverno
+  script:
+    # Validate all policy files
+    - echo "Validating image-mutator policy..."
+    - kyverno validate tag/2-image-mutator-policy.yaml
+    
+    # Validate job-generator policy
+    - echo "Validating job-generator policy..."
+    - kyverno validate tag/5-job-generator-policy.yaml
+    
+    # Validate all policies in tag directory
+    - echo "Validating all policies in tag directory..."
+    - kyverno validate tag/
+  rules:
+    - changes:
+      - "tag/*.yaml"
+      - ".gitlab-ci.yml" 

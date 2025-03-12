@@ -1,0 +1,56 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: combined-policies-test
+policies:
+  - ../policies/image-mutator-policy.yaml
+  - ../policies/job-generator-policy.yaml
+resources:
+  - ../resources/pod-container-registry.yaml
+  - ../resources/pod-docker-io.yaml
+  - ../resources/pod-my-registry.yaml
+  - ../resources/pod-skip-verify.yaml
+  - ../resources/pod-init-container.yaml
+results:
+  # Image Mutator Policy Tests
+  - policy: image-mutator
+    rule: mutate-container-images
+    resources:
+      - app1/Pod/test-pod-container-registry
+    patchedResources: ../patched/patched-pod-container-registry.yaml
+    result: pass
+  
+  - policy: image-mutator
+    rule: mutate-docker-images
+    resources:
+      - app1/Pod/test-pod-docker-io
+    patchedResources: ../patched/patched-pod-docker-io.yaml
+    result: pass
+  
+  - policy: image-mutator
+    rule: mutate-init-container-images
+    resources:
+      - app1/Pod/test-pod-init-container
+    patchedResources: ../patched/patched-pod-init-container.yaml
+    result: pass
+  
+  # Job Generator Policy Tests
+  - policy: image-job-generator-v5
+    rule: generate-push-job
+    resources:
+      - default/Pod/test-pod-my-registry
+    generatedResource: ../patched/generated-job.yaml
+    result: pass
+  
+  # Skip Tests
+  - policy: image-mutator
+    rule: mutate-container-images
+    resources:
+      - app1/Pod/test-pod-skip-verify
+    result: skip
+  
+  - policy: image-job-generator-v5
+    rule: generate-push-job
+    resources:
+      - app1/Pod/test-pod-skip-verify
+    result: skip 

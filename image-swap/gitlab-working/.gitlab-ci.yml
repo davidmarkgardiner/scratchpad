@@ -1,0 +1,34 @@
+---
+stages:
+  - test
+
+variables:
+  KYVERNO_VERSION: v1.13.4
+
+test-kyverno-policies:
+  stage: test
+  image: ubuntu:22.04
+  script:
+    - apt-get update
+    - apt-get install -y curl wget tree
+    - wget -q https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
+    - mkdir -p /tmp/kyverno
+    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz -C /tmp/kyverno
+    - mv /tmp/kyverno/kyverno /usr/local/bin/
+    - chmod +x /usr/local/bin/kyverno
+    - rm -rf /tmp/kyverno
+    - echo "Validating policies..."
+    # - kyverno validate policies/
+    - echo "Running tests..."
+    - kyverno test tests/
+    -  kyverno test tests/ > test-results.txt
+    # - kyverno test tests/ --output junit > test-results.xml
+    - echo "Generating test report..."
+    - echo "# Kyverno Policy Test Report" > test-report.md
+    - echo "See test-results.json for detailed results" >> test-report.md
+  artifacts:
+    when: always
+    paths:
+      - test-results.txt
+    reports:
+      junit: test-results.txt

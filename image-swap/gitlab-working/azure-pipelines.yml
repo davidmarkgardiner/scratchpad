@@ -1,45 +1,75 @@
 trigger:
-- main  # Trigger on changes to the main branch
+  branches:
+    include:
+      - main
+      - flux/feat/*
 
 variables:
   KYVERNO_VERSION: 'v1.13.4'
 
 pool:
-  vmImage: 'ubuntu-22.04'  # Use Ubuntu 22.04 as the build agent
+  name: HostedinAzure-Linux-UK8S-Dev
+  demands:
+    - standard
 
 stages:
-- stage: Test
-  displayName: 'Test Kyverno Policies'
-  jobs:
-  - job: TestPolicies
-    displayName: 'Run Kyverno Tests'
-    steps:
-    - script: |
-        echo "Installing dependencies..."
-        sudo apt-get update
-        sudo apt-get install -y curl wget tree
-      displayName: 'Install Dependencies'
-      
-    - script: |
-        echo "Installing Kyverno CLI..."
-        wget -q https://github.com/kyverno/kyverno/releases/download/$(KYVERNO_VERSION)/kyverno-cli_$(KYVERNO_VERSION)_linux_x86_64.tar.gz
-        mkdir -p /tmp/kyverno
-        tar -xvf kyverno-cli_$(KYVERNO_VERSION)_linux_x86_64.tar.gz -C /tmp/kyverno
-        sudo mv /tmp/kyverno/kyverno /usr/local/bin/
-        sudo chmod +x /usr/local/bin/kyverno
-        rm -rf /tmp/kyverno
-      displayName: 'Install Kyverno CLI'
-      
-      
-    - script: |
-        echo "Running tests..."
-        kyverno test tests/
-        kyverno test tests/ > $(Build.ArtifactStagingDirectory)/test-results.txt
+- ${{ if not(startsWith(variables['Build.SourceBranch'], 'refs/heads/flux/feat/')) }}:
+  - stage: Test
+    displayName: 'Test Kyverno Policies'
+    jobs:
+    - job: TestPolicies
       displayName: 'Run Kyverno Tests'
-      
-      
-    - task: PublishBuildArtifacts@1
-      inputs:
-        pathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        artifactName: 'test-results'
-      displayName: 'Publish Test Results' 
+      steps:
+      - script: |
+          echo "Installing dependencies..."
+          sudo apt-get update
+          sudo apt-get install -y curl wget tree
+        displayName: 'Install Dependencies'
+        
+      - script: |
+          echo "Installing Kyverno CLI..."
+          wget -q https://github.com/kyverno/kyverno/releases/download/$(KYVERNO_VERSION)/kyverno-cli_$(KYVERNO_VERSION)_linux_x86_64.tar.gz
+          mkdir -p /tmp/kyverno
+          tar -xvf kyverno-cli_$(KYVERNO_VERSION)_linux_x86_64.tar.gz -C /tmp/kyverno
+          sudo mv /tmp/kyverno/kyverno /usr/local/bin/
+          sudo chmod +x /usr/local/bin/kyverno
+          rm -rf /tmp/kyverno
+        displayName: 'Install Kyverno CLI'
+        
+      - script: |
+          echo "Running tests..."
+          kyverno test tests/
+          kyverno test tests/ > $(Build.ArtifactStagingDirectory)/test-results.txt
+        displayName: 'Run Kyverno Tests'
+        
+      - task: PublishBuildArtifacts@1
+        inputs:
+          pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          artifactName: 'test-results'
+        displayName: 'Publish Test Results'
+
+- ${{ if startsWith(variables['Build.SourceBranch'], 'refs/heads/flux/feat/') }}:
+  - stage: CreatePR
+    displayName: 'Create PR for Flux Changes'
+    jobs:
+    - job: CreatePR
+      displayName: 'Process Flux Image Updates'
+      steps:
+      - checkout: self
+        displayName: Checkout UK8S Cluster Core
+        persistCredentials: true
+        clean: true
+
+      - task: AzurePowerShell@5
+        displayName: Create PR
+        enabled: true
+        inputs:
+          azureSubscription: 'default'
+          azurePowerShellVersion: LatestVersion
+          pwsh: true
+          scriptType: filePath
+          ScriptPath: ./scripts/raisepr.ps1
+          ScriptArguments: >
+            -branch main
+            -newBranch $(Build.SourceBranch)
+            -commitMessage "Flux Helm ImageUpdateAutomation" 

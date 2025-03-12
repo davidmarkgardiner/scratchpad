@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: kyverno-svc
   namespace: kyverno
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
 spec:
   ports:
   - name: https

@@ -1,13 +1,14 @@
 ---
 stages:
+  - validate
   - test
+  - report
 
 variables:
   KYVERNO_VERSION: v1.13.4  # Specify the Kyverno version to use
 
-# Job to test image-swap Kyverno policies
-test-image-swap-policies:
-  stage: test
+# Common setup that can be reused
+.kyverno_setup:
   image: ubuntu:22.04
   before_script:
     # Debug: Show current location and directory structure
@@ -30,6 +31,33 @@ test-image-swap-policies:
     # Debug: Show full directory tree
     - echo "Full directory structure:"
     - tree .
+
+# Policy validation job - runs first to catch syntax errors
+validate-kyverno-policies:
+  extends: .kyverno_setup
+  stage: validate
+  script:
+    # Validate specific policy files
+    - echo "Validating image-mutator policy..."
+    - kyverno validate tag/2-image-mutator-policy.yaml
+    
+    # Validate job-generator policy
+    - echo "Validating job-generator policy..."
+    - kyverno validate tag/5-job-generator-policy.yaml
+    
+    # Validate all policies in tag directory
+    - echo "Validating all policies in tag directory..."
+    - kyverno validate tag/
+  rules:
+    - changes:
+      - "tag/*.yaml"
+      - ".gitlab-ci.yml"
+
+# Job to test image-swap Kyverno policies using apply command
+test-image-swap-apply:
+  extends: .kyverno_setup
+  stage: test
+  needs: [validate-kyverno-policies]
   script:
     # Create yaml directory for output files if it doesn't exist
     - mkdir -p test/yaml
@@ -46,6 +74,31 @@ test-image-swap-policies:
     - cat test/yaml/job-generator-results.txt
     - JOB_GENERATOR_SUMMARY=$(grep -o "pass: [0-9]*, fail: [0-9]*, warn: [0-9]*, error: [0-9]*, skip: [0-9]*" test/yaml/job-generator-results.txt || echo "No summary found")
     
+    # Print test summary
+    - echo -e "\nTest summary:"
+    - echo "=============="
+    - echo "Image Mutator Policy: $IMAGE_MUTATOR_SUMMARY"
+    - echo "Job Generator Policy: $JOB_GENERATOR_SUMMARY"
+  artifacts:
+    when: always
+    paths:
+      - test/yaml/image-mutator-results.txt
+      - test/yaml/job-generator-results.txt
+  rules:
+    - changes:
+      - "tag/*.yaml"
+      - "test/resources/*.yaml"
+      - ".gitlab-ci.yml"
+
+# Job to test image-swap Kyverno policies using test command
+test-image-swap-test:
+  extends: .kyverno_setup
+  stage: test
+  needs: [validate-kyverno-policies]
+  script:
+    # Create yaml directory for output files if it doesn't exist
+    - mkdir -p test/yaml
+    
     # Run combined tests using test files
     - echo "Running combined tests..."
     - kyverno test test/combined-test.yaml --output junit > test/yaml/combined-test-results.xml
@@ -57,12 +110,9 @@ test-image-swap-policies:
     - echo "Running Flux GitOps tests..."
     - kyverno test test/flux-gitops-test.yaml --output junit > test/yaml/flux-gitops-test-results.xml
     
-    # Print test summary
-    - echo -e "\nTest summary:"
-    - echo "=============="
-    - echo "Image Mutator Policy: $IMAGE_MUTATOR_SUMMARY"
-    - echo "Job Generator Policy: $JOB_GENERATOR_SUMMARY"
-    - echo "All tests completed. Check the results above for details."
+    # Run all tests in test directory
+    - echo "Running all tests in test directory..."
+    - kyverno test test/ --output junit > test/yaml/all-tests-results.xml
   artifacts:
     when: always
     reports:
@@ -71,40 +121,40 @@ test-image-swap-policies:
     paths:
       - test/yaml/
   rules:
-    - changes:  # Only run when relevant files change
+    - changes:
       - "tag/*.yaml"
-      - "test/**/*"
+      - "test/*.yaml"
       - ".gitlab-ci.yml"
 
-# Policy validation job
-validate-kyverno-policies:
-  stage: test
-  image: ubuntu:22.04
-  before_script:
-    # Install required packages
-    - apt-get update
-    - apt-get install -y curl wget
-    
-    # Install Kyverno CLI
-    - wget -q https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz
-    - mkdir -p /tmp/kyverno
-    - tar -xvf kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz -C /tmp/kyverno
-    - mv /tmp/kyverno/kyverno /usr/local/bin/
-    - chmod +x /usr/local/bin/kyverno
-    - rm -rf /tmp/kyverno
+# Generate a test report
+generate-test-report:
+  stage: report
+  image: alpine:latest
+  needs: 
+    - test-image-swap-apply
+    - test-image-swap-test
   script:
-    # Validate all policy files
-    - echo "Validating image-mutator policy..."
-    - kyverno validate tag/2-image-mutator-policy.yaml
-    
-    # Validate job-generator policy
-    - echo "Validating job-generator policy..."
-    - kyverno validate tag/5-job-generator-policy.yaml
-    
-    # Validate all policies in tag directory
-    - echo "Validating all policies in tag directory..."
-    - kyverno validate tag/
+    - echo "Generating test report..."
+    - echo "Test results summary:" > test-report.txt
+    - echo "=====================" >> test-report.txt
+    - echo "" >> test-report.txt
+    - if [ -f test/yaml/image-mutator-results.txt ]; then
+        echo "Image Mutator Policy Results:" >> test-report.txt;
+        grep -o "pass: [0-9]*, fail: [0-9]*, warn: [0-9]*, error: [0-9]*, skip: [0-9]*" test/yaml/image-mutator-results.txt >> test-report.txt || echo "No summary found" >> test-report.txt;
+      fi
+    - if [ -f test/yaml/job-generator-results.txt ]; then
+        echo "Job Generator Policy Results:" >> test-report.txt;
+        grep -o "pass: [0-9]*, fail: [0-9]*, warn: [0-9]*, error: [0-9]*, skip: [0-9]*" test/yaml/job-generator-results.txt >> test-report.txt || echo "No summary found" >> test-report.txt;
+      fi
+    - echo "" >> test-report.txt
+    - echo "See artifacts for detailed test results." >> test-report.txt
+    - cat test-report.txt
+  artifacts:
+    when: always
+    paths:
+      - test-report.txt
   rules:
     - changes:
       - "tag/*.yaml"
+      - "test/**/*"
       - ".gitlab-ci.yml" 

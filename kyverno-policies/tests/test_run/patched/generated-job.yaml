@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-push-job-nginx-1.19.0
+  namespace: default
+  labels:
+    skip-verify: "true"
+    image-info: "nginx-1.19.0"
+    monitoring: "true"
+    job-type: "image-push"
+    generator: "kyverno-policy-v5"
+spec:
+  template:
+    metadata:
+      labels:
+        skip-verify: "true"
+        monitoring: "true"
+        job-type: "image-push"
+    spec:
+      containers:
+      - name: push-image
+        image: mcr.microsoft.com/azure-cli
+        env:
+        - name: POD_NAME
+          value: "test-pod-my-registry"
+        - name: POD_NAMESPACE
+          value: "default"
+        - name: ORIGINAL_IMAGE
+          value: "my.registry.com/nginx:1.19.0"
+        - name: IMAGE_INFO
+          value: "nginx:1.19.0"
+        - name: IMAGE_ID
+          value: "nginx-1.19.0"
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Job processing image information for pod $POD_NAME in namespace $POD_NAMESPACE"
+          echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
+          echo "IMAGE_INFO: $IMAGE_INFO"
+          echo "IMAGE_ID: $IMAGE_ID"
+          
+          # Extract just the image/version part by removing anything before the first slash
+          PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^[^/]*/||')
+          echo "Pure image/version: $PURE_IMAGE"
+          
+          # Check if the image is from docker.io and change it to my.registry.com
+          if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
+            # Extract everything after docker.io/
+            IMAGE_PATH="${ORIGINAL_IMAGE#docker.io/}"
+            NEW_IMAGE="my.registry.com/$IMAGE_PATH"
+            echo "Image is from docker.io, changing to: $NEW_IMAGE"
+            
+            # Here you could add code to push the image to my.registry.com
+            # For example:
+            # az acr login --name myregistry
+            # docker pull $ORIGINAL_IMAGE
+            # docker tag $ORIGINAL_IMAGE $NEW_IMAGE
+            # docker push $NEW_IMAGE
+            
+            echo "Image transformation complete"
+          else
+            echo "Performing actions based on image information..."
+          fi
+          
+          sleep 30
+      restartPolicy: Never
+  backoffLimit: 3 

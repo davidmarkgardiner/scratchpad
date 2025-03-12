@@ -8,19 +8,38 @@ metadata:
     policies.kyverno.io/severity: medium
     policies.kyverno.io/description: >-
       This policy prevents the istio-injection=enabled label from being set on any
-      Namespace, Pod, or Deployment resources.
+      Namespace with name beginning with "at", or any Pod or Deployment in namespaces beginning with "at".
 spec:
   validationFailureAction: Enforce
   background: true
   rules:
-    - name: check-istio-injection-label
+    - name: check-namespace-resources
       match:
         any:
         - resources:
             kinds:
             - Namespace
+      validate:
+        message: "Setting the istio-injection=enabled label is not allowed on namespaces beginning with 'at'"
+        deny:
+          conditions:
+            all:
+            - key: "{{ request.object.metadata.name }}"
+              operator: StartsWith
+              value: "at"
+            - key: "{{ request.object.metadata.labels.\"istio-injection\" || '' }}"
+              operator: Equals
+              value: "enabled"
+              
+    - name: check-pod-deployment-resources
+      match:
+        any:
+        - resources:
+            kinds:
             - Pod
             - Deployment
+            namespaces:
+              - at*
       exclude:
         any:
         - resources:
@@ -28,7 +47,7 @@ spec:
             - "policies-test-spot"
             - "policies-test-istio-rev"
       validate:
-        message: "Setting the istio-injection=enabled label is not allowed"
+        message: "Setting the istio-injection=enabled label is not allowed in namespaces beginning with 'at'"
         pattern:
           metadata:
             labels:

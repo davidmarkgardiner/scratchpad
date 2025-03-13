@@ -200,6 +200,26 @@ graph TD
 - [ ] **Secret Rotation**: Monitor secret rotation events
 - [ ] **Secret Access**: Monitor secret access patterns
 
+### Kyverno
+- [ ] **Policy Sync Status**: Monitor policy deployment and synchronization
+- [ ] **Policy Violations**: Alert on critical policy violations
+- [ ] **Policy Enforcement Mode**: Monitor audit vs enforce modes
+- [ ] **Admission Review Latency**: Monitor impact on admission request performance
+- [ ] **Policy Mutation Success/Failures**: Track success rates of resource mutations
+- [ ] **Kyverno Resource Usage**: Monitor Kyverno controller CPU/memory usage
+- [ ] **Webhook Connection Issues**: Alert on webhook connectivity problems
+- [ ] **Background Scan Status**: Monitor status of background policy validations
+
+### ServiceNow Informer
+- [ ] **Integration Status**: Monitor connection status with ServiceNow instance
+- [ ] **Event Processing Rate**: Track volume of events being processed
+- [ ] **Synchronization Errors**: Alert on failures to create/update ServiceNow records
+- [ ] **Latency**: Monitor time between Kubernetes events and ServiceNow updates
+- [ ] **API Rate Limiting**: Monitor ServiceNow API quota usage
+- [ ] **Missing Configuration Items**: Alert on Kubernetes resources missing in ServiceNow CMDB
+- [ ] **Authentication Errors**: Monitor ServiceNow authentication failures
+- [ ] **Queue Depth**: Alert on growing backlog of unprocessed events
+
 ## 6. Security Monitoring Checklist
 
 ### Container Security

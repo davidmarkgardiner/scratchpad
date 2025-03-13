@@ -3,6 +3,10 @@ trigger:
     include:
       - main
       - flux/feat/*
+  paths:
+    include:
+      - policies/**
+      - tests/**
 
 variables:
   KYVERNO_VERSION: 'v1.13.4'
@@ -13,7 +17,7 @@ pool:
     - standard
 
 stages:
-- ${{ if not(startsWith(variables['Build.SourceBranch'], 'refs/heads/flux/feat/')) }}:
+- ${{ if or(not(startsWith(variables['Build.SourceBranch'], 'refs/heads/flux/feat/')), eq(variables['Build.Reason'], 'IndividualCI')) }}:
   - stage: Test
     displayName: 'Test Kyverno Policies'
     jobs:

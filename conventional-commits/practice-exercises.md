@@ -8,6 +8,43 @@ These exercises will help you practice writing conventional commit messages. Eac
 2. Craft a commit message following the conventional commits format
 3. Check the solution (but try to solve it yourself first!)
 
+## Message Footer Reference
+
+The footer of a commit message is used for:
+
+1. **Referencing issues**: Closed issues should be listed on a separate line in the footer prefixed with "Closes" keyword:
+
+```
+Closes #234
+```
+```
+Resolves #2345
+```
+
+or in the case of multiple issues:
+
+```
+Fixes #123, #245, #992
+```
+
+- `Fixes` is often used for bug fixes
+- `Closes` is commonly used for features or general issue completion
+- `Resolves` works well for any issue resolution
+
+2. **Breaking changes**: All breaking changes have to be mentioned in footer with the description of the change, justification and migration notes:
+
+```
+BREAKING CHANGE:
+
+`port-runner` command line option has changed to `runner-port`, so that it is
+consistent with the configuration file syntax.
+
+To migrate your project, change all the commands, where you use `--port-runner`
+to `--runner-port`.
+```
+
+Any commit with the breaking change section will trigger a MAJOR release and appear on the changelog independently of the commit type.
+
 ## Exercises
 
 ### Exercise 1: Adding a New Feature
@@ -233,6 +270,88 @@ revert: feat(auth) add biometric login
 
 This reverts commit abc1234, which introduced compatibility
 issues with older devices.
+```
+</details>
+
+### Exercise 11: Fixing a Bug and Closing an Issue
+**Scenario:** You've fixed a bug reported in issue #123 where the payment processing would fail for international credit cards.
+
+**Your task:** Write a commit message for this bug fix that also closes the issue.
+
+<details>
+<summary>Solution</summary>
+
+```
+fix(payment): handle international credit card formats
+
+Process different credit card number formats based on country code.
+Add validation for international credit card verification codes.
+
+Closes #123
+```
+</details>
+
+### Exercise 12: Closing Multiple Issues
+**Scenario:** You've implemented a feature that closes three different feature requests: adding dark mode (#234), user preferences panel (#345), and theme customization (#456).
+
+**Your task:** Write a commit message for this feature implementation that closes all three issues.
+
+<details>
+<summary>Solution</summary>
+
+```
+feat(ui): implement theme customization with dark mode
+
+Add theme customization panel in user preferences section.
+Includes dark mode toggle and custom color selection.
+
+Closes #234, #345, #456
+```
+</details>
+
+### Exercise 13: Making a Breaking Change with Migration Notes
+**Scenario:** You've redesigned the API authentication flow from a simple API key to OAuth 2.0, which will require all API consumers to update their integration.
+
+**Your task:** Write a commit message with proper breaking change footer and migration instructions.
+
+<details>
+<summary>Solution</summary>
+
+```
+feat(api)!: replace API key auth with OAuth 2.0
+
+BREAKING CHANGE: API authentication now requires OAuth 2.0 flow
+instead of the previous API key method.
+
+To migrate your application:
+1. Register your application in the developer portal
+2. Use the client credentials flow for server-to-server auth
+3. Use the authorization code flow for user-context operations
+4. Update your request headers to use 'Authorization: Bearer TOKEN'
+   instead of 'X-API-Key'
+
+API keys will continue to work for 60 days to allow for migration.
+```
+</details>
+
+### Exercise 14: Multiple Breaking Changes
+**Scenario:** You've made a major update to a library that includes two breaking changes: changing the function parameters order in the main API and removing a deprecated method.
+
+**Your task:** Write a commit message detailing the multiple breaking changes.
+
+<details>
+<summary>Solution</summary>
+
+```
+feat(api)!: revise API function signatures and remove deprecated methods
+
+BREAKING CHANGE: Changed parameter order in main API functions
+to be more consistent. The callback function is now always the
+last parameter.
+
+BREAKING CHANGE: Removed deprecated 'connectLegacy' method that
+was marked for removal in v2.0.0. Use 'connect' with the compatibility
+flag instead.
 ```
 </details>
 

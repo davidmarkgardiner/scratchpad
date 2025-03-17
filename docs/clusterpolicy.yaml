@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+name: prevent-duplicate-hostnames
+background: true
+validationFailureAction: enforce
+rules:
+  - name: check-hostname-uniqueness
+    match:
+      resources:
+        kinds:
+          - VirtualService
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.hosts || [] | length(@) }}"
+        operator: GreaterThan
+        value: 0
+    validate:
+      message: "Hostname {{ request.object.spec.hosts[] }} is already in use by another VirtualService"
+      deny:
+        conditions:
+          - key: "{{ request.object.spec.hosts[] }}"
+            operator: AnyIn
+            value: "{{ items('VirtualService', '', '', 'spec.hosts[]')[?(@.metadata.name != request.object.metadata.name)] }}"

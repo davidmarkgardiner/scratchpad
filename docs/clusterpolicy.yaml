@@ -11,7 +11,7 @@ metadata:
       This policy prevents VirtualServices from using hostnames that are already in use,
       which could lead to conflicts.
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   background: true
   rules:
   - name: check-hostname-uniqueness
@@ -25,25 +25,18 @@ spec:
       apiCall:
         urlPath: "/apis/networking.istio.io/v1beta1/virtualservices"
         jmesPath: "items"
-    - name: v1alpha3
-      apiCall:
-        urlPath: "/apis/networking.istio.io/v1alpha3/virtualservices"
-        jmesPath: "items"
-    - name: allVirtualServices
-      variables:
-        value: "{{ v1beta1 || v1alpha3 || [] }}"
     preconditions:
       all:
       - key: "{{ request.object.spec.hosts || [] | length(@) }}"
         operator: GreaterThan
         value: 0
     validate:
-      message: "Hostname '{{ element }}' is already in use by VirtualService '{{ allVirtualServices[?contains(spec.hosts, element) && (metadata.name != request.object.metadata.name || metadata.namespace != request.object.metadata.namespace)].metadata.name | [0] }}' in namespace '{{ allVirtualServices[?contains(spec.hosts, element) && (metadata.name != request.object.metadata.name || metadata.namespace != request.object.metadata.namespace)].metadata.namespace | [0] }}'"
+      message: "Hostname is already in use by another VirtualService"
       foreach:
       - list: "request.object.spec.hosts"
         deny:
           conditions:
             any:
-            - key: "{{ allVirtualServices[?contains(spec.hosts, element) && (metadata.name != request.object.metadata.name || metadata.namespace != request.object.metadata.namespace)].metadata.name | length(@) }}"
+            - key: "{{ v1beta1[?contains(spec.hosts, element) && (metadata.name != request.object.metadata.name || metadata.namespace != request.object.metadata.namespace)].metadata.name | length(@) }}"
               operator: GreaterThan
               value: 0

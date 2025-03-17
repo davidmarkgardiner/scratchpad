@@ -11,10 +11,6 @@ spec:
       resources:
         kinds:
         - VirtualService
-    preconditions:
-      all:
-      - key: "{{ request.object.spec.hosts }}"
-        operator: NotEmpty
     validate:
       message: "Hostname already in use by another VirtualService"
       deny:

@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+spec:
+  # In dev environment, just warn instead of blocking
+  validationFailureAction: audit
+  rules:
+  - name: check-for-labels
+    # Only require app and environment labels in dev, owner is optional
+    validate:
+      message: "For dev environment, app and environment labels are required"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"
+            environment: "?*" 

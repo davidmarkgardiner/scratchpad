@@ -1,0 +1,56 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-pod-security
+  annotations:
+    policies.kyverno.io/title: Production Pod Security
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Enforce pod security standards for production workloads.
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+  - name: no-privileged-containers
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Privileged containers are not allowed in production"
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            securityContext:
+              privileged: "false"
+  
+  - name: require-non-root-user
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Containers must run as non-root user"
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            securityContext:
+              runAsNonRoot: true
+  
+  - name: limit-capabilities
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Containers cannot have dangerous capabilities"
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            securityContext:
+              capabilities:
+                drop: ["ALL"] 

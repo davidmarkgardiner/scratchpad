@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namePrefix: prod-
+namespace: kyverno
+
+resources:
+  - ../../base
+  - require-pod-security.yaml
+
+patches:
+  - path: require-labels-patch.yaml
+  - path: restrict-image-registries-patch.yaml 

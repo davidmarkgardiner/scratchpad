@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+spec:
+  # In production, strictly enforce
+  validationFailureAction: enforce
+  rules:
+  - name: check-for-labels
+    validate:
+      message: "Production environment requires comprehensive labeling for all resources"
+      pattern:
+        metadata:
+          labels:
+            # More complete labeling in production
+            app: "?*"
+            environment: "production"  # Must be explicitly "production"
+            owner: "?*"
+            version: "?*"  # Also require version in production
+            cost-center: "?*"  # Track cost center in production 

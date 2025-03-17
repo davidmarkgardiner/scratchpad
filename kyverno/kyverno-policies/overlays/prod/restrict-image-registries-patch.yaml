@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+spec:
+  # Strict enforcement in production
+  validationFailureAction: enforce
+  rules:
+  - name: validate-registries
+    validate:
+      message: "Production only allows images from secure, vetted registries with explicit versioning"
+      pattern:
+        spec:
+          containers:
+          # Most restrictive registry policy
+          # Only allow specific company registries with explicit versioning (no latest tags)
+          - image: "company-registry.io/*/!latest" 

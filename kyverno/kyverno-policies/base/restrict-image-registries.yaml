@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+  annotations:
+    policies.kyverno.io/title: Restrict Image Registries
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Only allow container images from approved registries.
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+  - name: validate-registries
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Images must come from approved registries. Found: {{ images.[0] }}"
+      pattern:
+        spec:
+          containers:
+          - image: "docker.io/library/*" 

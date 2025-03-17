@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namePrefix: dev-
+namespace: kyverno
+
+resources:
+  - ../../base
+
+patches:
+  - path: require-labels-patch.yaml
+  - path: restrict-image-registries-patch.yaml 

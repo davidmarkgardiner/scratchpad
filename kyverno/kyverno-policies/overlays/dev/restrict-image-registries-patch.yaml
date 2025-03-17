@@ -1,0 +1,15 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+spec:
+  # In dev, audit but don't block
+  validationFailureAction: audit
+  rules:
+  - name: validate-registries
+    validate:
+      pattern:
+        spec:
+          containers:
+          # Allow more registries in dev
+          - image: "docker.io/*|gcr.io/*|quay.io/*" 

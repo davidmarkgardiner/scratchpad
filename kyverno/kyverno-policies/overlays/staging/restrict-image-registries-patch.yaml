@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+spec:
+  # Strictly enforce in staging
+  validationFailureAction: enforce
+  rules:
+  - name: validate-registries
+    validate:
+      message: "Staging environment only allows images from company-approved registries"
+      pattern:
+        spec:
+          containers:
+          # More limited registries in staging, require specific company registries
+          - image: "gcr.io/company-project/*|company-registry.io/*" 

@@ -21,9 +21,9 @@ spec:
           kinds:
           - "VirtualService"
     context:
-    - name: v1beta1
+    - name: existingVS
       apiCall:
-        urlPath: "/apis/networking.istio.io/v1beta1/virtualservices"
+        urlPath: "/apis/networking.istio.io/v1/virtualservices"
         jmesPath: "items"
     preconditions:
       all:
@@ -37,6 +37,6 @@ spec:
         deny:
           conditions:
             any:
-            - key: "{{ v1beta1[?contains(spec.hosts, element) && (metadata.name != request.object.metadata.name || metadata.namespace != request.object.metadata.namespace)].metadata.name | length(@) }}"
+            - key: "{{ existingVS[?metadata.name != request.object.metadata.name || metadata.namespace != request.object.metadata.namespace] | [?contains(spec.hosts, element)] | length(@) }}"
               operator: GreaterThan
               value: 0

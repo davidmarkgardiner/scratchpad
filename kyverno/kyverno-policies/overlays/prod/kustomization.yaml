@@ -10,4 +10,10 @@ resources:
 
 patches:
   - path: require-labels-patch.yaml
-  - path: restrict-image-registries-patch.yaml 
+  - path: restrict-image-registries-patch.yaml
+  - path: resource-limits-patch.yaml
+  - path: prevent-istio-injection-patch.yaml
+  - path: mutate-ns-deployment-spotaffinity-patch.yaml
+  - path: mutate-cluster-namespace-istiolabel-patch.yaml
+  - path: mutate-batch-image-env-patch.yaml
+  - path: audit-cluster-peerauthentication-mtls-patch.yaml 

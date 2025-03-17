@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-cluster-namespace-istiolabel
+spec:
+  rules:
+  - name: add-istio-labels
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            # Production-specific istio label with standard value
+            istio-injection: "enabled"
+            # Additional production-only labels
+            istio-mtls: "strict"
+            network-policy: "enabled" 

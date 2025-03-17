@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-istio-injection
+spec:
+  # Strictly enforce in production
+  validationFailureAction: enforce
+  rules:
+  - name: check-injection-label
+    validate:
+      message: "Production requires proper Istio configuration for security and service mesh"
+      pattern:
+        metadata:
+          labels:
+            # Must use consistent istio labels in production
+            istio-injection: "enabled" 

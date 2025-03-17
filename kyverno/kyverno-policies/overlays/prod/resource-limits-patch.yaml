@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-limits
+spec:
+  # Strictly enforce in production with tight limits
+  validationFailureAction: enforce
+  rules:
+  - name: validate-resources
+    validate:
+      message: "Production environment requires strict resource limits"
+      pattern:
+        spec:
+          containers:
+          - resources:
+              # Must have both requests and limits in production
+              limits:
+                memory: "<= 512Mi"
+                cpu: "<= 500m"
+              requests:
+                memory: ">= 128Mi"
+                cpu: ">= 100m" 

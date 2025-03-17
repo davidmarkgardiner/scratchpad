@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-cluster-peerauthentication-mtls
+spec:
+  # Strictly enforce mTLS in production
+  validationFailureAction: enforce
+  rules:
+  - name: check-mtls
+    validate:
+      message: "Production requires strict mTLS configuration to ensure secure service communication"
+      pattern:
+        spec:
+          # Require strict mTLS mode in production
+          mtls:
+            mode: "STRICT" 

@@ -1,0 +1,14 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-cluster-namespace-istiolabel
+spec:
+  # Keep mutations enabled in dev
+  rules:
+  - name: add-istio-labels
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            # Dev environment specific istio label
+            istio-injection: "enabled-dev" 

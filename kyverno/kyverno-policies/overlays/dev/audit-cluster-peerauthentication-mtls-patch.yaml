@@ -1,0 +1,11 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-cluster-peerauthentication-mtls
+spec:
+  # Dev can be more lenient with mTLS
+  validationFailureAction: audit
+  rules:
+  - name: check-mtls
+    validate:
+      message: "In dev environment, strict mTLS is recommended but not enforced" 

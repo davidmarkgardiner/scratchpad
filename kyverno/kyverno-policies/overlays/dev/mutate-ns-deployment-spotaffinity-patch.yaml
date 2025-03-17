@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-ns-deployment-spotaffinity
+spec:
+  # Dev can use mutation policies but with different node affinity
+  rules:
+  - name: add-spot-affinity
+    mutate:
+      patchStrategicMerge:
+        spec:
+          template:
+            spec:
+              # For dev, use less strict affinity rules 
+              affinity:
+                nodeAffinity:
+                  preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 1  # Lower weight for dev - just a preference
+                    preference:
+                      matchExpressions:
+                      - key: node.kubernetes.io/instance-type
+                        operator: In
+                        values:
+                        - "spot-dev" 

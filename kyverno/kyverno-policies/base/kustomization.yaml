@@ -3,4 +3,10 @@ kind: Kustomization
 
 resources:
   - require-labels.yaml
-  - restrict-image-registries.yaml 
+  - restrict-image-registries.yaml
+  - resource-limits.yaml
+  - prevent-istio-injection.yaml
+  - mutate-ns-deployment-spotaffinity.yaml
+  - mutate-cluster-namespace-istiolabel.yaml
+  - mutate-batch-image-env.yaml
+  - audit-cluster-peerauthentication-mtls.yaml 

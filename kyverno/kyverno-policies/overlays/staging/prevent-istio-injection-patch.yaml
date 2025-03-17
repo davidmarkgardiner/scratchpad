@@ -1,0 +1,11 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-istio-injection
+spec:
+  # In staging, enforce istio injection rules
+  validationFailureAction: enforce
+  rules:
+  - name: check-injection-label
+    validate:
+      message: "Staging requires proper Istio injection configuration" 

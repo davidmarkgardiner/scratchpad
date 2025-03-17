@@ -1,0 +1,11 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-istio-injection
+spec:
+  # For dev, use audit mode so developers can experiment
+  validationFailureAction: audit
+  rules:
+  - name: check-injection-label
+    validate:
+      message: "In dev, istio injection labels are recommended but not enforced" 

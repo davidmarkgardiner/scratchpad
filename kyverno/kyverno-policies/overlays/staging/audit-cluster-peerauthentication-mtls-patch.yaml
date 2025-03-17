@@ -1,0 +1,11 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-cluster-peerauthentication-mtls
+spec:
+  # Staging should enforce mTLS
+  validationFailureAction: enforce
+  rules:
+  - name: check-mtls
+    validate:
+      message: "Staging requires proper mTLS configuration for security" 

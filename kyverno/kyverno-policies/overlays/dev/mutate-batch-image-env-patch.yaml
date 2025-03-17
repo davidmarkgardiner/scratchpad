@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-batch-image-env
+spec:
+  # For dev, keep mutation but add dev-specific env vars
+  rules:
+  - name: add-env-vars
+    mutate:
+      patchStrategicMerge:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: "*"  
+                env:
+                - name: ENVIRONMENT
+                  value: "dev"
+                - name: DEBUG_MODE
+                  value: "true" 

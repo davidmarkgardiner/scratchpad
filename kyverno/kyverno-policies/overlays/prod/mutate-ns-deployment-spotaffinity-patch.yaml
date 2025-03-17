@@ -1,0 +1,33 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-ns-deployment-spotaffinity
+spec:
+  rules:
+  - name: add-spot-affinity
+    mutate:
+      patchStrategicMerge:
+        spec:
+          template:
+            spec:
+              # For production, require specific node types with more rigid requirements
+              affinity:
+                nodeAffinity:
+                  # In production, require specific node types for critical workloads
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: node.kubernetes.io/instance-type
+                        operator: In
+                        values:
+                        - "prod-standard"
+                        - "prod-compute-optimized"
+                  # Still use preferredDuringScheduling for spot instances
+                  preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 100  # Highest weight in production
+                    preference:
+                      matchExpressions:
+                      - key: node.kubernetes.io/instance-type
+                        operator: In
+                        values:
+                        - "spot-prod" 

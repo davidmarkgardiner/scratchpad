@@ -1,0 +1,13 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-cluster-namespace-istiolabel
+spec:
+  rules:
+  - name: add-istio-labels
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            # Staging environment specific istio label
+            istio-injection: "enabled-staging" 

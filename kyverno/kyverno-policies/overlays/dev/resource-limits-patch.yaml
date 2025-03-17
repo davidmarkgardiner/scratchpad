@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-limits
+spec:
+  # Use audit mode in dev
+  validationFailureAction: audit
+  rules:
+  - name: validate-resources
+    validate:
+      # More relaxed resource limits for dev
+      message: "Development environment allows higher resource limits"
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                memory: "<= 2Gi"
+                cpu: "<= 1000m" 

@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-limits
+spec:
+  # In staging, enforce but with moderate limits
+  validationFailureAction: enforce
+  rules:
+  - name: validate-resources
+    validate:
+      message: "Staging environment enforces moderate resource limits"
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                memory: "<= 1Gi"
+                cpu: "<= 750m" 

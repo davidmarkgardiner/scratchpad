@@ -1,23 +1,40 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
-name: prevent-duplicate-hostnames
-background: true
-validationFailureAction: enforce
-rules:
+metadata:
+  name: prevent-duplicate-hostnames
+  annotations:
+    policies.kyverno.io/title: Prevent Duplicate Hostnames
+    policies.kyverno.io/category: Networking
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: VirtualService
+    policies.kyverno.io/description: >-
+      This policy prevents VirtualServices from using hostnames that are already in use,
+      which could lead to conflicts.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
   - name: check-hostname-uniqueness
     match:
-      resources:
-        kinds:
-          - VirtualService
+      any:
+      - resources:
+          kinds:
+          - "VirtualService"
+    context:
+    - name: existingVirtualServices
+      apiCall:
+        urlPath: "/apis/networking.istio.io/v1alpha3/virtualservices"
+        jmesPath: "items[?metadata.name != '{{request.object.metadata.name}}' || metadata.namespace != '{{request.object.metadata.namespace}}']"
     preconditions:
       all:
       - key: "{{ request.object.spec.hosts || [] | length(@) }}"
         operator: GreaterThan
         value: 0
     validate:
-      message: "Hostname {{ request.object.spec.hosts[] }} is already in use by another VirtualService"
+      message: "Hostname '{{ request.object.spec.hosts[0] }}' is already in use by another VirtualService in namespace '{{ existingVirtualServices[?contains(spec.hosts, '{{request.object.spec.hosts[0]}}')].metadata.namespace | [0] }}'"
       deny:
         conditions:
-          - key: "{{ request.object.spec.hosts[] }}"
-            operator: AnyIn
-            value: "{{ items('VirtualService', '', '', 'spec.hosts[]')[?(@.metadata.name != request.object.metadata.name)] }}"
+          any:
+          - key: "{{ existingVirtualServices[?contains(spec.hosts, '{{request.object.spec.hosts[0]}}')].metadata.name }}"
+            operator: NotEquals
+            value: []

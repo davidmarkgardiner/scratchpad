@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-virtualservice-reader
+rules:
+- apiGroups: ["networking.istio.io"]
+  resources: ["virtualservices"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno-virtualservice-reader-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-virtualservice-reader
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+- kind: ServiceAccount
+  name: kyverno-reports-controller
+  namespace: kyverno 

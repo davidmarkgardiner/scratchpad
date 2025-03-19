@@ -71,3 +71,25 @@ This approach allows us to maintain our management group structure while address
 ## Azure AD Configuration
 
 All identities and resources exist within the same Azure AD tenant, making cross-management group federation possible while maintaining proper security boundaries.
+
+---
+
+# Azure Environment Relationship Table
+
+| Management Group | AKS Clusters | Home UAMI | Assigned UAMIs | ACR Access |
+|------------------|--------------|-----------|----------------|------------|
+| Dev | Dev AKS | Dev/Test UAMI (ABC123) | Dev/Test UAMI + **PPD/PRD UAMI** | Dev ACR + **Prod ACR** |
+| Test | Test AKS | Dev/Test UAMI (ABC123) | Dev/Test UAMI + **PPD/PRD UAMI** | Dev ACR + **Prod ACR** |
+| PreProd | PreProd AKS | PPD/PRD UAMI (XYZ789) | PPD/PRD UAMI | Prod ACR |
+| Prod | Prod AKS | PPD/PRD UAMI (XYZ789) | PPD/PRD UAMI | Prod ACR |
+
+## Cross-Management Group UAMI Assignment
+
+| UAMI | Home Location | Assigned to Clusters In | Purpose |
+|------|---------------|-------------------------|---------|
+| Dev/Test UAMI (ABC123) | Dev Management Group | Dev, Test | Access to Dev resources |
+| PPD/PRD UAMI (XYZ789) | Prod Management Group | Dev, Test, PreProd, Prod | Cross-group access to Prod ACR |
+
+## Azure AD Configuration
+
+All identities and resources exist within the same Azure AD tenant, making cross-management group federation possible while maintaining proper security boundaries.

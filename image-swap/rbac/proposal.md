@@ -49,3 +49,25 @@ To enable the required cross-management group access:
 4. Implement monitoring for cross-group access activity
 
 This approach allows us to maintain our management group structure while addressing the immediate operational needs for container image deployment.
+
+---
+
+# Azure Environment Relationship Table
+
+| Management Group | AKS Clusters | UAMI Used | Client ID | ACR Access | Authentication Method |
+|------------------|--------------|-----------|-----------|------------|----------------------|
+| Dev | Dev AKS | Dev/Test UAMI | ABC123 | Dev ACR | Direct UAMI federation |
+| Test | Test AKS | Dev/Test UAMI | ABC123 | Dev ACR | Direct UAMI federation |
+| PreProd | PreProd AKS | PPD/PRD UAMI | XYZ789 | Prod ACR | Direct UAMI federation |
+| Prod | Prod AKS | PPD/PRD UAMI | XYZ789 | Prod ACR | Direct UAMI federation |
+
+## Cross-Management Group Access
+
+| Source Environment | Target Resource | Access Method | Identities Used |
+|-------------------|-----------------|---------------|----------------|
+| Dev AKS | Prod ACR | Workload Identity Federation | PPD/PRD UAMI (ClientID: XYZ789) |
+| Test AKS | Prod ACR | Workload Identity Federation | PPD/PRD UAMI (ClientID: XYZ789) |
+
+## Azure AD Configuration
+
+All identities and resources exist within the same Azure AD tenant, making cross-management group federation possible while maintaining proper security boundaries.

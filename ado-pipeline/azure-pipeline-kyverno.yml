@@ -24,5 +24,5 @@ stages:
   - job: RunKyvernoTests
     steps:
     - script: |
-        kyverno test tests/all-tests.yaml
+        kyverno test kyvernotests/tests/all-tests.yaml
       displayName: 'Run Kyverno Tests' 

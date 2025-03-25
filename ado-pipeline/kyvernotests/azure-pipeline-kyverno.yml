@@ -1,0 +1,28 @@
+name: "Kyverno Tests"
+
+trigger:
+  branches:
+    include:
+      - '*'
+      - '!main'
+  paths:
+    include:
+      - 'kyvernotests/**'
+      - 'base/kyvernopolicies/**'
+  batch: false
+
+pr: none
+
+pool:
+  name: HostedinAzure-Linux-UK8S-ManagedAKS-Dev
+  demands:
+    - standard
+
+stages:
+- stage: KyvernoTests
+  jobs:
+  - job: RunKyvernoTests
+    steps:
+    - script: |
+        kyverno test tests/all-tests.yaml
+      displayName: 'Run Kyverno Tests' 

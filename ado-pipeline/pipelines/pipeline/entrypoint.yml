@@ -1,0 +1,195 @@
+parameters:
+
+ 
+
+- name: action
+
+  type: string
+
+  default: 'add'
+
+- name: swci
+
+  type: string
+
+  default: 'at54231'
+
+- name: suffix
+
+  type: string
+
+  default: 'default'
+
+- name: region
+
+  type: string
+
+  default: 'switzerlandnorth'
+
+- name: opEnvironment
+
+  type: string
+
+  default: 'preprod'
+
+- name: resourceQuotaCPU
+
+  type: string
+
+  default: '1'
+
+- name: resourceQuotaMemoryGB
+
+  type: string
+
+  default: '1'
+
+- name: billingReference
+
+  type: string
+
+  default: 'AB-BC-ABCDE-ABCDE'
+
+- name: source
+
+  type: string
+
+  default: 'GSNOW'
+
+- name: swcID
+
+  type: string
+
+  default: 'AA98765'
+
+- name: dataClassification
+
+  type: string
+
+  default: 'public'
+
+ 
+
+- name: fulldomainname
+
+  type: string
+
+  default: dummy_domainname
+
+- name: StageName
+
+  type: string
+
+  default: All_Stages
+
+  values:
+
+   - All_Stages
+
+   - deploynamespace
+
+   - rbacrolebinding
+
+   - apptesturl
+
+   - disasterrecoveryrbacrolebinding
+
+  
+
+stages:
+
+- stage: Initiate
+
+  jobs:
+
+    - job: Initialjob
+
+      steps:
+
+        - script: echo "Setting up"
+
+ 
+
+- template: ${{variables['System.DefaultWorkingDirectory']}}/pipelines/stages/build.yml
+
+ 
+
+- ${{ if ne(parameters.StageName, 'All_Stages') }}:
+
+  - template: ${{variables['System.DefaultWorkingDirectory']}}/pipelines/pipeline/individual_stage.yml
+
+    parameters:
+
+      StageName: ${{ parameters.StageName }}
+
+      serviceConnectionName: ${{ parameters.serviceConnectionName }}
+
+      action: ${{ parameters.action }}
+
+      swci: ${{ parameters.swci }}
+
+      suffix: ${{ parameters.suffix }}
+
+      region: ${{ parameters.region }}
+
+      opEnvironment: ${{ parameters.opEnvironment }}
+
+      resourceQuotaCPU: ${{ parameters.resourceQuotaCPU }}
+
+      resourceQuotaMemoryGB: ${{ parameters.resourceQuotaMemoryGB }}
+
+      billingReference: ${{ parameters.billingReference }}
+
+      source: ${{ parameters.source }}
+
+      swcID: ${{ parameters.swcID }}
+
+      dataClassification: ${{ parameters.dataClassification }}
+
+      requestedBy: ${{ parameters.requestedBy }}
+
+      namespacename: ${{ parameters.namespacename }}
+
+      aksclusterresourceid: ${{ parameters.aksclusterresourceid }}
+
+      fulldomainname: ${{ parameters.fulldomainname }}
+
+ 
+
+- ${{ if eq(parameters.StageName, 'All_Stages') }}:
+
+  - template: ${{variables['System.DefaultWorkingDirectory']}}/pipelines/pipeline/all_stages.yml
+
+    parameters:
+
+      serviceConnectionName: ${{ parameters.serviceConnectionName }}
+
+      action: ${{ parameters.action }}
+
+      swci: ${{ parameters.swci }}
+
+      suffix: ${{ parameters.suffix }}
+
+      region: ${{ parameters.region }}
+
+      opEnvironment: ${{ parameters.opEnvironment }}
+
+      resourceQuotaCPU: ${{ parameters.resourceQuotaCPU }}
+
+      resourceQuotaMemoryGB: ${{ parameters.resourceQuotaMemoryGB }}
+
+      billingReference: ${{ parameters.billingReference }}
+
+      source: ${{ parameters.source }}
+
+      swcID: ${{ parameters.swcID }}
+
+      dataClassification: ${{ parameters.dataClassification }}
+
+      requestedBy: ${{ parameters.requestedBy }}
+
+      namespacename: ${{ parameters.namespacename }}
+
+      aksclusterresourceid: ${{ parameters.aksclusterresourceid }}
+
+      fulldomainname: ${{ parameters.fulldomainname }}

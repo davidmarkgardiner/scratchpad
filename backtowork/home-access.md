@@ -5,7 +5,7 @@ what would i need to loginto at home?
 n8n can be available via webhhok? prob need some gpu first
 
 power on/off
-
+rustdesk
 what tools would be useful
 n8n workflows etc
 

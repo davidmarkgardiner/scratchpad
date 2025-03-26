@@ -151,7 +151,16 @@ parameters:
    - disasterrecoveryrbacrolebinding
 
 # Trigger configuration
-trigger: none
+trigger:
+  branches:
+    include:
+      - '*'
+      - '!main'
+  paths:
+    include:
+      - 'kyvernotests/**'
+      - 'base/kyvernopolicies/**'
+  batch: false
 
 pr: none
 
@@ -182,6 +191,36 @@ resources:
      
 
 stages:
+
+- stage: KyvernoTests
+  condition: and(succeeded(), or(
+    contains(variables['Build.SourceBranch'], 'refs/heads/main'),
+    contains(variables['Build.SourceBranch'], 'refs/heads/develop'),
+    contains(variables['Build.SourceBranch'], 'refs/heads/feature/'),
+    contains(variables['Build.SourceBranch'], 'refs/heads/bugfix/')
+  ))
+  jobs:
+  - job: RunKyvernoTests
+    steps:
+    - script: |
+        mkdir -p $(Build.ArtifactStagingDirectory)/test-results
+        kyverno test kyvernotests/tests/all-tests.yaml --output json > $(Build.ArtifactStagingDirectory)/test-results/kyverno-results.json
+        kyverno test kyvernotests/tests/all-tests.yaml > $(Build.ArtifactStagingDirectory)/test-results/kyverno-results.txt
+      displayName: 'Run Kyverno Tests'
+       
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathtoPublish: '$(Build.ArtifactStagingDirectory)/test-results'
+        artifactName: 'test-results'
+      displayName: 'Publish Test Results'
+
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '$(Build.ArtifactStagingDirectory)/test-results/kyverno-results.json'
+        testRunTitle: 'Kyverno Policy Tests'
+      condition: succeededOrFailed()
+      displayName: 'Publish Test Results to ADO'
 
 - template: 'pipelines/pipeline/entrypoint.yml@pipeline'
 

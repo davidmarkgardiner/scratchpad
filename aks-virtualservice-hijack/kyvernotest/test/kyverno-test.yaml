@@ -5,6 +5,8 @@ metadata:
 policies:
   - ../prevent-httproute-hostname-hijack.yaml
   - ../prevent-vs-hostname-hijack.yaml
+  - ../mutate-httproute-hostname.yaml
+  - ../mutate-vs-hostname.yaml
 resources:
   - resources.yaml
 results:
@@ -41,3 +43,31 @@ results:
     kind: VirtualService
     namespace: app2
     result: fail
+
+  # HTTPRoute Mutation Tests
+  - policy: mutate-httproute-hostname
+    rule: prepend-namespace-to-hostname
+    resources:
+      - test-route
+    kind: HTTPRoute
+    namespace: test-ns
+    result: pass
+    patchedResource:
+      spec:
+        hostnames:
+          - "test-ns-example.com"
+          - "test-ns-api.example.com"
+
+  # VirtualService Mutation Tests
+  - policy: mutate-vs-hostname
+    rule: prepend-namespace-to-hostname
+    resources:
+      - test-vs
+    kind: VirtualService
+    namespace: test-ns
+    result: pass
+    patchedResource:
+      spec:
+        hosts:
+          - "test-ns-example.com"
+          - "test-ns-api.example.com"

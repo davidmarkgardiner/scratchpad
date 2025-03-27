@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-vs-hostname
+spec:
+  background: false
+  rules:
+    - name: prepend-namespace-to-hostname
+      match:
+        resources:
+          kinds:
+            - VirtualService
+          operations:
+            - CREATE
+            - UPDATE
+      mutate:
+        foreach:
+        - list: "request.object.spec.hosts"
+          patchStrategicMerge:
+            spec:
+              hosts:
+                - "{{request.object.metadata.namespace}}-{{element}}" 

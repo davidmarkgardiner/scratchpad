@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-httproute-hostname
+spec:
+  background: false
+  rules:
+    - name: prepend-namespace-to-hostname
+      match:
+        resources:
+          kinds:
+            - HTTPRoute
+          operations:
+            - CREATE
+            - UPDATE
+      mutate:
+        foreach:
+        - list: "request.object.spec.hostnames"
+          patchStrategicMerge:
+            spec:
+              hostnames:
+                - "{{request.object.metadata.namespace}}-{{element}}" 

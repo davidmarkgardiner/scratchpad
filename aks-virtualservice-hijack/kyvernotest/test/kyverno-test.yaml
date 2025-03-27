@@ -1,0 +1,43 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: hostname-policies-test
+policies:
+  - ../prevent-httproute-hostname-hijack.yaml
+  - ../prevent-vs-hostname-hijack.yaml
+resources:
+  - resources.yaml
+results:
+  # HTTPRoute Tests
+  - policy: prevent-httproute-hostname-hijack
+    rule: enforce-namespace-hostname
+    resources:
+      - test-route
+    kind: HTTPRoute
+    namespace: app1
+    result: pass
+
+  - policy: prevent-httproute-hostname-hijack
+    rule: enforce-namespace-hostname
+    resources:
+      - bad-route
+    kind: HTTPRoute
+    namespace: app2
+    result: fail
+
+  # VirtualService Tests
+  - policy: prevent-vs-hostname-hijack
+    rule: enforce-namespace-hostname
+    resources:
+      - test-vs
+    kind: VirtualService
+    namespace: app1
+    result: pass
+
+  - policy: prevent-vs-hostname-hijack
+    rule: enforce-namespace-hostname
+    resources:
+      - bad-vs
+    kind: VirtualService
+    namespace: app2
+    result: fail

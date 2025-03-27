@@ -8,14 +8,16 @@ spec:
   rules:
     - name: enforce-namespace-hostname
       match:
-        any:
-          - resources:
-              kinds:
-                - HTTPRoute.gateway.networking.k8s.io
+        resources:
+          kinds:
+            - HTTPRoute
+          operations:
+            - CREATE
+            - UPDATE
       validate:
         message: "HTTPRoute hostname must start with the namespace name"
         deny:
           conditions:
             - key: "{{ regex_match('^{{request.object.metadata.namespace}}-.*', request.object.spec.hostnames[0]) }}"
               operator: Equals
-              value: false 
+              value: false

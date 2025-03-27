@@ -1,0 +1,150 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-httproute-hostname-hijack
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: enforce-namespace-hostname
+      match:
+        any:
+          - resources:
+              kinds:
+                - HTTPRoute.gateway.networking.k8s.io
+      validate:
+        message: "HTTPRoute hostname must start with the namespace name"
+        deny:
+          conditions:
+            - key: "{{ regex_match('^{{request.object.metadata.namespace}}-.*', request.object.spec.hostnames[0]) }}"
+              operator: Equals
+              value: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-vs-hostname-hijack
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: enforce-namespace-hostname
+      match:
+        any:
+          - resources:
+              kinds:
+                - VirtualService
+      validate:
+        message: "VirtualService hostname must start with the namespace name"
+        pattern:
+          spec:
+            hosts:
+              - "{{request.object.metadata.namespace}}-*"
+---
+apiVersion: kyverno.io/v1alpha2
+kind: PolicyReport
+metadata:
+  name: test-hostname-policies
+spec:
+  tests:
+    # HTTPRoute Tests
+    - name: test-valid-httproute-hostname
+      resources:
+        - apiVersion: gateway.networking.k8s.io/v1beta1
+          kind: HTTPRoute
+          metadata:
+            name: test-route
+            namespace: app1
+          spec:
+            hostnames:
+              - "app1-myapp.example.com"
+            parentRefs:
+              - name: restricted-gateway
+                namespace: istio-system
+            rules:
+              - matches:
+                  - path:
+                      type: PathPrefix
+                      value: /
+                backendRefs:
+                  - name: app1
+                    port: 80
+      expected:
+        - policy: prevent-httproute-hostname-hijack
+          rule: enforce-namespace-hostname
+          result: pass
+
+    - name: test-invalid-httproute-hostname
+      resources:
+        - apiVersion: gateway.networking.k8s.io/v1beta1
+          kind: HTTPRoute
+          metadata:
+            name: bad-route
+            namespace: app2
+          spec:
+            hostnames:
+              - "myapp.example.com"
+            parentRefs:
+              - name: restricted-gateway
+                namespace: istio-system
+            rules:
+              - matches:
+                  - path:
+                      type: PathPrefix
+                      value: /
+                backendRefs:
+                  - name: app2
+                    port: 80
+      expected:
+        - policy: prevent-httproute-hostname-hijack
+          rule: enforce-namespace-hostname
+          result: fail
+          message: "HTTPRoute hostname must start with the namespace name"
+
+    # VirtualService Tests
+    - name: test-valid-vs-hostname
+      resources:
+        - apiVersion: networking.istio.io/v1beta1
+          kind: VirtualService
+          metadata:
+            name: test-vs
+            namespace: app1
+          spec:
+            hosts:
+              - "app1-myapp.example.com"
+            gateways:
+              - istio-system/restricted-gateway
+            http:
+              - route:
+                  - destination:
+                      host: app1
+                      port:
+                        number: 80
+      expected:
+        - policy: prevent-vs-hostname-hijack
+          rule: enforce-namespace-hostname
+          result: pass
+
+    - name: test-invalid-vs-hostname
+      resources:
+        - apiVersion: networking.istio.io/v1beta1
+          kind: VirtualService
+          metadata:
+            name: bad-vs
+            namespace: app2
+          spec:
+            hosts:
+              - "myapp.example.com"
+            gateways:
+              - istio-system/restricted-gateway
+            http:
+              - route:
+                  - destination:
+                      host: app2
+                      port:
+                        number: 80
+      expected:
+        - policy: prevent-vs-hostname-hijack
+          rule: enforce-namespace-hostname
+          result: fail
+          message: "VirtualService hostname must start with the namespace name"

@@ -1,0 +1,129 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-httproute-hostname-hijack
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: enforce-namespace-hostname
+      match:
+        any:
+          - resources:
+              kinds:
+                - HTTPRoute.gateway.networking.k8s.io
+      validate:
+        message: "HTTPRoute hostname must start with the namespace name"
+        deny:
+          conditions:
+            - key: "{{ regex_match('^{{request.object.metadata.namespace}}-.*', request.object.spec.hostnames[0]) }}"
+              operator: Equals
+              value: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-prevent-httproute-hostname-hijack
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: test-enforce-namespace-hostname
+      match:
+        any:
+          - resources:
+              kinds:
+                - HTTPRoute.gateway.networking.k8s.io
+      validate:
+        message: "HTTPRoute hostname must start with the namespace name"
+        deny:
+          conditions:
+            - key: "{{ regex_match('^{{request.object.metadata.namespace}}-.*', request.object.spec.hostnames[0]) }}"
+              operator: Equals
+              value: false
+---
+apiVersion: kyverno.io/v1alpha2
+kind: PolicyReport
+metadata:
+  name: test-httproute-policy
+spec:
+  tests:
+    - name: test-valid-hostname
+      resources:
+        - apiVersion: gateway.networking.k8s.io/v1beta1
+          kind: HTTPRoute
+          metadata:
+            name: test-route
+            namespace: app1
+          spec:
+            hostnames:
+              - "app1-myapp.example.com"
+            parentRefs:
+              - name: restricted-gateway
+                namespace: istio-system
+            rules:
+              - matches:
+                  - path:
+                      type: PathPrefix
+                      value: /
+                backendRefs:
+                  - name: app1
+                    port: 80
+      expected:
+        - policy: prevent-httproute-hostname-hijack
+          rule: enforce-namespace-hostname
+          result: pass
+
+    - name: test-invalid-hostname
+      resources:
+        - apiVersion: gateway.networking.k8s.io/v1beta1
+          kind: HTTPRoute
+          metadata:
+            name: bad-route
+            namespace: app2
+          spec:
+            hostnames:
+              - "myapp.example.com"
+            parentRefs:
+              - name: restricted-gateway
+                namespace: istio-system
+            rules:
+              - matches:
+                  - path:
+                      type: PathPrefix
+                      value: /
+                backendRefs:
+                  - name: app2
+                    port: 80
+      expected:
+        - policy: prevent-httproute-hostname-hijack
+          rule: enforce-namespace-hostname
+          result: fail
+          message: "HTTPRoute hostname must start with the namespace name"
+
+    - name: test-wrong-namespace-prefix
+      resources:
+        - apiVersion: gateway.networking.k8s.io/v1beta1
+          kind: HTTPRoute
+          metadata:
+            name: wrong-prefix-route
+            namespace: app1
+          spec:
+            hostnames:
+              - "app2-myapp.example.com"
+            parentRefs:
+              - name: restricted-gateway
+                namespace: istio-system
+            rules:
+              - matches:
+                  - path:
+                      type: PathPrefix
+                      value: /
+                backendRefs:
+                  - name: app1
+                    port: 80
+      expected:
+        - policy: prevent-httproute-hostname-hijack
+          rule: enforce-namespace-hostname
+          result: fail
+          message: "HTTPRoute hostname must start with the namespace name" 

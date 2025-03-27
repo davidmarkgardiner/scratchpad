@@ -1,0 +1,35 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: hostname-validation
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+  - applyTo: HTTP_ROUTE
+    match:
+      context: GATEWAY
+      routeConfiguration:
+        vhost:
+          name: "*:80"
+    patch:
+      operation: MERGE
+      value:
+        request_headers_to_add:
+        - header:
+            key: x-namespace
+            value: "%DOWNSTREAM_LOCAL_NAMESPACE%"
+          append: true
+  - applyTo: VIRTUAL_HOST
+    match:
+      context: GATEWAY
+      routeConfiguration:
+        vhost:
+          name: "*:80"
+    patch:
+      operation: MERGE
+      value:
+        domains:
+        - "*-myapp.example.com" 

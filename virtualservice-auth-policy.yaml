@@ -1,0 +1,22 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: virtualservice-hostname-policy
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  action: DENY
+  rules:
+  - from:
+    - source:
+        notNamespaces: ["istio-system"]
+    to:
+    - operation:
+        paths: ["/apis/networking.istio.io/*/virtualservices"]
+        methods: ["POST", "PUT", "PATCH"]
+    when:
+    - key: request.headers[host]
+      values: ["myapp.example.com"]
+      notValues: ["{{source.namespace}}-myapp.example.com"] 

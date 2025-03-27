@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-vs-hostname-hijack
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: enforce-namespace-hostname
+    match:
+      any:
+      - resources:
+          kinds:
+          - "VirtualService"
+    validate:
+      message: "VirtualService hostname must start with the namespace name (e.g. namespace-*.example.com)"
+      pattern:
+        spec:
+          hosts:
+          - "{{request.object.metadata.namespace}}-*.example.com" 

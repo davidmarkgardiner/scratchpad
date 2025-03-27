@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app1
+  namespace: app1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app1
+  template:
+    metadata:
+      labels:
+        app: app1
+    spec:
+      containers:
+      - name: app1
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app1
+  namespace: app1
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: app1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: app1-vs
+  namespace: app1
+spec:
+  hosts:
+  - "app1-myapp"
+  gateways:
+  - istio-system/gateway
+  http:
+  - route:
+    - destination:
+        host: app1
+        port:
+          number: 80 

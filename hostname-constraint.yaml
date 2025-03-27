@@ -1,0 +1,38 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8shttproutehostnames
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sHTTPRouteHostnames
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8shttproutehostnames
+        
+        violation[{"msg": msg}] {
+          input.review.object.kind == "HTTPRoute"
+          hostname := input.review.object.spec.hostnames[_]
+          
+          # Get all existing HTTPRoutes
+          routes := data.inventory.namespace[ns].gateway_networking_k8s_io_v1_HTTPRoute[name]
+          
+          # Check for conflicts in other namespaces
+          route := routes[_]
+          route.metadata.namespace != input.review.object.metadata.namespace
+          route.spec.hostnames[_] == hostname
+          
+          msg := sprintf("HTTPRoute hostname %q conflicts with existing route in namespace %q", [hostname, route.metadata.namespace])
+        }
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sHTTPRouteHostnames
+metadata:
+  name: prevent-hostname-conflicts
+spec:
+  match:
+    kinds:
+      - apiGroups: ["gateway.networking.k8s.io"]
+        kinds: ["HTTPRoute"] 

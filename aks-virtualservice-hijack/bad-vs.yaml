@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bad-vs
+  namespace: app2
+spec:
+  hosts:
+  - "app1-myapp"  # Attempting to hijack app1's hostname
+  gateways:
+  - istio-system/gateway
+  http:
+  - route:
+    - destination:
+        host: app2
+        port:
+          number: 80 

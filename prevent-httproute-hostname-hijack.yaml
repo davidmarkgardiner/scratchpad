@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-httproute-hostname-hijack
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: check-hostname-conflict
+    match:
+      any:
+      - resources:
+          kinds:
+          - "HTTPRoute"
+    validate:
+      message: "HTTPRoute hostname conflicts with an existing route in another namespace"
+      deny:
+        conditions:
+          all:
+          - key: "{{ request.object.spec.hostnames[] }}"
+            operator: AnyIn
+            value: "{{ 
+              items := [] |
+              routes := request.namespace != namespace |
+              routes := HTTPRoute.spec.hostnames[] |
+              items := append(items, routes) |
+              items
+            }}" 

@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-duplicate-hostnames
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: check-hostname-uniqueness
+    match:
+      resources:
+        kinds:
+        - VirtualService
+    context:
+    - name: existing_vs
+      apiCall:
+        urlPath: "/apis/networking.istio.io/v1/virtualservices"
+        jmesPath: "items[?metadata.name != '{{ request.object.metadata.name }}' || metadata.namespace != '{{ request.object.metadata.namespace }}']"
+    validate:
+      message: "Hostname is already in use by another VirtualService"
+      deny:
+        conditions:
+        - key: "{{ existing_vs[*].spec.hosts[0] }}"
+          operator: Contains
+          value: "{{ request.object.spec.hosts[0] }}" 

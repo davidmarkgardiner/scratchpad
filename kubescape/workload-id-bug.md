@@ -111,3 +111,33 @@ fi
 # Always exit with success since existence of credentials is not a failure condition
 exit 0
 ```
+
+```
+# Remove any double quotes around the clustername
+trimmed_clusterprefix="${clusterprefix//\"/}"  # Removes ALL quotes
+
+# For vault federated credential
+echo "Creating or validating vault federated credentials..."
+az identity federated-credential create --name federated_workload_identity_vault${trimmed_clusterprefix} \
+    --identity-name ${UAMI} \
+    --resource-group ${UAMI_RESOURCE_GROUP} \
+    --issuer "${AKS_OIDC_ISSUER}" \
+    --subject system:serviceaccount:"ubs-system":"vault-sa" || \
+    echo "[INFO] Federated credential for vault may already exist. Continuing..."
+
+# Make sure to set the account regardless of previous command success
+az account set -s ${SUBSCRIPTION}
+
+# For imageswap federated credential
+echo "Creating or validating imageswap federated credentials..."
+az identity federated-credential create --name federated_workload_identity_imageswap${trimmed_clusterprefix} \
+    --identity-name ${RUNTIME_MANAGEDIDENTITY} \
+    --resource-group ${UAMI_RESOURCE_GROUP} \
+    --issuer "${AKS_OIDC_ISSUER}" \
+    --subject system:serviceaccount:"kyverno":"acrpush-workload-identity-sa" || \
+    echo "[INFO] Federated credential for imageswap may already exist. Continuing..."
+
+# Exit with success regardless of previous commands
+echo "[SUCCESS] Federated credential validation completed."
+exit 0
+```

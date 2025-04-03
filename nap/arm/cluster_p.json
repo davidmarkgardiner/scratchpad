@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "clusterName": {
+        "value": "myAKSCluster"
+      },
+      "dnsPrefix": {
+        "value": "myakscluster-dns"
+      },
+      "kubernetesVersion": {
+        "value": "1.28.3"
+      },
+      "adminUsername": {
+        "value": "azureuser"
+      },
+      "sshPublicKey": {
+        "value": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3QtQrKh...YOUR_SSH_PUBLIC_KEY...kjkXkH39dmkKls1 user@host"
+      },
+      "systemNodePoolVmSize": {
+        "value": "Standard_DS3_v2"
+      }
+    }
+  }

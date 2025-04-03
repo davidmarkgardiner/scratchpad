@@ -1,0 +1,115 @@
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - infra/aks/**
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  resourceGroupName: 'myAKSResourceGroup'
+  location: 'eastus'
+  clusterName: 'myAKSCluster'
+  templatePath: '$(System.DefaultWorkingDirectory)/infra/aks/aks-template.json'
+  parameterPath: '$(System.DefaultWorkingDirectory)/infra/aks/aks-parameters.json'
+  fluxTemplatePath: '$(System.DefaultWorkingDirectory)/infra/aks/flux-template.json'
+  fluxParameterPath: '$(System.DefaultWorkingDirectory)/infra/aks/flux-parameters.json'
+  clusterReadinessScript: '$(System.DefaultWorkingDirectory)/infra/scripts/check-cluster-readiness.sh'
+
+stages:
+- stage: DeployInfrastructure
+  displayName: 'Deploy AKS Infrastructure'
+  jobs:
+  - job: DeployAKS
+    displayName: 'Deploy AKS Cluster'
+    steps:
+    - checkout: self
+    
+    - task: AzureCLI@2
+      displayName: 'Create Resource Group'
+      inputs:
+        azureSubscription: 'your-azure-service-connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az group create --name $(resourceGroupName) --location $(location)
+    
+    - task: AzureCLI@2
+      displayName: 'Deploy AKS Cluster'
+      inputs:
+        azureSubscription: 'your-azure-service-connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az deployment group create \
+            --resource-group $(resourceGroupName) \
+            --template-file $(templatePath) \
+            --parameters @$(parameterPath) \
+            --parameters clusterName=$(clusterName)
+      
+    - task: Bash@3
+      displayName: 'Wait for AKS Cluster to be Ready'
+      inputs:
+        filePath: $(clusterReadinessScript)
+        arguments: '$(resourceGroupName) $(clusterName)'
+      env:
+        RESOURCE_GROUP: $(resourceGroupName)
+        CLUSTER_NAME: $(clusterName)
+        MAX_RETRIES: 40
+        RETRY_INTERVAL: 30
+    
+    - task: AzureCLI@2
+      displayName: 'Deploy Flux Configuration'
+      inputs:
+        azureSubscription: 'your-azure-service-connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          # Get AKS credentials to verify connectivity
+          az aks get-credentials \
+            --resource-group $(resourceGroupName) \
+            --name $(clusterName) \
+            --overwrite-existing
+          
+          # Verify cluster connectivity before proceeding
+          if ! kubectl get nodes &>/dev/null; then
+            echo "##vso[task.logissue type=error]Failed to connect to AKS cluster"
+            exit 1
+          fi
+          
+          # Deploy Flux configuration
+          az deployment group create \
+            --resource-group $(resourceGroupName) \
+            --template-file $(fluxTemplatePath) \
+            --parameters @$(fluxParameterPath) \
+            --parameters clusterName=$(clusterName)
+    
+    - task: AzureCLI@2
+      displayName: 'Verify Flux Deployment'
+      inputs:
+        azureSubscription: 'your-azure-service-connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          # Get AKS credentials
+          az aks get-credentials \
+            --resource-group $(resourceGroupName) \
+            --name $(clusterName) \
+            --overwrite-existing
+          
+          # Check for Flux namespace
+          echo "Checking Flux namespace..."
+          kubectl get namespace flux-system
+          
+          # Check for GitRepository resource
+          echo "Checking GitRepository..."
+          kubectl wait --for=condition=ready gitrepository -n flux-system flux-system --timeout=60s
+          
+          # Check for Kustomization resource
+          echo "Checking Kustomization..."
+          kubectl wait --for=condition=ready kustomization -n flux-system infra --timeout=60s || true
+          
+          echo "Flux verification completed"

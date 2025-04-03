@@ -1,0 +1,27 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "clusterName": {
+        "value": "myAKSCluster"
+      },
+      "fluxConfigName": {
+        "value": "my-flux-config"
+      },
+      "fluxNamespace": {
+        "value": "flux-system"
+      },
+      "gitRepoUrl": {
+        "value": "https://github.com/yourusername/your-gitops-repo.git"
+      },
+      "gitBranch": {
+        "value": "main"
+      },
+      "kustomizationPath": {
+        "value": "./clusters/production"
+      },
+      "gitSyncIntervalInSeconds": {
+        "value": 300
+      }
+    }
+  }

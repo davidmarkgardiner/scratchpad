@@ -37,3 +37,10 @@
 
 
 need to check Uk Benefits portal
+check salary sacrafice and pension contributions
+lockers
+
+rebuild mac with tools can leave this in London?
+travel pillow
+other accesories
+

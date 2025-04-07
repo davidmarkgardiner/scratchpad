@@ -24,3 +24,6 @@ kubeconfig
 *.tfvars
 terraform.tfstate*
 .terraform/ 
+id_rsa
+id_rsa.pub
+nap/arm/cmd.txt

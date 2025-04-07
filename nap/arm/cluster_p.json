@@ -6,7 +6,7 @@
           "value": true
       },
       "newClusterName": {
-          "value": ""
+          "value": "k8s-cluster"
       },
       "upgradeChannel": {
           "value": "stable"
@@ -15,7 +15,6 @@
           "value": "NodeImage"
       },
       "clusterSshPublicKey": {
-          "value": ""
       },
       "uptimeSlaTier": {
           "value": "Standard"
@@ -25,20 +24,17 @@
       },
       "controlPlaneUami": {
           "value": {
-              "resourceID": "/subscriptions/your-subscription-id/resourceGroups/your-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/control-plane-identity",
+              "resourceID": "",
               "clientID": "00000000-0000-0000-0000-000000000000",
               "objectID": "00000000-0000-0000-0000-000000000000"
           }
       },
       "runtimeUami": {
           "value": {
-              "resourceID": "/subscriptions/your-subscription-id/resourceGroups/your-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/runtime-identity",
+              "resourceID": "",
               "clientID": "00000000-0000-0000-0000-000000000000",
               "objectID": "00000000-0000-0000-0000-000000000000"
           }
-      },
-      "aadAdminGroupObjectID": {
-          "value": ""
       },
       "networkPlugin": {
           "value": "azure"
@@ -53,10 +49,10 @@
           "value": "cilium"
       },
       "logAnalyticsWorkspaceID": {
-          "value": ""
+          "value": "est-workspace"
       },
       "logAnalyticsWorkspaceIDDefender": {
-          "value": ""
+          "value": "insights/workspaces/test-workspace"
       },
       "oidcIssuerProfile": {
           "value": true
@@ -69,10 +65,10 @@
           }
       },
       "CsiKeyVaultName": {
-          "value": "your-keyvault-name"
+          "value": "test-keyvault"
       },
       "CsiKeyVaultRg": {
-          "value": "your-keyvault-resource-group"
+          "value": "test-rg"
       },
       "extraTags": {
           "value": {

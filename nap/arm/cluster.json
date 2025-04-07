@@ -39,7 +39,8 @@
           }
       },
       "clusterSshPublicKey": {
-          "type": "securestring"
+          "type": "securestring",
+          "defaultValue": ""
       },
       "uptimeSlaTier": {
           "type": "string",
@@ -68,11 +69,10 @@
       },
       "aadAdminGroupObjectID": {
           "type": "string",
+          "defaultValue": "",
           "metadata": {
               "value": "The Administrator Group for managing AKS cluster."
-          },
-          "allowedValues": [
-          ]
+          }
       },
       "kubernetesVersion": {
           "type": "string",
@@ -118,13 +118,13 @@
       },
       "logAnalyticsWorkspaceID": {
           "type": "string",
-          "allowedValues": [
-          ]
+          "defaultValue": "",
+          "allowedValues": []
       },
       "logAnalyticsWorkspaceIDDefender": {
           "type": "string",
-          "allowedValues": [
-          ]
+          "defaultValue": "",
+          "allowedValues": []
       },
       "outboundType": {
           "type": "string",
@@ -222,7 +222,7 @@
       }
   },
   "variables": {
-      "oldclusterName": "[tolower(concat('K', substring(resourcegroup().tags['opEnvironment'],0,1), substring(subscription().subscriptionid,0,4),substring(resourcegroup().tags['cmdbReference'],2,add(length(resourcegroup().tags['cmdbReference']),-2)),parameters('oldClusterNameSuffix')))]",
+      "oldclusterName": "[concat('k8s-', parameters('oldClusterNameSuffix'))]",
       "clusterName": "[if(parameters('useNewNamingConvention'), parameters('newClusterName'), variables('oldclusterName') )]"
   },
   "resources": [
@@ -235,7 +235,7 @@
           "properties": {
               "aadProfile": {
                   "managed": true,
-                  "adminGroupObjectIDs": "[array(parameters('aadAdminGroupObjectID'))]",
+                  "adminGroupObjectIDs": "[if(empty(parameters('aadAdminGroupObjectID')), json('[]'), array(parameters('aadAdminGroupObjectID')))]",
                   "tenantID": "[subscription().tenantID]",
                   "enableAzureRBAC": true
               },
@@ -367,6 +367,20 @@
                       "enabled": true
                   }
               },
+              "agentPoolProfiles": [
+                  {
+                      "name": "systempool",
+                      "count": 3,
+                      "vmSize": "Standard_D2s_v3",
+                      "osDiskSizeGB": 128,
+                      "osDiskType": "Managed",
+                      "osType": "Linux",
+                      "mode": "System",
+                      "type": "VirtualMachineScaleSets",
+                      "enableAutoScaling": false,
+                      "availabilityZones": ["1", "2", "3"]
+                  }
+              ],
               "identityProfile": {
                   "kubeletidentity": {
                       "resourceId": "[parameters('runtimeUami').resourceID]",
@@ -387,7 +401,7 @@
           }
       },
       {
-          "apiVersion": "2017-05-10",
+          "apiVersion": "2024-03-01",
           "name": "nestedTemplate",
           "type": "Microsoft.Resources/deployments",
           "resourceGroup": "[parameters('CsiKeyVaultRg')]",

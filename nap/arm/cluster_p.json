@@ -1,24 +1,85 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
-    "contentVersion": "1.0.0.0",
-    "parameters": {
-      "clusterName": {
-        "value": "myAKSCluster"
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+      "useNewNamingConvention": {
+          "value": true
       },
-      "dnsPrefix": {
-        "value": "myakscluster-dns"
+      "newClusterName": {
+          "value": ""
+      },
+      "upgradeChannel": {
+          "value": "stable"
+      },
+      "nodeOSUpgradeChannel": {
+          "value": "NodeImage"
+      },
+      "clusterSshPublicKey": {
+          "value": ""
+      },
+      "uptimeSlaTier": {
+          "value": "Standard"
       },
       "kubernetesVersion": {
-        "value": "1.28.3"
+          "value": "1.29.0"
       },
-      "adminUsername": {
-        "value": "azureuser"
+      "controlPlaneUami": {
+          "value": {
+              "resourceID": "/subscriptions/your-subscription-id/resourceGroups/your-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/control-plane-identity",
+              "clientID": "00000000-0000-0000-0000-000000000000",
+              "objectID": "00000000-0000-0000-0000-000000000000"
+          }
       },
-      "sshPublicKey": {
-        "value": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3QtQrKh...YOUR_SSH_PUBLIC_KEY...kjkXkH39dmkKls1 user@host"
+      "runtimeUami": {
+          "value": {
+              "resourceID": "/subscriptions/your-subscription-id/resourceGroups/your-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/runtime-identity",
+              "clientID": "00000000-0000-0000-0000-000000000000",
+              "objectID": "00000000-0000-0000-0000-000000000000"
+          }
       },
-      "systemNodePoolVmSize": {
-        "value": "Standard_DS3_v2"
+      "aadAdminGroupObjectID": {
+          "value": ""
+      },
+      "networkPlugin": {
+          "value": "azure"
+      },
+      "networkPluginMode": {
+          "value": "overlay"
+      },
+      "networkPolicy": {
+          "value": "cilium"
+      },
+      "ebpfDataplane": {
+          "value": "cilium"
+      },
+      "logAnalyticsWorkspaceID": {
+          "value": ""
+      },
+      "logAnalyticsWorkspaceIDDefender": {
+          "value": ""
+      },
+      "oidcIssuerProfile": {
+          "value": true
+      },
+      "securityProfile": {
+          "value": {
+              "workloadIdentity": {
+                  "enabled": true
+              }
+          }
+      },
+      "CsiKeyVaultName": {
+          "value": "your-keyvault-name"
+      },
+      "CsiKeyVaultRg": {
+          "value": "your-keyvault-resource-group"
+      },
+      "extraTags": {
+          "value": {
+              "Application": "AKS-AutoNodeProvisioning",
+              "Environment": "Development",
+              "CostCenter": "IT-123456"
+          }
       }
-    }
   }
+}

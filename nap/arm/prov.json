@@ -1,0 +1,107 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "clusterName": {
+        "type": "string",
+        "defaultValue": "aksAutoNodeProvisioning",
+        "metadata": {
+          "description": "The name of the AKS cluster"
+        }
+      },
+      "location": {
+        "type": "string",
+        "defaultValue": "[resourceGroup().location]",
+        "metadata": {
+          "description": "The location of the AKS cluster"
+        }
+      },
+      "dnsPrefix": {
+        "type": "string",
+        "defaultValue": "[concat(parameters('clusterName'), '-dns')]",
+        "metadata": {
+          "description": "DNS prefix for the cluster"
+        }
+      },
+      "kubernetesVersion": {
+        "type": "string",
+        "defaultValue": "1.29.0",
+        "metadata": {
+          "description": "The version of Kubernetes"
+        }
+      },
+      "adminUsername": {
+        "type": "string",
+        "defaultValue": "azureuser",
+        "metadata": {
+          "description": "The admin username for Linux VMs"
+        }
+      },
+      "sshPublicKey": {
+        "type": "string",
+        "metadata": {
+          "description": "SSH public key for Linux VMs"
+        }
+      }
+    },
+    "resources": [
+      {
+        "type": "Microsoft.ContainerService/managedClusters",
+        "apiVersion": "2024-10-02-preview",
+        "name": "[parameters('clusterName')]",
+        "location": "[parameters('location')]",
+        "properties": {
+          "dnsPrefix": "[parameters('dnsPrefix')]",
+          "kubernetesVersion": "[parameters('kubernetesVersion')]",
+          "enableRBAC": true,
+          
+          "nodeProvisioningProfile": {
+            "mode": "Auto"
+          },
+          
+          "networkProfile": {
+            "networkPlugin": "azure",
+            "loadBalancerSku": "standard"
+          },
+          
+          "linuxProfile": {
+            "adminUsername": "[parameters('adminUsername')]",
+            "ssh": {
+              "publicKeys": [
+                {
+                  "keyData": "[parameters('sshPublicKey')]"
+                }
+              ]
+            }
+          },
+          
+          "identityProfile": {
+            "kubeletidentity": {
+              "resourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('clusterName'), '-kubelet'))]",
+              "clientId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('clusterName'), '-kubelet')), '2023-01-31').clientId]",
+              "objectId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('clusterName'), '-kubelet')), '2023-01-31').principalId]"
+            }
+          },
+          
+          "servicePrincipalProfile": {
+            "clientId": "msi"
+          }
+        },
+        "identity": {
+          "type": "SystemAssigned"
+        }
+      },
+      {
+        "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+        "apiVersion": "2023-01-31",
+        "name": "[concat(parameters('clusterName'), '-kubelet')]",
+        "location": "[parameters('location')]"
+      }
+    ],
+    "outputs": {
+      "controlPlaneFQDN": {
+        "type": "string",
+        "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))).fqdn]"
+      }
+    }
+  }

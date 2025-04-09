@@ -1,0 +1,208 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "username": {
+            "type": "SecureString",
+            "metadata": {
+                "description": "The value is to store a Base 64 encoded username"
+            }
+        },
+        "password": {
+            "type": "SecureString",
+            "metadata": {
+                "description": "The value of the secret is to store a Base 64 encoded PAT token"
+            }
+        },
+        "url": {
+            "type": "String",
+            "metadata": {
+                "description": "The URL for the GitRepository"
+            }
+        },
+        "caFile": {
+            "type": "SecureString",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The CA file for the GitRepository"
+            }
+        },
+        "caCert": {
+            "type": "SecureString",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The CA certificate for the GitRepository"
+            }
+        },
+        "useNewNamingConvention": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "This is the switch that will determine the naming convention for the UK8S cluster, Set to true for new Clusters"
+            }
+        },
+        "oldClusterNameSuffix": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5
+        },
+        "newClusterName": {
+            "type": "string",
+            "metadata": {
+                "description": "This is the new naming convention, Expected naming convention - (ts|ib|wma|am|hr)-(com|hve|trd)-(uk8s|uk3s|hci)-(reap|global|gguz)-(neu|weu|nch|sas|cus|eas|eu2)-(di|de|qi|qe|pi|pe)-[0-9]"
+            }
+        },
+        "fluxConfigurationName": {
+            "type": "String",
+            "metadata": {
+                "description": "The name for the Flux Configuration"
+            }
+        },
+        "fluxConfigurationNameSpace": {
+            "type": "String",
+            "metadata": {
+                "description": "The Kubernetes Namespace for the Flux Configuration"
+            }
+        },
+        "fluxGitRepositoryBranch": {
+            "defaultValue": "",
+            "type": "String",
+            "metadata": {
+                "description": "The source Git Repository Branch for the Flux Configuration"
+            }
+        },
+        "fluxGitRepositoryTag": {
+            "defaultValue": "",
+            "type": "String",
+            "metadata": {
+                "description": "The source Git Repository Tag for the Flux Configuration"
+            }
+        },
+        "gitRepositoryTimeoutInSeconds": {
+            "defaultValue": 60,
+            "type": "Int",
+            "metadata": {
+                "description": "Flux timeout for checking the GitRepository"
+            }
+        },
+        "gitRepositorySyncIntervalInSeconds": {
+            "defaultValue": 60,
+            "type": "Int",
+            "metadata": {
+                "description": "Flux Sync interval for checking the GitRepository"
+            }
+        },
+        "path": {
+            "type": "String",
+            "metadata": {
+                "description": "The path to the GitRepository kustomization"
+            }
+        },
+        "napConfigPath": {
+            "type": "String",
+            "defaultValue": "nap",
+            "metadata": {
+                "description": "The path to the NAP GitRepository kustomization"
+            }
+        },
+        "baseConfigPath": {
+            "type": "String",
+            "defaultValue": "base",
+            "metadata": {
+                "description": "The path to the Base GitRepository kustomization"
+            }
+        },
+        "scope": {
+            "type": "String",
+            "defaultValue": "cluster",
+            "metadata": {
+                "description": "The path to the GitRepository kustomization"
+            }
+        }
+    },
+    "variables": {
+        "oldclusterName": "[tolower(concat('K', substring(resourcegroup().tags['opEnvironment'],0,1), substring(subscription().subscriptionid,0,4),substring(resourcegroup().tags['cmdbReference'],2,add(length(resourcegroup().tags['cmdbReference']),-2)),parameters('oldClusterNameSuffix')))]",
+        "clusterName": "[if(parameters('useNewNamingConvention'), parameters('newClusterName'), variables('oldclusterName') )]",
+        "trimmedPath": "[take(split(parameters('path'), '/'), 2)]",
+        "combinedTrimmedPath": "[concat(variables('trimmedPath')[0], '/', variables('trimmedPath')[1])]",
+        "napConfigFullPath": "[concat(variables('trimmedPath')[0], '/', parameters('napConfigPath'))]",
+        "baseConfigFullPath": "[concat(variables('trimmedPath')[0], '/', parameters('baseConfigPath'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.KubernetesConfiguration/fluxConfigurations",
+            "apiVersion": "2024-11-01",
+            "name": "[parameters('fluxConfigurationName')]",
+            "properties": {
+                "scope": "[parameters('scope')]",
+                "namespace": "[parameters('fluxConfigurationNameSpace')]",
+                "sourceKind": "GitRepository",
+                "suspend": false,
+                "gitRepository": {
+                    "url": "[parameters('url')]",
+                    "timeoutInSeconds": "[parameters('gitRepositoryTimeoutInSeconds')]",
+                    "syncIntervalInSeconds": "[parameters('gitRepositorySyncIntervalInSeconds')]",
+                    "localAuthRef": "[concat(parameters('fluxConfigurationName'),'-protected-parameters')]",
+                    "repositoryRef": {
+                        "branch": "[if(empty(parameters('fluxGitRepositoryTag')), parameters('fluxGitRepositoryBranch'), json('null'))]",
+                        "tag": "[if(not(empty(parameters('fluxGitRepositoryTag'))), parameters('fluxGitRepositoryTag'), json('null'))]"
+                    }
+                },
+                "configurationProtectedSettings": {
+                    "username": "[parameters('username')]",
+                    "password": "[parameters('password')]",
+                    "caFile": "[parameters('caFile')]",
+                    "caCert": "[parameters('caCert')]"
+                },
+                "kustomizations": {
+                    "app": {
+                        "path": "[parameters('path')]",
+                        "dependsOn": [],
+                        "timeoutInSeconds": 600,
+                        "syncIntervalInSeconds": 120,
+                        "validation": "none",
+                        "prune": false,
+                        "force": true
+                    },
+                    "baseconfiguration": {
+                        "path": "[variables('baseConfigFullPath')]",
+                        "dependsOn": ["napconfiguration"],
+                        "timeoutInSeconds": 300,
+                        "syncIntervalInSeconds": 60,
+                        "validation": "none",
+                        "prune": true,
+                        "force": true,
+                        "postBuild": {
+                            "substituteFrom": [
+                                {
+                                    "kind": "ConfigMap",
+                                    "name": "uk8s-config",
+                                    "optional": false
+                                }
+                            ]
+                        }
+                    },
+                    "napconfiguration": {
+                        "path": "[variables('napConfigFullPath')]",
+                        "dependsOn": [],
+                        "timeoutInSeconds": 300,
+                        "syncIntervalInSeconds": 60,
+                        "validation": "none",
+                        "prune": true,
+                        "force": true,
+                        "postBuild": {
+                            "substituteFrom": [
+                                {
+                                    "kind": "ConfigMap",
+                                    "name": "uk8s-config",
+                                    "optional": false
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', variables('clusterName'))]"
+        }
+    ]
+}

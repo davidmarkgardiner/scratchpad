@@ -162,7 +162,7 @@ These changes will make the deployment more resilient to failures, better monito
 
 
 ---
-
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -187,3 +187,4 @@ spec:
                 operator: In
                 values:
                 - system
+```

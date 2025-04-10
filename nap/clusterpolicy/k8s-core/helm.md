@@ -159,3 +159,31 @@ Key additions:
 9. Proper resource limits to prevent OOM kills
 
 These changes will make the deployment more resilient to failures, better monitored, and more secure while maintaining high availability.
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+spec:
+  template:
+    spec:
+      # Tolerate the CriticalAddonsOnly taint
+      tolerations:
+      - key: "CriticalAddonsOnly"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      
+      # Optional: Use node affinity to specifically target system nodes
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.azure.com/mode
+                operator: In
+                values:
+                - system

@@ -20,18 +20,39 @@
       "metadata": {
         "description": "Name of the extension"
       }
+    },
+    "releaseTrain": {
+      "type": "string",
+      "defaultValue": "stable",
+      "metadata": {
+        "description": "Release train for the extension"
+      }
+    },
+    "version": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Specific version of the extension to install"
+      }
     }
   },
   "resources": [
     {
       "type": "Microsoft.KubernetesConfiguration/extensions",
-      "apiVersion": "2022-11-01",
+      "apiVersion": "2024-11-01",
       "name": "[concat(parameters('clusterName'), '/Microsoft.KubernetesConfiguration/', parameters('extensionName'))]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "properties": {
         "extensionType": "microsoft.flux",
         "autoUpgradeMinorVersion": true,
+        "releaseTrain": "[parameters('releaseTrain')]",
+        "version": "[parameters('version')]",
         "configurationSettings": {
-          "toleration-keys": "CriticalAddonsOnly=true:NoSchedule"
+          "tolerationKeys": "CriticalAddonsOnly",
+          "tolerationValues": "true",
+          "tolerationEffects": "NoSchedule"
         },
         "scope": {
           "cluster": {

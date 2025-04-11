@@ -52,7 +52,25 @@
         "configurationSettings": {
           "tolerationKeys": "CriticalAddonsOnly",
           "tolerationValues": "true",
-          "tolerationEffects": "NoSchedule"
+          "tolerationEffects": "NoSchedule",
+          "nodeSelector": "kubernetes.azure.com/scalesetpriority=system",
+          "affinity": {
+            "nodeAffinity": {
+              "requiredDuringSchedulingIgnoredDuringExecution": {
+                "nodeSelectorTerms": [
+                  {
+                    "matchExpressions": [
+                      {
+                        "key": "kubernetes.azure.com/scalesetpriority",
+                        "operator": "In",
+                        "values": ["system"]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
         },
         "scope": {
           "cluster": {

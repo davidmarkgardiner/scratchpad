@@ -50,27 +50,10 @@
         "releaseTrain": "[parameters('releaseTrain')]",
         "version": "[parameters('version')]",
         "configurationSettings": {
-          "tolerationKeys": "CriticalAddonsOnly",
-          "tolerationValues": "true",
-          "tolerationEffects": "NoSchedule",
-          "nodeSelector": "kubernetes.azure.com/scalesetpriority=system",
-          "affinity": {
-            "nodeAffinity": {
-              "requiredDuringSchedulingIgnoredDuringExecution": {
-                "nodeSelectorTerms": [
-                  {
-                    "matchExpressions": [
-                      {
-                        "key": "kubernetes.azure.com/scalesetpriority",
-                        "operator": "In",
-                        "values": ["system"]
-                      }
-                    ]
-                  }
-                ]
-              }
-            }
-          }
+          "tolerationKeys": "CriticalAddonsOnly,node.kubernetes.io/not-ready,node.kubernetes.io/unreachable",
+          "tolerationValues": "true,true,true",
+          "tolerationEffects": "NoSchedule,NoExecute,NoExecute",
+          "nodeSelector": "kubernetes.azure.com/scalesetpriority=system"
         },
         "scope": {
           "cluster": {

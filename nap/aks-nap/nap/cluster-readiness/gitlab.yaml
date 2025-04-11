@@ -1,0 +1,164 @@
+stages:
+  - validate
+  - deploy-aks
+  - check-aks-ready
+  - deploy-flux
+  - verify
+
+variables:
+  RESOURCE_GROUP: "myAKSResourceGroup"
+  LOCATION: "eastus"
+  CLUSTER_NAME: "myAKSCluster"
+  AKS_TEMPLATE_PATH: "./infra/aks/aks-template.json"
+  AKS_PARAM_PATH: "./infra/aks/aks-parameters.json"
+  FLUX_TEMPLATE_PATH: "./infra/aks/flux-template.json"
+  FLUX_PARAM_PATH: "./infra/aks/flux-parameters.json"
+  MAX_RETRIES: "40"
+  RETRY_INTERVAL: "30"
+
+validate-templates:
+  stage: validate
+  image: mcr.microsoft.com/azure-cli:latest
+  script:
+    - az login --service-principal -u $AZ_SP_ID -p $AZ_SP_SECRET --tenant $AZ_TENANT_ID
+    - echo "Validating AKS template..."
+    - az deployment group validate --resource-group $RESOURCE_GROUP --template-file $AKS_TEMPLATE_PATH --parameters @$AKS_PARAM_PATH
+    - echo "Validating Flux template..."
+    - az deployment group validate --resource-group $RESOURCE_GROUP --template-file $FLUX_TEMPLATE_PATH --parameters @$FLUX_PARAM_PATH
+  rules:
+    - changes:
+        - infra/aks/**
+
+deploy-aks-cluster:
+  stage: deploy-aks
+  image: mcr.microsoft.com/azure-cli:latest
+  script:
+    - az login --service-principal -u $AZ_SP_ID -p $AZ_SP_SECRET --tenant $AZ_TENANT_ID
+    - echo "Creating resource group if it doesn't exist..."
+    - az group create --name $RESOURCE_GROUP --location $LOCATION --output none
+    - echo "Deploying AKS cluster..."
+    - az deployment group create --resource-group $RESOURCE_GROUP --template-file $AKS_TEMPLATE_PATH --parameters @$AKS_PARAM_PATH
+  after_script:
+    - echo "AKS deployment initiated. Cluster provisioning in progress..."
+  artifacts:
+    paths:
+      - ./kubeconfig
+    expire_in: 1 day
+  rules:
+    - changes:
+        - infra/aks/**
+
+wait-for-aks-ready:
+  stage: check-aks-ready
+  image: mcr.microsoft.com/azure-cli:latest
+  script:
+    - az login --service-principal -u $AZ_SP_ID -p $AZ_SP_SECRET --tenant $AZ_TENANT_ID
+    - apk add --update kubectl
+    - apk add bash
+    - |
+      cat > check-aks-readiness.sh << 'EOF'
+      #!/bin/bash
+      # Script to check if AKS cluster is ready before deploying Flux
+
+      RESOURCE_GROUP="${RESOURCE_GROUP}"
+      CLUSTER_NAME="${CLUSTER_NAME}"
+      MAX_RETRIES="${MAX_RETRIES}"
+      RETRY_INTERVAL="${RETRY_INTERVAL}"
+
+      echo "Checking if AKS cluster '$CLUSTER_NAME' is ready..."
+
+      # Function to check cluster readiness
+      check_aks_ready() {
+          # Get cluster provisioning state
+          PROVISIONING_STATE=$(az aks show \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$CLUSTER_NAME" \
+              --query "provisioningState" \
+              --output tsv 2>/dev/null)
+          
+          if [[ "$PROVISIONING_STATE" == "Succeeded" ]]; then
+              # Even when provisioning state is Succeeded, the API server might not be ready yet
+              # Try to get nodes as an additional check
+              if az aks get-credentials --resource-group "$RESOURCE_GROUP" --name "$CLUSTER_NAME" --file ./kubeconfig --overwrite-existing --only-show-errors; then
+                  if KUBECONFIG=./kubeconfig kubectl get nodes -o name &>/dev/null; then
+                      echo "Cluster is ready. API server is responding and nodes are available."
+                      return 0
+                  else
+                      echo "Cluster is provisioned but API server is not yet ready or nodes are not registered."
+                      return 1
+                  fi
+              else
+                  echo "Cluster credentials could not be retrieved."
+                  return 1
+              fi
+          else
+              echo "Cluster is not ready. Current state: $PROVISIONING_STATE"
+              return 1
+          fi
+      }
+
+      # Main loop to check cluster readiness
+      count=0
+      while [ $count -lt $MAX_RETRIES ]; do
+          if check_aks_ready; then
+              echo "AKS cluster is ready for Flux deployment."
+              exit 0
+          else
+              echo "Waiting for AKS cluster to be ready... Attempt $(($count + 1))/$MAX_RETRIES"
+              sleep $RETRY_INTERVAL
+              count=$((count + 1))
+          fi
+      done
+
+      echo "Timeout waiting for AKS cluster to be ready after $MAX_RETRIES attempts."
+      exit 1
+      EOF
+    - chmod +x check-aks-readiness.sh
+    - ./check-aks-readiness.sh
+  artifacts:
+    paths:
+      - ./kubeconfig
+    expire_in: 1 day
+  rules:
+    - changes:
+        - infra/aks/**
+
+deploy-flux-config:
+  stage: deploy-flux
+  image: mcr.microsoft.com/azure-cli:latest
+  script:
+    - az login --service-principal -u $AZ_SP_ID -p $AZ_SP_SECRET --tenant $AZ_TENANT_ID
+    - apk add --update kubectl
+    - echo "Deploying Flux configuration..."
+    - az deployment group create --resource-group $RESOURCE_GROUP --template-file $FLUX_TEMPLATE_PATH --parameters @$FLUX_PARAM_PATH
+    - echo "Flux deployment initiated."
+  dependencies:
+    - wait-for-aks-ready
+  rules:
+    - changes:
+        - infra/aks/**
+
+verify-deployment:
+  stage: verify
+  image: mcr.microsoft.com/azure-cli:latest
+  script:
+    - az login --service-principal -u $AZ_SP_ID -p $AZ_SP_SECRET --tenant $AZ_TENANT_ID
+    - apk add --update kubectl
+    - echo "Verifying deployment..."
+    - echo "Getting AKS credentials..."
+    - az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --file ./kubeconfig --overwrite-existing
+    - echo "Checking Flux namespace..."
+    - KUBECONFIG=./kubeconfig kubectl get namespace flux-system || echo "Flux namespace not found yet, may still be creating"
+    - echo "Waiting for Flux components to be ready..."
+    - KUBECONFIG=./kubeconfig kubectl -n flux-system wait --for=condition=ready --timeout=120s pod -l app=source-controller || echo "Source controller not ready yet"
+    - KUBECONFIG=./kubeconfig kubectl -n flux-system wait --for=condition=ready --timeout=120s pod -l app=kustomize-controller || echo "Kustomize controller not ready yet"
+    - echo "Listing GitRepository resources..."
+    - KUBECONFIG=./kubeconfig kubectl get gitrepositories.source.toolkit.fluxcd.io -A || echo "No GitRepository resources found yet"
+    - echo "Listing Kustomization resources..."
+    - KUBECONFIG=./kubeconfig kubectl get kustomizations.kustomize.toolkit.fluxcd.io -A || echo "No Kustomization resources found yet"
+    - echo "Verification completed"
+  dependencies:
+    - deploy-flux-config
+  rules:
+    - changes:
+        - infra/aks/**

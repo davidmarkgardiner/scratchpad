@@ -1,0 +1,139 @@
+Looking at the infra-pool configuration, there are several ways to ensure high availability and prevent eviction. Here's how to enhance the infrastructure nodepool configuration:
+
+```yaml
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: infra-pool
+spec:
+  disruption:
+    # Already good: Never expires
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: Never
+    # Add: Prevent consolidation of infrastructure workloads
+    consolidateAfter: Never
+  template:
+    metadata:
+      labels:
+        node-type: infrastructure
+    spec:
+      nodeClassRef:
+        name: infra-nodes
+      taints:
+        - key: workload-type
+          value: infrastructure
+          effect: NoSchedule
+      requirements:
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        # Ensure on-demand instances (not spot)
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+        # Keep D-series requirement
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values: ["D"]
+        - key: karpenter.azure.com/sku-version
+          operator: In
+          values: ["3"]
+        # Add zone requirements for HA
+        - key: topology.kubernetes.io/zone
+          operator: In
+          values: ["1", "2", "3"]
+```
+
+Key changes to ensure stability:
+
+1. **Prevent Spot Instances**:
+```yaml
+- key: karpenter.sh/capacity-type
+  operator: In
+  values: ["on-demand"]
+```
+This ensures only regular on-demand instances are used, not spot instances
+
+2. **Multi-zone Deployment**:
+```yaml
+- key: topology.kubernetes.io/zone
+  operator: In
+  values: ["1", "2", "3"]
+```
+Spreads nodes across availability zones for high availability
+
+3. **Prevent Consolidation**:
+```yaml
+disruption:
+  consolidateAfter: Never
+```
+Prevents Karpenter from consolidating and removing infrastructure nodes
+
+Then, for your workloads on this pool, add anti-affinity to spread across nodes:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-service
+spec:
+  template:
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfied: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: your-infra-app
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values: ["your-infra-app"]
+            topologyKey: "kubernetes.io/hostname"
+```
+
+This configuration ensures:
+1. Nodes are always on-demand (not spot)
+2. Workloads are spread across zones
+3. Multiple pods of the same service don't run on the same node
+4. Nodes won't be consolidated or expired
+5. Infrastructure services remain highly available
+
+apiVersion: karpenter.azure.com/v1alpha2
+kind: AKSNodeClass
+metadata:
+  name: surge-nodes
+spec:
+  imageFamily: AzureLinux
+  osDiskSizeGB: 128
+---
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: surge-pool
+spec:
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: 24h  # Surge nodes expire after 24 hours
+  template:
+    metadata:
+      labels:
+        node-type: surge
+    spec:
+      nodeClassRef:
+        name: surge-nodes
+      requirements:
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values: ["D"]  # Using D-series VMs
+        - key: karpenter.azure.com/sku-version
+          operator: In
+          values: ["3"]  # v3 series for better price/performance

@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: route-default-to-spot
+  annotations:
+    policies.kyverno.io/title: Route Default Workloads to Spot
+    policies.kyverno.io/category: Workload Distribution
+    policies.kyverno.io/subject: Deployment, StatefulSet
+    policies.kyverno.io/description: >-
+      This policy adds node affinity and tolerations to route default workloads
+      to spot nodes when they don't have specific workload type requirements.
+spec:
+  validationFailureAction: audit
+  rules:
+    - name: route-default-to-spot
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+              - StatefulSet
+            namespaceSelector:
+              matchExpressions:
+                - key: workload-type
+                  operator: NotIn
+                  values:
+                    - gpu
+                    - high-performance
+                    - infrastructure
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "spot"
+                    operator: "Equal"
+                    value: "true"
+                    effect: "NoSchedule"
+                +(affinity):
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                      - matchExpressions:
+                        - key: node-type
+                          operator: In
+                          values:
+                            - spot 

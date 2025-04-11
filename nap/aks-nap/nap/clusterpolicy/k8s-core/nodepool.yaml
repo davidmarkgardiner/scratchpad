@@ -1,0 +1,47 @@
+apiVersion: karpenter.azure.com/v1alpha2
+kind: AKSNodeClass
+metadata:
+  name: infra-nodes
+spec:
+  imageFamily: AzureLinux
+  osDiskSizeGB: 128
+---
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: kubernetes-core
+spec:
+  requirements:
+    - key: node-type
+      operator: In
+      values: ["kubernetes-core"]
+    - key: karpenter.sh/capacity-type
+      operator: In
+      values: ["on-demand"]
+    - key: kubernetes.io/arch
+      operator: In
+      values: ["amd64"]
+    - key: karpenter.k8s.aws/instance-category
+      operator: In
+      values: ["c", "m"]
+    - key: karpenter.k8s.aws/instance-generation
+      operator: Gt
+      values: ["5"]
+  # limits:
+  #   resources:
+  #     cpu: 32
+  #     memory: 128Gi
+  providerRef:
+    name: default
+  ttlSecondsAfterEmpty: 30
+  taints:
+    - key: workload-type
+      value: kubernetes-core
+      effect: NoSchedule
+  labels:
+    node-type: kubernetes-core
+  startupTaints:
+    - key: node.kubernetes.io/not-ready
+      effect: NoSchedule
+  consolidation:
+    enabled: true 

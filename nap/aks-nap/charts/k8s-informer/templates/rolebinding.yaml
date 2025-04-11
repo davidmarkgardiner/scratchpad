@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: servicenow-{{ .Values.namespace }}
+  namespace: {{ .Values.namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: servicenow
+    namespace: {{ .Values.namespace }}
+roleRef:
+  kind: Role
+  name: servicenow
+  apiGroup: rbac.authorization.k8s.io 

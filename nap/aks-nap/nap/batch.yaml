@@ -1,19 +1,18 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: route-infra-workloads
+  name: route-batch-workloads
   annotations:
-    policies.kyverno.io/title: Route Infrastructure Workloads
+    policies.kyverno.io/title: Route Batch Workloads
     policies.kyverno.io/category: Workload Distribution
     policies.kyverno.io/subject: Deployment
     policies.kyverno.io/description: >-
-      This policy adds node affinity, tolerations, and topology spread constraints to route
-      infrastructure workloads to infrastructure nodes with high availability.
+      This policy adds node affinity and tolerations to route high performance workloads
+      to batch nodes based on namespace labels.
 spec:
-  background: true
   validationFailureAction: audit
   rules:
-    - name: route-infra-workloads
+    - name: route-batch-workloads
       match:
         any:
         - resources:
@@ -24,12 +23,7 @@ spec:
                 - key: workload-type
                   operator: In
                   values:
-                    - infrastructure
-      preconditions:
-        all:
-        - key: "{{ request.object.spec.template.metadata.labels.app || '' }}"
-          operator: NotEquals
-          value: ""
+                    - high-performance
       mutate:
         patchStrategicMerge:
           spec:
@@ -38,7 +32,7 @@ spec:
                 +(tolerations):
                   - key: "workload-type"
                     operator: "Equal"
-                    value: "infrastructure"
+                    value: "batch"
                     effect: "NoSchedule"
                 +(affinity):
                   nodeAffinity:
@@ -48,7 +42,7 @@ spec:
                         - key: node-type
                           operator: In
                           values:
-                            - infrastructure
+                            - batch
                   podAntiAffinity:
                     preferredDuringSchedulingIgnoredDuringExecution:
                     - weight: 100
@@ -59,11 +53,4 @@ spec:
                             operator: In
                             values:
                             - "{{ request.object.spec.template.metadata.labels.app }}"
-                        topologyKey: azure.microsoft.com/hostname
-                +(topologySpreadConstraints):
-                  - maxSkew: 1
-                    topologyKey: azure.microsoft.com/zone
-                    whenUnsatisfied: ScheduleAnyway
-                    labelSelector:
-                      matchLabels:
-                        app: "{{ request.object.spec.template.metadata.labels.app }}" 
+                        topologyKey: kubernetes.io/hostname 

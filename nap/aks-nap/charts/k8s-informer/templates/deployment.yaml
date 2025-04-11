@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-informer-{{ .Values.instanceName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: k8s_informer-{{ .Values.instanceName }}
+spec:
+  selector:
+    matchLabels:
+      app: k8s_informer-{{ .Values.instanceName }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: k8s_informer-{{ .Values.instanceName }}
+    spec:
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      automountServiceAccountToken: true
+      volumes:
+        - name: additional-resources
+          configMap:
+            name: k8s-informer-additional-resources-{{ .Values.instanceName }}
+            items:
+              - key: "resources"
+                path: "resources.json"
+              - key: "mappings"
+                path: "mappings.json"
+              - key: "mappings_oob"
+                path: "mappings_oob.json"
+        - name: credentials
+          secret:
+            secretName: k8s-informer-cred-{{ .Values.instanceName }}
+      dnsPolicy: Default
+      serviceAccountName: servicenow
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - command:
+        - /k8s_informer
+        args: ["--kubeconfig", "in_cluster", "--standalone", "true"]
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        name: k8sinformer
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        terminationMessagePolicy: FallbackToLogsOnError
+        securityContext:
+          runAsNonRoot: true
+        volumeMounts:
+          - name: additional-resources
+            readOnly: true
+            mountPath: "/etc/additionalResources"
+          - name: credentials
+            readOnly: true
+            mountPath: "/etc/credentials"
+        env:
+        - name: ACCEPT_EULA
+          value: {{ .Values.serviceNow.acceptEula | quote }}
+        - name: CLUSTER_NAME
+          value: {{ .Values.clusterName | quote }}
+        - name: RESYNC_MIN
+          value: {{ .Values.config.resyncMin | quote }}
+        - name: SEND_INTERVAL_SEC
+          value: {{ .Values.config.sendIntervalSec | quote }}
+        - name: MAX_CI_IN_MESSAGE
+          value: {{ .Values.config.maxCiInMessage | quote }}
+        - name: REFRESH_TIME_MIN
+          value: {{ .Values.config.refreshTimeMin | quote }}
+        - name: FULL_DISCOVERY_MIN
+          value: {{ .Values.config.fullDiscoveryMin | quote }}
+        - name: READ_COMMAND_SEC
+          value: {{ .Values.config.readCommandSec | quote }}
+        - name: HEARTBEAT_MIN
+          value: {{ .Values.config.heartbeatMin | quote }}
+        - name: MAX_QUEUE_SIZE_BYTES
+          value: {{ .Values.config.maxQueueSizeBytes | quote }}
+        - name: MAX_RETRY
+          value: {{ .Values.config.maxRetry | quote }}
+        - name: MAX_ECC_PAYLOAD_SIZE_BYTES
+          value: {{ .Values.config.maxEccPayloadSizeBytes | quote }}
+        - name: INSTANCE_URL
+          value: {{ .Values.serviceNow.instanceUrl | quote }}
+        - name: ENV_INSTANCE_NAME
+          value: {{ .Values.instanceName | quote }}
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: CONTINUOUS_DISCOVERY
+          value: {{ .Values.config.continuousDiscovery | quote }}
+        - name: ECC_SENDER_INTERVAL_SEC
+          value: {{ .Values.config.eccSenderIntervalSec | quote }}
+        - name: VERBOSE_LOGGING
+          value: {{ .Values.config.verboseLogging | quote }}
+        - name: SKIP_TLS_CERT_VALIDATION
+          value: {{ .Values.config.skipTlsCertValidation | quote }}
+        - name: SUPPRESS_FREQUENT_CHANGES
+          value: {{ .Values.config.suppressFrequentChanges | quote }}
+        - name: SUPPRESS_CHANGES_RATE_PER_MIN
+          value: {{ .Values.config.suppressChangesRatePerMin | quote }}
+        - name: OPENSHIFT
+          value: {{ .Values.config.openshift | quote }}
+        - name: ADD_NODE_LABELS
+          value: {{ .Values.config.addNodeLabels | quote }}
+        - name: CREATE_SERVER_CI
+          value: {{ .Values.config.createServerCi | quote }}
+        - name: GET_CLUSTER_VERSION
+          value: {{ .Values.config.getClusterVersion | quote }}
+        - name: GET_RESOURCE_MAX_BYTES
+          value: {{ .Values.config.getResourceMaxBytes | quote }}
+        - name: MAX_GET_RESOURCE_REQUESTS
+          value: {{ .Values.config.maxGetResourceRequests | quote }}
+        - name: HTTP_REST_API_POST_RETRY_COUNT
+          value: {{ .Values.config.httpRestApiPostRetryCount | quote }}
+        - name: MAX_ELAPSED_TIME_MS
+          value: {{ .Values.config.maxElapsedTimeMs | quote }}
+        - name: SELF_PATCHING_ALLOWED
+          value: {{ .Values.config.selfPatchingAllowed | quote }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+      terminationGracePeriodSeconds: 10 

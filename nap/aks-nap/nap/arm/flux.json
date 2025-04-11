@@ -1,0 +1,94 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "clusterName": {
+        "type": "string",
+        "metadata": {
+          "description": "The name of the AKS cluster"
+        }
+      },
+      "fluxConfigName": {
+        "type": "string",
+        "defaultValue": "fluxconfig",
+        "metadata": {
+          "description": "Name of the Flux configuration"
+        }
+      },
+      "fluxNamespace": {
+        "type": "string",
+        "defaultValue": "flux-system",
+        "metadata": {
+          "description": "Namespace where Flux components will be deployed"
+        }
+      },
+      "gitRepoUrl": {
+        "type": "string",
+        "metadata": {
+          "description": "Git repository URL containing Kubernetes manifests"
+        }
+      },
+      "gitBranch": {
+        "type": "string",
+        "defaultValue": "main",
+        "metadata": {
+          "description": "Git branch to sync from"
+        }
+      },
+      "kustomizationPath": {
+        "type": "string",
+        "defaultValue": "./",
+        "metadata": {
+          "description": "Path to the kustomization directory within the Git repository"
+        }
+      },
+      "gitSyncIntervalInSeconds": {
+        "type": "int",
+        "defaultValue": 300,
+        "metadata": {
+          "description": "Git sync interval in seconds"
+        }
+      }
+    },
+    "resources": [
+      {
+        "type": "Microsoft.KubernetesConfiguration/fluxConfigurations",
+        "apiVersion": "2024-11-01",
+        "name": "[parameters('fluxConfigName')]",
+        "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', parameters('clusterName'))]",
+        "properties": {
+          "namespace": "[parameters('fluxNamespace')]",
+          "scope": "cluster",
+          "sourceKind": "GitRepository",
+          "suspend": false,
+          "gitRepository": {
+            "url": "[parameters('gitRepoUrl')]",
+            "repositoryRef": {
+              "branch": "[parameters('gitBranch')]"
+            },
+            "syncIntervalInSeconds": "[parameters('gitSyncIntervalInSeconds')]",
+            "timeoutInSeconds": 600
+          },
+          "kustomizations": {
+            "infra": {
+              "path": "[parameters('kustomizationPath')]",
+              "syncIntervalInSeconds": 300,
+              "timeoutInSeconds": 300,
+              "prune": true,
+              "force": false
+            }
+          }
+        }
+      }
+    ],
+    "outputs": {
+      "fluxConfigName": {
+        "type": "string",
+        "value": "[parameters('fluxConfigName')]"
+      },
+      "fluxNamespace": {
+        "type": "string",
+        "value": "[parameters('fluxNamespace')]"
+      }
+    }
+  }

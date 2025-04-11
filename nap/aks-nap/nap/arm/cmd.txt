@@ -1,0 +1,93 @@
+az deployment group validate --resource-group prod-rg --template-file nap/arm/cluster.json --parameters @nap/arm/cluster_p.json
+
+      "logAnalyticsWorkspaceID": {
+          "value": "/subscriptions/133d5755-4074-4d6e-ad38-eb2a6ad12903/resourcegroups/test-rg/providers/microsoft.operationalinsights/workspaces/test-workspace"
+      },
+      "logAnalyticsWorkspaceIDDefender": {
+          "value": "/subscriptions/133d5755-4074-4d6e-ad38-eb2a6ad12903/resourcegroups/test-rg/providers/microsoft.operationalinsights/workspaces/test-workspace"
+      },
+
+
+
+      {
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+      "useNewNamingConvention": {
+          "value": true
+      },
+      "newClusterName": {
+          "value": "k8s-cluster"
+      },
+      "upgradeChannel": {
+          "value": "stable"
+      },
+      "nodeOSUpgradeChannel": {
+          "value": "NodeImage"
+      },
+      "clusterSshPublicKey": {
+          "value": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDOaVK7Tg0gr5gJrfmBer1zzdODylyN5lLNTvrtaqSd58RdyBvyGCDYfwax23UIr41RTDYxdWIDvbR/r0TDuXr+43RAccFmSaH9++PSJ2wJnRCjk1084S1mnSbv37IXwtCLVYr8OOLrH+DE746kuNRafBWD7OKU5JpM0BzGFU9j2wpLBdSX2p8WH4DA/rggLkLwpK8gXuAVekLaG9/OIwS40MSOnvgEMX5H+wyHNlEcB+Fk3yeEyXqJtqasa4H+karv6IIO0n4w7bl0OvExEN1XEIMzIAqTZBELF996qPGMh7iRJ0Oh6cgwbif4lAfSp3dTSxdRe/8pP8SPT5ylMaTGfUfqy3md9zil0jlfgAWFfbtYNt0eEVAEkEoRHMSBBvcejjnfjqw84wq2CW3KF16FGoIgnz5u5rvvivDaMZKiHNBQJobQmVX/7ZlFS/7Mkp1Aru4r8TdJbJxR14JYYfH9pAdPj+QAhWJbcK7adO3exZi3imw8vujXi2gAmOWmIdlkiLVJmeVLSKRv9FC+OUzO5eMKEKd/rcWm7x+nT5oCJmWIbz0yIpiGoQmFnyGOXTTuk6kzzKOx5QFoNpDtStt2UUNIkI9J8ldVjza3GMznYSsYR0o7EKcU9uH6ilTwX7pgKyiwPvJEMhGo6qQGO1WwwiF2upnikT5Hwh2bO+5C8Q== davidgardiner@Natalys-MacBook-Air.local"
+      },
+      "uptimeSlaTier": {
+          "value": "Standard"
+      },
+      "kubernetesVersion": {
+          "value": "1.29.0"
+      },
+      "controlPlaneUami": {
+          "value": {
+              "resourceID": "/subscriptions/133d5755-4074-4d6e-ad38-eb2a6ad12903/resourceGroups/test-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/control-plane-identity",
+              "clientID": "00000000-0000-0000-0000-000000000000",
+              "objectID": "00000000-0000-0000-0000-000000000000"
+          }
+      },
+      "runtimeUami": {
+          "value": {
+              "resourceID": "/subscriptions/133d5755-4074-4d6e-ad38-eb2a6ad12903/resourceGroups/test-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/runtime-identity",
+              "clientID": "00000000-0000-0000-0000-000000000000",
+              "objectID": "00000000-0000-0000-0000-000000000000"
+          }
+      },
+      "networkPlugin": {
+          "value": "azure"
+      },
+      "networkPluginMode": {
+          "value": "overlay"
+      },
+      "networkPolicy": {
+          "value": "cilium"
+      },
+      "ebpfDataplane": {
+          "value": "cilium"
+      },
+      "logAnalyticsWorkspaceID": {
+          "value": "/subscriptions/133d5755-4074-4d6e-ad38-eb2a6ad12903/resourcegroups/test-rg/providers/microsoft.operationalinsights/workspaces/test-workspace"
+      },
+      "logAnalyticsWorkspaceIDDefender": {
+          "value": "/subscriptions/133d5755-4074-4d6e-ad38-eb2a6ad12903/resourcegroups/test-rg/providers/microsoft.operationalinsights/workspaces/test-workspace"
+      },
+      "oidcIssuerProfile": {
+          "value": true
+      },
+      "securityProfile": {
+          "value": {
+              "workloadIdentity": {
+                  "enabled": true
+              }
+          }
+      },
+      "CsiKeyVaultName": {
+          "value": "test-keyvault"
+      },
+      "CsiKeyVaultRg": {
+          "value": "test-rg"
+      },
+      "extraTags": {
+          "value": {
+              "Application": "AKS-AutoNodeProvisioning",
+              "Environment": "Development",
+              "CostCenter": "IT-123456"
+          }
+      }
+  }
+}

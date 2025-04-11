@@ -118,7 +118,7 @@ parameters:
 
   type: string
 
-  default: david.gardiner@ubs.com
+  default: david.gardiner@xxx.com
 
 - name: namespacename
 

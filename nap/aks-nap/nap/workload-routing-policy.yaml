@@ -1,0 +1,160 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-ns-deployment-nodeaffinity
+  annotations:
+    policies.kyverno.io/title: Route Workloads Based on Namespace Labels
+    policies.kyverno.io/category: Workload Distribution
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      This policy adds node affinity and tolerations to route workloads to specific node pools
+      based on namespace labels. High performance workloads go to batch nodes, GPU workloads
+      to GPU nodes, infrastructure workloads to infra nodes, and everything else to spot nodes.
+spec:
+  validationFailureAction: audit
+  rules:
+    # Rule for GPU workloads
+    - name: route-gpu-workloads
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+                - key: workload-type
+                  operator: In
+                  values:
+                    - gpu
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "nvidia.com/gpu"
+                    operator: "Equal"
+                    value: "true"
+                    effect: "NoSchedule"
+                +(affinity):
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                      - matchExpressions:
+                        - key: node-type
+                          operator: In
+                          values:
+                            - gpu
+
+    # Rule for high performance (batch) workloads
+    - name: route-batch-workloads
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+                - key: workload-type
+                  operator: In
+                  values:
+                    - high-performance
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "workload-type"
+                    operator: "Equal"
+                    value: "batch"
+                    effect: "NoSchedule"
+                +(affinity):
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                      - matchExpressions:
+                        - key: node-type
+                          operator: In
+                          values:
+                            - batch
+
+    # Rule for infrastructure workloads
+    - name: route-infra-workloads
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+                - key: workload-type
+                  operator: In
+                  values:
+                    - infrastructure
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "workload-type"
+                    operator: "Equal"
+                    value: "infrastructure"
+                    effect: "NoSchedule"
+                +(affinity):
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                      - matchExpressions:
+                        - key: node-type
+                          operator: In
+                          values:
+                            - infrastructure
+
+    # Default rule for everything else - route to spot nodes
+    - name: route-default-to-spot
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaceSelector:
+              matchExpressions:
+                - key: workload-type
+                  operator: NotIn
+                  values:
+                    - gpu
+                    - high-performance
+                    - infrastructure
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                +(tolerations):
+                  - key: "spot"
+                    operator: "Equal"
+                    value: "true"
+                    effect: "NoSchedule"
+                +(affinity):
+                  podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                    - weight: 100
+                      podAffinityTerm:
+                        labelSelector:
+                          matchExpressions:
+                          - key: app
+                            operator: In
+                            values:
+                            - {{ `"{{ request.object.spec.template.metadata.labels.app }}"` }}
+                        topologyKey: kubernetes.io/hostname
+                  nodeAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                      - weight: 100
+                        preference:
+                          matchExpressions:
+                            - key: node-type
+                              operator: In
+                              values:
+                                - spot 

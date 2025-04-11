@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ca-certificates
+  namespace: kube-system
+data:
+  custom-ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    Your certificate content here
+    -----END CERTIFICATE-----
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cert-injector
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: cert-injector
+  template:
+    metadata:
+      labels:
+        app: cert-injector
+    spec:
+      containers:
+      - name: cert-injector
+        image: mcr.microsoft.com/cbl-mariner/base/core:2.0
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Copy certificate to both potential locations
+          cp /certs/custom-ca.crt /host/etc/pki/ca-trust/source/anchors/
+          cp /certs/custom-ca.crt /host/usr/share/pki/ca-trust-source/anchors/
+          
+          # Update CA trust store using Mariner/AzureLinux commands
+          chroot /host update-ca-trust
+          
+          # Keep container running
+          sleep infinity
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+        - name: certs
+          mountPath: /certs
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+      - name: certs
+        configMap:
+          name: ca-certificates

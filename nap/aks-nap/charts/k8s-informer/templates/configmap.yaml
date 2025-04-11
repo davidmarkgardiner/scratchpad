@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-informer-additional-resources-{{ .Values.instanceName }}
+  namespace: {{ .Values.namespace }}
+data:
+  resources: ''
+  mappings: ''
+  mappings_oob: '{ "v1/nodes": { "fields": [ { "fieldExtractor": { "jsonPath": ".status.nodeInfo" }, "name": "node_info" }, { "fieldExtractor": { "jsonPath": ".spec.providerID" }, "name": "provider_id" } ]}}' 

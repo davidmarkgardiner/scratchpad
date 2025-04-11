@@ -1,19 +1,20 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: route-infra-workloads
+  name: route-core-workloads
   annotations:
-    policies.kyverno.io/title: Route Infrastructure Workloads
+    policies.kyverno.io/title: Route Core Kubernetes Workloads
     policies.kyverno.io/category: Workload Distribution
     policies.kyverno.io/subject: Deployment
     policies.kyverno.io/description: >-
       This policy adds node affinity, tolerations, and topology spread constraints to route
-      infrastructure workloads to infrastructure nodes with high availability.
+      core Kubernetes workloads (cert-manager, external-secrets, kyverno, etc.) to dedicated
+      kubernetes-core nodes with high availability.
 spec:
-  background: true
   validationFailureAction: audit
+  background: true
   rules:
-    - name: route-infra-workloads
+    - name: route-core-workloads
       match:
         any:
         - resources:
@@ -24,7 +25,10 @@ spec:
                 - key: workload-type
                   operator: In
                   values:
-                    - infrastructure
+                    - kubernetes-core
+            selector:
+              matchLabels:
+                app.kubernetes.io/instance: uk8s-core
       preconditions:
         all:
         - key: "{{ request.object.spec.template.metadata.labels.app || '' }}"
@@ -38,7 +42,7 @@ spec:
                 +(tolerations):
                   - key: "workload-type"
                     operator: "Equal"
-                    value: "infrastructure"
+                    value: "kubernetes-core"
                     effect: "NoSchedule"
                 +(affinity):
                   nodeAffinity:
@@ -48,7 +52,7 @@ spec:
                         - key: node-type
                           operator: In
                           values:
-                            - infrastructure
+                            - kubernetes-core
                   podAntiAffinity:
                     preferredDuringSchedulingIgnoredDuringExecution:
                     - weight: 100
@@ -66,4 +70,5 @@ spec:
                     whenUnsatisfied: ScheduleAnyway
                     labelSelector:
                       matchLabels:
-                        app: "{{ request.object.spec.template.metadata.labels.app }}" 
+                        app: "{{ request.object.spec.template.metadata.labels.app }}"
+                +(priorityClassName): "system-cluster-critical" 

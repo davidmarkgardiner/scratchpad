@@ -27,3 +27,5 @@ terraform.tfstate*
 id_rsa
 id_rsa.pub
 nap/arm/cmd.txt
+nap/arm/cluster_p.json
+nap/arm/cluster.json

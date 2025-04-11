@@ -1,0 +1,41 @@
+RESOURCE_GROUP="nap-test-rg"
+CLUSTER_NAME="nap-test-cluster"
+LOCATION="uksouth"
+
+az group create --name $RESOURCE_GROUP --location $LOCATION
+
+az k8s-extension create \
+--resource-group $RESOURCE_GROUP \
+--cluster-name $CLUSTER_NAME \
+--name flux \
+--extension-type microsoft.flux \
+--cluster-type managedClusters \
+--auto-upgrade-minor-version true \
+--config toleration-keys="CriticalAddonsOnly=true:NoSchedule"
+
+az k8s-extension extension-types list-versions-by-cluster --resource-group my-resource-group --cluster-name mycluster --cluster-type connectedClusters --extension-type microsoft.flux
+
+az k8s-extension create --cluster-name
+                        --cluster-type {appliances, connectedClusters, managedClusters, provisionedClusters}
+                        --extension-type
+                        --name
+                        --resource-group
+                        [--auto-upgrade {false, true}]
+                        [--cluster-resource-provider]
+                        [--config]
+                        [--config-file]
+                        [--config-protected]
+                        [--config-protected-file]
+                        [--config-settings]
+                        [--configuration-protected-settings]
+                        [--configuration-protected-settings-file]
+                        [--configuration-settings-file]
+                        [--no-wait]
+                        [--plan-name]
+                        [--plan-product]
+                        [--plan-publisher]
+                        [--release-namespace]
+                        [--release-train]
+                        [--scope {cluster, namespace}]
+                        [--target-namespace]
+                        [--version]

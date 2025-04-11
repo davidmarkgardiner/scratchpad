@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: servicenow-{{ .Values.namespace }}
+  namespace: {{ .Values.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: servicenow
+subjects:
+  - kind: ServiceAccount
+    name: servicenow
+    namespace: {{ .Values.namespace }} 

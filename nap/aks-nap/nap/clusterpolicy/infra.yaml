@@ -7,10 +7,9 @@ metadata:
     policies.kyverno.io/category: Workload Distribution
     policies.kyverno.io/subject: Deployment
     policies.kyverno.io/description: >-
-      This policy adds node affinity, tolerations, and topology spread constraints to route
-      infrastructure workloads to infrastructure nodes with high availability.
+      This policy adds node affinity and tolerations to route infrastructure workloads
+      to infrastructure nodes based on namespace labels.
 spec:
-  background: true
   validationFailureAction: audit
   rules:
     - name: route-infra-workloads
@@ -25,11 +24,6 @@ spec:
                   operator: In
                   values:
                     - infrastructure
-      preconditions:
-        all:
-        - key: "{{ request.object.spec.template.metadata.labels.app || '' }}"
-          operator: NotEquals
-          value: ""
       mutate:
         patchStrategicMerge:
           spec:
@@ -59,11 +53,11 @@ spec:
                             operator: In
                             values:
                             - "{{ request.object.spec.template.metadata.labels.app }}"
-                        topologyKey: azure.microsoft.com/hostname
+                        topologyKey: kubernetes.io/hostname
                 +(topologySpreadConstraints):
                   - maxSkew: 1
-                    topologyKey: azure.microsoft.com/zone
-                    whenUnsatisfied: ScheduleAnyway
+                    topologyKey: topology.kubernetes.io/zone
+                    whenUnsatisfied: DoNotSchedule
                     labelSelector:
                       matchLabels:
                         app: "{{ request.object.spec.template.metadata.labels.app }}" 

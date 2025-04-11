@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "clusterName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the AKS cluster"
+      }
+    },
+    "resourceGroup": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the resource group"
+      }
+    },
+    "extensionName": {
+      "type": "string",
+      "defaultValue": "flux",
+      "metadata": {
+        "description": "Name of the extension"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.KubernetesConfiguration/extensions",
+      "apiVersion": "2022-11-01",
+      "name": "[concat(parameters('clusterName'), '/Microsoft.KubernetesConfiguration/', parameters('extensionName'))]",
+      "properties": {
+        "extensionType": "microsoft.flux",
+        "autoUpgradeMinorVersion": true,
+        "configurationSettings": {
+          "toleration-keys": "CriticalAddonsOnly=true:NoSchedule"
+        },
+        "scope": {
+          "cluster": {
+            "releaseNamespace": "flux-system"
+          }
+        }
+      }
+    }
+  ]
+} 

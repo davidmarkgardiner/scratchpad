@@ -1,0 +1,279 @@
+{
+    "id": "",
+    "location": "uksouth",
+    "name": "k8s-cluster",
+    "tags": {
+        "Application": "AKS-AutoNodeProvisioning",
+        "CostCenter": "IT-123456",
+        "Environment": "Development"
+    },
+    "type": "Microsoft.ContainerService/ManagedClusters",
+    "kind": "Base",
+    "properties": {
+        "provisioningState": "Creating",
+        "powerState": {
+            "code": "Running"
+        },
+        "kubernetesVersion": "1.31",
+        "currentKubernetesVersion": "1.31.7",
+        "dnsPrefix": "k8s-clusterk8s",
+        "fqdn": "k8s-clusterk8s-yby9goyz.hcp.uksouth.azmk8s.io",
+        "azurePortalFQDN": "-priv.portal.hcp.uksouth.azmk8s.io",
+        "privateFQDN": "k8s-clusterk8s-yby9goyz.hcp.uksouth.azmk8s.io",
+        "agentPoolProfiles": [
+            {
+                "name": "systempool",
+                "count": 1,
+                "vmSize": "Standard_D2s_v3",
+                "osDiskSizeGB": 128,
+                "osDiskType": "Managed",
+                "kubeletDiskType": "OS",
+                "vnetSubnetID": "/resourceGroups/aks-cluster/providers/Microsoft.Network/virtualNetworks/aks-vnet/subnets/aks-subnet",
+                "maxPods": 250,
+                "type": "VirtualMachineScaleSets",
+                "availabilityZones": [
+                    "1",
+                    "2",
+                    "3"
+                ],
+                "enableAutoScaling": false,
+                "scaleDownMode": "Delete",
+                "provisioningState": "Creating",
+                "powerState": {
+                    "code": "Running"
+                },
+                "orchestratorVersion": "1.31",
+                "currentOrchestratorVersion": "1.31.7",
+                "enableNodePublicIP": false,
+                "mode": "System",
+                "osType": "Linux",
+                "osSKU": "AzureLinux",
+                "nodeImageVersion": "AKSAzureLinux-V2gen2-202504.02.0",
+                "upgradeSettings": {
+                    "maxSurge": "10%",
+                    "maxUnavailable": "0"
+                },
+                "enableFIPS": false,
+                "securityProfile": {
+                    "sshAccess": "LocalUser",
+                    "enableVTPM": false,
+                    "enableSecureBoot": false
+                },
+                "eTag": "2c9794cc-28cd-47e5-8aac-c63f018f6051"
+            }
+        ],
+        "linuxProfile": {
+            "adminUsername": "localadmin",
+            "ssh": {
+                "publicKeys": [
+                    {
+                        "keyData": ""
+                    }
+                ]
+            }
+        },
+        "windowsProfile": {
+            "adminUsername": "azureuser",
+            "enableCSIProxy": true
+        },
+        "servicePrincipalProfile": {
+            "clientId": "msi"
+        },
+        "addonProfiles": {
+            "azureKeyvaultSecretsProvider": {
+                "enabled": true,
+                "config": {
+                    "enableSecretRotation": "true",
+                    "rotationPollInterval": "30m"
+                },
+                "identity": {
+
+                }
+            },
+            "azurepolicy": {
+                "enabled": true,
+                "config": {
+                    "version": "v2"
+                },
+                "identity": {
+
+                }
+            },
+            "omsagent": {
+                "enabled": false,
+                "config": {
+                }
+            }
+        },
+        "nodeResourceGroup": "MC_test-rg_k8s-cluster_uksouth",
+        "enableRBAC": true,
+        "enablePodSecurityPolicy": false,
+        "supportPlan": "KubernetesOfficial",
+        "networkProfile": {
+            "networkPlugin": "azure",
+            "networkPluginMode": "overlay",
+            "networkPolicy": "cilium",
+            "networkDataplane": "cilium",
+            "loadBalancerSku": "standard",
+            "loadBalancerProfile": {
+                "backendPoolType": "nodeIPConfiguration"
+            },
+            "podCidr": "10.244.0.0/16",
+            "serviceCidr": "10.251.0.0/17",
+            "dnsServiceIP": "10.251.0.10",
+            "outboundType": "userDefinedRouting",
+            "podCidrs": [
+                "10.244.0.0/16"
+            ],
+            "serviceCidrs": [
+                "10.251.0.0/17"
+            ],
+            "ipFamilies": [
+                "IPv4"
+            ],
+            "kubeProxyConfig": {},
+            "podLinkLocalAccess": "IMDS"
+        },
+        "aadProfile": {
+            "managed": true,
+            "adminGroupObjectIDs": [
+                "c3917653-b066-45e1-a1ba-b0d753c0f5af"
+            ],
+            "adminUsers": null,
+            "enableAzureRBAC": true,
+            "tenantID": "550cfcda-8a2d-452c-ba71-d6bc6bf5bb31"
+        },
+        "maxAgentPools": 100,
+        "privateLinkResources": [
+            {
+                "name": "management",
+                "type": "Microsoft.ContainerService/managedClusters/privateLinkResources",
+                "groupId": "management",
+                "requiredMembers": [
+                    "management"
+                ]
+            }
+        ],
+        "apiServerAccessProfile": {
+            "enablePrivateCluster": true,
+            "privateDNSZone": "none",
+            "enablePrivateClusterPublicFQDN": true,
+            "disableRunCommand": true
+        },
+        "identityProfile": {
+            "kubeletidentity": {
+                "clientId": "fa0f1254-5adb-478f-96e8-0c97cd348edd",
+                "objectId": "8b2ed714-7014-45d9-96db-e4609a249cc4"
+            }
+        },
+        "autoUpgradeProfile": {
+            "upgradeChannel": "stable",
+            "nodeOSUpgradeChannel": "NodeImage"
+        },
+        "disableLocalAccounts": true,
+        "securityProfile": {
+            "defender": {
+                "securityMonitoring": {
+                    "enabled": true
+                },
+                "securityGating": {
+                    "enabled": false,
+                    "allowSecretAccess": false
+                }
+            },
+            "imageCleaner": {
+                "enabled": true,
+                "intervalHours": 168
+            },
+            "workloadIdentity": {
+                "enabled": true
+            }
+        },
+        "storageProfile": {
+            "diskCSIDriver": {
+                "enabled": true,
+                "version": "v1"
+            },
+            "fileCSIDriver": {
+                "enabled": true
+            },
+            "snapshotController": {
+                "enabled": true
+            },
+            "blobCSIDriver": {
+                "enabled": true
+            }
+        },
+        "oidcIssuerProfile": {
+            "enabled": true,
+        },
+        "workloadAutoScalerProfile": {
+            "keda": {
+                "enabled": true
+            }
+        },
+        "azureMonitorProfile": {
+            "metrics": {
+                "enabled": true,
+                "kubeStateMetrics": {}
+            },
+            "containerInsights": {
+                "enabled": false,
+            }
+        },
+        "serviceMeshProfile": {
+            "mode": "Istio",
+            "istio": {
+                "components": {
+                    "ingressGateways": [
+                        {
+                            "mode": "Internal",
+                            "enabled": true
+                        }
+                    ]
+                },
+                "revisions": [
+                    "asm-1-23"
+                ]
+            }
+        },
+        "metricsProfile": {
+            "costAnalysis": {
+                "enabled": true
+            }
+        },
+        "resourceUID": "67fa9c82a443cc0001c03abb",
+        "controlPlanePluginProfiles": {
+            "azure-monitor-metrics-ccp": {
+                "enableV2": true
+            },
+            "karpenter": {
+                "enableV2": true
+            },
+            "live-patching-controller": {
+                "enableV2": true
+            },
+            "static-egress-controller": {
+                "enableV2": true
+            }
+        },
+        "nodeProvisioningProfile": {
+            "mode": "Auto"
+        },
+        "bootstrapProfile": {
+            "artifactSource": "Direct"
+        }
+    },
+    "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+
+            }
+        }
+    },
+    "sku": {
+        "name": "Base",
+        "tier": "Standard"
+    },
+    "eTag": ""
+}

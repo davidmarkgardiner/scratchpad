@@ -1,0 +1,10 @@
+apiVersion: resources.azure.com/v1api20200601
+kind: ResourceGroup
+metadata:
+  name: k8s-cluster
+  namespace: default
+spec:
+  location: uksouth
+  tags:
+    environment: dev
+    project: aks 

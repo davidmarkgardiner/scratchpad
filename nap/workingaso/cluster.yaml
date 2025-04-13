@@ -1,0 +1,217 @@
+---
+apiVersion: containerservice.azure.com/v1api20240402preview
+kind: ManagedCluster
+metadata:
+  name: ${CLUSTER_NAME}
+  namespace: default
+spec:
+  owner:
+    name: ${CLUSTER_NAME}
+  # networkProfile:
+  #   # ... existing network config ...
+  #   subnetReference: 
+  #     armId: /subscriptions/133d5755-4074-4d6e-ad38-eb2a6ad12903/resourceGroups/aks-cluster/providers/Microsoft.Network/virtualNetworks/aks-vnet/subnets/aks-subnet
+  aadProfile:
+    enableAzureRBAC: true
+    managed: true
+    tenantID: ${TENANT_ID}
+    adminGroupObjectIDs:
+    - "${ADMIN_GROUP_ID}"
+  addonProfiles:
+    azureKeyvaultSecretsProvider:
+      enabled: true
+      config:
+        enableSecretRotation: "true"
+        rotationPollInterval: 30m
+    azurepolicy:
+      config:
+        version: v2
+      enabled: true
+    omsagent:
+      config:
+        logAnalyticsWorkspaceResourceID: /subscriptions/${SUBSCRIPTION_ID}/resourcegroups/${LOG_ANALYTICS_RG}/providers/microsoft.operationalinsights/workspaces/${LOG_ANALYTICS_WORKSPACE}
+      enabled: false
+  agentPoolProfiles:
+  - availabilityZones:
+    - "1"
+    - "2"
+    - "3"
+    count: ${NODE_COUNT}
+    enableAutoScaling: ${ENABLE_AUTO_SCALING}
+    enableFIPS: false
+    enableNodePublicIP: false
+    kubeletDiskType: OS
+    maxPods: 250
+    mode: System
+    name: systempool
+    vnetSubnetReference:
+      armId: /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${VNET_RG}/providers/Microsoft.Network/virtualNetworks/${VNET_NAME}/subnets/${SUBNET_NAME}
+    orchestratorVersion: "${KUBERNETES_VERSION}"
+    osDiskSizeGB: ${OS_DISK_SIZE}
+    osDiskType: Managed
+    osSKU: AzureLinux
+    osType: Linux
+    scaleDownMode: Delete
+    securityProfile:
+      enableSecureBoot: false
+      enableVTPM: false
+    type: VirtualMachineScaleSets
+    upgradeSettings:
+      maxSurge: 10%
+    vmSize: ${VM_SIZE}
+  apiServerAccessProfile:
+    disableRunCommand: true
+    enablePrivateCluster: true
+    enablePrivateClusterPublicFQDN: true
+    privateDNSZone: none
+  autoUpgradeProfile:
+    nodeOSUpgradeChannel: NodeImage
+    upgradeChannel: stable
+  azureMonitorProfile:
+    metrics:
+      enabled: true
+      kubeStateMetrics: {}
+  azureName: ${CLUSTER_NAME}
+  disableLocalAccounts: true
+  dnsPrefix: ${CLUSTER_NAME}
+  enablePodSecurityPolicy: false
+  enableRBAC: true
+  identity:
+    type: UserAssigned
+    userAssignedIdentities:
+    - reference:
+        armId: /subscriptions/${SUBSCRIPTION_ID}/resourcegroups/${IDENTITY_RG}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${CONTROL_PLANE_IDENTITY}
+  identityProfile:
+    kubeletidentity:
+      clientId: ${KUBELET_CLIENT_ID}
+      objectId: ${KUBELET_OBJECT_ID}
+      resourceReference:
+        armId: /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IDENTITY_RG}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${RUNTIME_IDENTITY}
+  kubernetesVersion: "${KUBERNETES_VERSION}"
+  nodeProvisioningProfile:
+    mode: Auto
+  linuxProfile:
+    adminUsername: localadmin
+    ssh:
+      publicKeys:
+      - keyData: ${SSH_PUBLIC_KEY}
+  location: ${LOCATION}
+  metricsProfile:
+    costAnalysis:
+      enabled: true
+  networkProfile:
+  #   subnetReference: 
+  #     armId: /subscriptions/133d5755-4074-4d6e-ad38-eb2a6ad12903/resourceGroups/aks-cluster/providers/Microsoft.Network/virtualNetworks/aks-vnet/subnets/aks-subnet
+    dnsServiceIP: ${DNS_SERVICE_IP}
+    ipFamilies:
+    - IPv4
+    loadBalancerProfile:
+      backendPoolType: NodeIPConfiguration
+    loadBalancerSku: standard
+    networkDataplane: cilium
+    networkPlugin: azure
+    networkPluginMode: overlay
+    networkPolicy: cilium
+    outboundType: userDefinedRouting
+    podCidr: ${POD_CIDR}
+    serviceCidr: ${SERVICE_CIDR}
+    serviceCidrs:
+    - ${SERVICE_CIDR}
+  nodeResourceGroup: MC_${RESOURCE_GROUP}_${CLUSTER_NAME}_${LOCATION}
+  oidcIssuerProfile:
+    enabled: true
+  # podIdentityProfile:
+  #   allowNetworkPluginKubenet: true
+  #   userAssignedIdentityExceptions:
+  #   - name: k8s-control-plane-exception
+  #     namespace: kube-system
+  #   - name: ubs-control-plane-exception
+  #     namespace: ubs-system
+  # privateLinkResources:
+  # - groupId: management
+  #   name: management
+  #   reference:
+  #     armId: /subscriptions/133d5755-4074-4d6e-ad38-eb2a6ad12903/resourcegroups/aks-cluster/providers/Microsoft.ContainerService/managedClusters/k8s-cluster/privateLinkResources/management
+  #   requiredMembers:
+  #   - management
+  #   type: Microsoft.ContainerService/managedClusters/privateLinkResources
+  securityProfile:
+    defender:
+      logAnalyticsWorkspaceResourceReference:
+        armId: /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${LOG_ANALYTICS_RG}/providers/Microsoft.OperationalInsights/workspaces/${LOG_ANALYTICS_WORKSPACE}
+      securityMonitoring:
+        enabled: true
+    imageCleaner:
+      enabled: true
+      intervalHours: 168
+    workloadIdentity:
+      enabled: true
+  serviceMeshProfile:
+    istio:
+      components:
+        ingressGateways:
+        - enabled: true
+          mode: Internal
+      revisions:
+      - asm-1-23
+    mode: Istio
+  servicePrincipalProfile:
+    clientId: msi
+  sku:
+    name: Base
+    tier: Standard
+  storageProfile:
+    blobCSIDriver:
+      enabled: true
+    diskCSIDriver:
+      enabled: true
+    fileCSIDriver:
+      enabled: true
+    snapshotController:
+      enabled: true
+  supportPlan: KubernetesOfficial
+  tags:
+    Application: ${APPLICATION_TAG}
+    CostCenter: ${COST_CENTER}
+    Environment: ${ENVIRONMENT}
+  # windowsProfile:
+  #   adminUsername: azureuser
+  #   enableCSIProxy: true
+  workloadAutoScalerProfile:
+    keda:
+      enabled: true
+# ---
+# apiVersion: containerservice.azure.com/v1api20240901
+# kind: ManagedClustersAgentPool
+# metadata:
+#   name: systempool
+#   namespace: default
+# spec:
+#   availabilityZones:
+#   - "1"
+#   - "2"
+#   - "3"
+#   azureName: systempool
+#   count: 1
+#   enableAutoScaling: false
+#   enableFIPS: false
+#   enableNodePublicIP: false
+#   kubeletDiskType: OS
+#   maxPods: 250
+#   mode: System
+#   orchestratorVersion: "1.31"
+#   osDiskSizeGB: 128
+#   osDiskType: Managed
+#   osSKU: AzureLinux
+#   osType: Linux
+#   owner:
+#     name: k8s-cluster
+#   scaleDownMode: Delete
+#   securityProfile:
+#     enableSecureBoot: false
+#     enableVTPM: false
+#   type: VirtualMachineScaleSets
+#   upgradeSettings:
+#     maxSurge: 10%
+#   vmSize: Standard_D2s_v3
+# ---

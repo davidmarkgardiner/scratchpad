@@ -19,17 +19,26 @@ fi
 
 # First, determine if we should use the new naming convention or not
 CONFIG_FILE="env/$ENV.yml"
-USE_NEW_NAMING=true # Default to true
+USE_NEW_NAMING="false"  # Default to false unless explicitly set to true
 
 if [ -f "$CONFIG_FILE" ]; then
     # Check if we should use new naming convention
     if [ "$CI" == "true" ]; then
         # GitLab environment
-        USE_NEW_NAMING=$(/root/.local/bin/yq -r '.[].variables.common_useNewNamingConvention // "true"' $CONFIG_FILE)
+        NEW_NAMING_VALUE=$(/root/.local/bin/yq -r '.[].variables.common_useNewNamingConvention // "false"' $CONFIG_FILE)
     else
         # ADO environment
-        USE_NEW_NAMING=$(/root/.local/bin/yq -r '.[].common_useNewNamingConvention // "true"' $CONFIG_FILE)
+        NEW_NAMING_VALUE=$(/root/.local/bin/yq -r '.[].common_useNewNamingConvention // "false"' $CONFIG_FILE)
     fi
+    
+    # Convert to lowercase for case-insensitive comparison
+    NEW_NAMING_VALUE=$(echo "$NEW_NAMING_VALUE" | tr '[:upper:]' '[:lower:]')
+    
+    # Only set to true if explicitly "true"
+    if [ "$NEW_NAMING_VALUE" == "true" ]; then
+        USE_NEW_NAMING="true"
+    fi
+    
     echo "[INFO] Using new naming convention: $USE_NEW_NAMING"
 fi
 

@@ -1,98 +1,49 @@
-# LazyGit: Installation and Usage Guide for Mac
+To install LazyGit on WSL (Windows Subsystem for Linux), you'd follow a slightly different process than on Mac. Here's how to do it:
 
-LazyGit is a powerful terminal UI for Git that simplifies complex operations and enhances your Git workflow directly from the command line.
+## Installing LazyGit on WSL
 
-## Installation
-
-On macOS, the recommended installation method is using Homebrew:
-
-```bash
-brew install jesseduffield/lazygit/lazygit
-```
-
-This tap version is recommended for frequent updates.
-
-## Getting Started
-
-To use LazyGit, navigate to any Git repository in your terminal and run:
+### Method 1: Using the Debian/Ubuntu package manager
+If you're using a Debian/Ubuntu-based WSL distribution:
 
 ```bash
-lazygit
+# Update your package lists
+sudo apt update
+
+# Install required dependencies
+sudo apt install git curl
+
+# Download the latest release (replace X.X with the latest version number)
+LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+
+# Download the Linux binary
+curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+
+# Extract the archive
+tar xf lazygit.tar.gz lazygit
+
+# Move the binary to your PATH
+sudo install lazygit /usr/local/bin
+
+# Clean up the downloaded files
+rm lazygit.tar.gz lazygit
 ```
 
-## Interface Overview
+### Method 2: Using Go (if you have Go installed)
+```bash
+go install github.com/jesseduffield/lazygit@latest
+```
 
-When you launch LazyGit, you'll see a well-organized interface with several panels:
+### Method 3: Using a package manager in other WSL distributions
+If you're using another distribution in WSL, you can use its respective package manager:
 
-- **Status Bar** (Top): Shows current branch information
-- **Files Panel** (Position 2): Displays modified/staged files
-- **Branches Panel** (Position 3): Shows local branches
-- **Commits Panel** (Position 4): Displays commit history
-- **Stash Panel**: Shows stashed changes
+For Arch-based distros:
+```bash
+sudo pacman -S lazygit
+```
 
-Navigate between panels using the number keys (2 for Files, 3 for Branches, 4 for Commits).
+For Fedora/RHEL-based distros:
+```bash
+sudo dnf install lazygit
+```
 
-## Key Features and Commands
-
-### Basic Navigation
-- **Arrow keys/HJKL**: Move around
-- **Tab**: Switch between panels
-- **?**: Show keybindings help
-- **/**: Search in help menu
-- **Esc**: Go back/exit current view
-
-### Branch Management
-- **n**: Create new branch
-- **Spacebar**: Checkout selected branch
-- **Capital M**: Merge selected branch
-- **u**: View upstream options
-
-### Staging and Committing
-- **Spacebar**: Stage/unstage selected file
-- **a**: Stage all files
-- **Enter on file**: View changes in detail
-- **Spacebar in diff view**: Stage/unstage individual hunks
-- **c**: Commit staged changes
-- **w**: Commit without pre-commit hook
-
-### Pushing and Pulling
-- **Capital P**: Push to remote
-- **p**: Pull from remote
-
-### Commit Manipulation
-- **r**: Reword commit message
-- **s**: Squash selected commits
-- **i**: Start interactive rebase
-- **g**: Reset to commit (in upstream divergence view)
-
-### Merge Conflict Resolution
-1. When a merge conflict occurs, LazyGit will show conflicts
-2. Use **Enter** to view conflicted files
-3. Navigate between conflicts with **left/right** arrow keys
-4. Use **Spacebar** to select the version you want to keep
-5. Press **Enter** to complete the merge when all conflicts are resolved
-
-### View Modes
-- **Shift + Plus (+)**: Expand view
-- **Shift + Minus (-)**: Reduce view
-
-### Advanced Features
-- **Multiple commit selection**: Use **Shift + arrow keys** to select multiple commits
-- **Squashing**: Select commits and press **s**
-- **Interactive rebasing**: Press **i** in the commits panel
-- **Bisecting**: Full support for Git bisect
-- **Cherry-picking**: Easily cherry-pick commits with visual interface
-
-## Tips and Tricks
-
-- Use **Page Up/Down** or the mouse wheel to scroll through diffs
-- For force push situations, use **Capital P** after rebasing/amending
-- LazyGit shows commits in yellow if they're not on the main branch and red if they're not on the upstream branch
-- Press **Escape** multiple times to return to the main view
-
-## Further Resources
-
-- Official GitHub Repository: [jesseduffield/lazygit](https://github.com/jesseduffield/lazygit)
-- Full Documentation: [LazyGit Wiki](https://github.com/jesseduffield/lazygit/wiki)
-
-With LazyGit, complex Git operations like partial staging, interactive rebasing, and conflict resolution become much more intuitive and manageable through a user-friendly terminal interface.
+After installation, you can launch LazyGit in any Git repository by simply typing `lazygit` in your WSL terminal, and all the features and keybindings will work exactly the same as described in the Mac guide I provided earlier.

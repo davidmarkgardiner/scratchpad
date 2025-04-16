@@ -46,10 +46,6 @@ az feature show --namespace Microsoft.ContainerService --name NetworkObservabili
 ###########################################
 # Python Environment Setup
 ###########################################
-# Configure pip to use custom repository
-pip config set global.trusted-host it4it-nexus-tp-repo.swissbank.com
-pip config set global.index-url https://it4it-nexus-tp-repo.swissbank.com/repository/public-lib-python-pypi/simple
-
 # Set up local Python environment
 mkdir -p $(pwd)/.local/bin
 export PYTHONUSERBASE=$(pwd)/.local

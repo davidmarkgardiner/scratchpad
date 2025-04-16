@@ -13,10 +13,6 @@ if [ -f "$ENV_FILE" ]; then
     export $(cat "$ENV_FILE" | xargs)
 fi
 
-# Configure pip to use custom repository
-pip config set global.trusted-host it4it-nexus-tp-repo.swissbank.com
-pip config set global.index-url https://it4it-nexus-tp-repo.swissbank.com/repository/public-lib-python-pypi/simple
-
 # Install required Python packages
 pip install pyyaml yq --user
 

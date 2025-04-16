@@ -9,8 +9,6 @@ set -e
 
 # Install required Python packages
 echo "[INFO] Setting up Python environment"
-pip config set global.trusted-host it4it-nexus-tp-repo.swissbank.com
-pip config set global.index-url https://it4it-nexus-tp-repo.swissbank.com/repository/public-lib-python-pypi/simple
 pip install pyyaml yq --user
 
 # Generate AKS parameter file

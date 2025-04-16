@@ -90,10 +90,7 @@ done
 # SECTION 2: Set up Python environment
 #################################################################################
 
-echo "[INFO] Configuring Python pip for private repository"
-# Configure pip to use private repository
-pip config set global.trusted-host it4it-nexus-tp-repo.swissbank.com
-pip config set global.index-url https://it4it-nexus-tp-repo.swissbank.com/repository/public-lib-python-pypi/simple
+# Removed pip config settings for deprecated repository
 
 # Install YQ for YAML parsing - used differently in GitLab vs ADO
 echo "[INFO] Installing YQ YAML parser"

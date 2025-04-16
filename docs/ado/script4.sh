@@ -17,47 +17,40 @@ if [[ -z "$resourceGroupName" ]] || [[ -z "$location" ]]; then
     exit 1
 fi
 
-# Get account and resource group info
-echo "[INFO] Getting Azure account and resource group details"
-ACCOUNT_INFO=$(az account show --output json)
-RG_INFO=$(az group show --name ${resourceGroupName} --output json 2>/dev/null || echo "{}")
-
-# Extract cluster name from resource group tags if available
-if [[ $(echo $RG_INFO | jq -r '.tags.clusterName // empty') != "" ]]; then
-    TARGET_CLUSTER_NAME=$(echo $RG_INFO | jq -r '.tags.clusterName')
-    echo "[INFO] Found cluster name in resource group tags: $TARGET_CLUSTER_NAME"
-else
-    # Generate cluster name based on subscription and resource group if not found in tags
-    SUB_NAME=$(echo $ACCOUNT_INFO | jq -r '.name' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-')
-    RG_SHORT=$(echo $resourceGroupName | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-')
-    TARGET_CLUSTER_NAME="aks-${SUB_NAME}-${RG_SHORT}"
-    echo "[INFO] Generated cluster name: $TARGET_CLUSTER_NAME"
-fi
-
 # First, determine if we should use the new naming convention or not
 CONFIG_FILE="env/$ENV.yml"
 USE_NEW_NAMING="false"  # Default to false unless explicitly set to true
 
-if [ -f "$CONFIG_FILE" ]; then
-    # Check if we should use new naming convention
+echo "[INFO] Checking config file: $CONFIG_FILE"
+
+# Check environment variable first, then fall back to config file
+if [ ! -z "$common_useNewNamingConvention" ]; then
+    NEW_NAMING_VALUE="$common_useNewNamingConvention"
+    echo "[INFO] Using naming convention from environment variable"
+elif [ -f "$CONFIG_FILE" ]; then
+    # Check if we should use new naming convention from config file
     if [ "$CI" == "true" ]; then
         # GitLab environment
+        echo "[INFO] Reading naming convention from GitLab config path: .[].variables.common_useNewNamingConvention"
         NEW_NAMING_VALUE=$(/root/.local/bin/yq -r '.[].variables.common_useNewNamingConvention // "false"' $CONFIG_FILE)
     else
         # ADO environment
+        echo "[INFO] Reading naming convention from ADO config path: .[].common_useNewNamingConvention"
         NEW_NAMING_VALUE=$(/root/.local/bin/yq -r '.[].common_useNewNamingConvention // "false"' $CONFIG_FILE)
     fi
-    
-    # Convert to lowercase for case-insensitive comparison
-    NEW_NAMING_VALUE=$(echo "$NEW_NAMING_VALUE" | tr '[:upper:]' '[:lower:]')
-    
-    # Only set to true if explicitly "true"
-    if [ "$NEW_NAMING_VALUE" == "true" ]; then
-        USE_NEW_NAMING="true"
-    fi
-    
-    echo "[INFO] Using new naming convention: $USE_NEW_NAMING"
+    echo "[INFO] Using naming convention from config file"
 fi
+
+# Convert to lowercase for case-insensitive comparison
+NEW_NAMING_VALUE=$(echo "$NEW_NAMING_VALUE" | tr '[:upper:]' '[:lower:]')
+echo "[INFO] New naming value: ${NEW_NAMING_VALUE}"
+
+# Only set to true if explicitly "true"
+if [ "$NEW_NAMING_VALUE" == "true" ]; then
+    USE_NEW_NAMING="true"
+fi
+
+echo "[INFO] Using new naming convention: $USE_NEW_NAMING"
 
 # Check if resource group exists
 EXISTING_RG=$(az group exists --name ${resourceGroupName})
@@ -104,24 +97,27 @@ else
         if [ "$CLUSTER_COUNT" -gt 0 ]; then
             EXISTING_CLUSTER_NAME=$(az aks list --resource-group ${resourceGroupName} --query "[].name" --output tsv)
             
-            # For GitLab/ADO compatibility - try both methods of getting the desired cluster name
+            # Get cluster name from config
             if [ "$CI" == "true" ]; then
                 # GitLab environment
                 if [ -f "$CONFIG_FILE" ]; then
-                    CONFIG_CLUSTER_NAME=$(/root/.local/bin/yq -r '.[].variables.common_newClusterName // .[].variables.clusterName' $CONFIG_FILE)
-                    if [[ ! -z "$CONFIG_CLUSTER_NAME" ]]; then
-                        TARGET_CLUSTER_NAME=$CONFIG_CLUSTER_NAME
-                    fi
+                    echo "[INFO] Reading cluster name from GitLab config path: .[].variables.common_newClusterName"
+                    TARGET_CLUSTER_NAME=$(/root/.local/bin/yq -r '.[].variables.common_newClusterName // .[].variables.clusterName' $CONFIG_FILE)
                 fi
             else
                 # ADO environment
                 if [ -f "$CONFIG_FILE" ]; then
-                    CONFIG_CLUSTER_NAME=$(/root/.local/bin/yq -r '.[].common_newClusterName // .[].clusterName' $CONFIG_FILE)
-                    if [[ ! -z "$CONFIG_CLUSTER_NAME" ]]; then
-                        TARGET_CLUSTER_NAME=$CONFIG_CLUSTER_NAME
-                    fi
+                    echo "[INFO] Reading cluster name from ADO config path: .[].common_newClusterName"
+                    TARGET_CLUSTER_NAME=$(/root/.local/bin/yq -r '.[].common_newClusterName // .[].clusterName' $CONFIG_FILE)
                 fi
             fi
+
+            if [ -z "$TARGET_CLUSTER_NAME" ]; then
+                echo "[ERROR] Could not determine cluster name from config file"
+                exit 1
+            fi
+            
+            echo "[INFO] Read cluster name from config: ${TARGET_CLUSTER_NAME}"
             
             # Make the variable available to the pipeline
             if [ "$CI" != "true" ]; then

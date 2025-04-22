@@ -1,0 +1,243 @@
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: ${CLUSTER_NAME}
+  namespace: default
+spec:
+  clusterNetwork:
+    services:
+      cidrBlocks: ["${SERVICE_CIDR}"]
+    pods:
+      cidrBlocks: ["${POD_CIDR}"]
+  controlPlaneRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedControlPlane
+    name: ${CLUSTER_NAME}
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedCluster
+    name: ${CLUSTER_NAME}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedControlPlane
+metadata:
+  name: ${CLUSTER_NAME}
+  namespace: default
+spec:
+  location: ${AZURE_LOCATION}
+  resourceGroupName: ${RESOURCE_GROUP}
+  subscriptionID: ${AZURE_SUBSCRIPTION_ID}
+  version: ${KUBERNETES_VERSION}
+  sshPublicKey: ${SSH_PUBLIC_KEY}
+  
+  # Node Provisioning Profile
+  nodeProvisioningProfile:
+    mode: Auto
+  
+  # Network Configuration
+  virtualNetwork:
+    name: ${VNET_NAME}
+    resourceGroup: ${VNET_RG}
+    subnet:
+      name: ${SUBNET_NAME}
+  networkPlugin: azure
+  networkPluginMode: overlay
+  networkPolicy: cilium
+  networkDataplane: cilium
+  outboundType: userDefinedRouting
+  dnsServiceIP: ${DNS_SERVICE_IP}
+  ipFamilies:
+  - IPv4
+  loadBalancerSku: standard
+  podCidr: ${POD_CIDR}
+  serviceCidr: ${SERVICE_CIDR}
+  dnsPrefix: ${CLUSTER_NAME}
+  
+  # Private Cluster Configuration
+  apiServerAccessProfile:
+    enablePrivateCluster: true
+    enablePrivateClusterPublicFQDN: true
+    privateDNSZone: none
+    disableRunCommand: true
+  
+  # AAD Integration
+  aadProfile:
+    managed: true
+    enableAzureRBAC: true
+    adminGroupObjectIDs:
+    - "${ADMIN_GROUP_ID}"
+  
+  # Identity Configuration
+  identity:
+    type: UserAssigned
+    resourceID: /subscriptions/${AZURE_SUBSCRIPTION_ID}/resourcegroups/${IDENTITY_RG}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${CONTROL_PLANE_IDENTITY}
+  
+  # Additional Configurations
+  disableLocalAccounts: true
+  
+  # Addon Profiles
+  addonProfiles:
+  - name: azureKeyvaultSecretsProvider
+    enabled: true
+    config:
+      enableSecretRotation: "true"
+      rotationPollInterval: "30m"
+  - name: azurepolicy
+    enabled: true
+    config:
+      version: "v2"
+  
+  # OIDC Issuer
+  oidcIssuerProfile:
+    enabled: true
+  
+  # Auto-upgrade Profile
+  autoUpgradeProfile:
+    upgradeChannel: stable
+    nodeOSUpgradeChannel: NodeImage
+  
+  # Security Profile
+  securityProfile:
+    workloadIdentity:
+      enabled: true
+    imageCleaner:
+      enabled: true
+      intervalHours: 168
+    defender:
+      securityMonitoring:
+        enabled: true
+      logAnalyticsWorkspaceResourceID: /subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${LOG_ANALYTICS_RG}/providers/Microsoft.OperationalInsights/workspaces/${LOG_ANALYTICS_WORKSPACE}
+  
+  # Storage Profile
+  storageProfile:
+    blobCSIDriver:
+      enabled: true
+    diskCSIDriver:
+      enabled: true
+    fileCSIDriver:
+      enabled: true
+    snapshotController:
+      enabled: true
+  
+  # ServiceMesh Profile
+  serviceMeshProfile:
+    mode: Istio
+    istio:
+      revisions:
+      - asm-1-23
+      components:
+        ingressGateways:
+        - enabled: true
+          mode: Internal
+  
+  # Tags
+  tags:
+    Application: ${APPLICATION_TAG}
+    CostCenter: ${COST_CENTER}
+    Environment: ${ENVIRONMENT}
+  
+  # Linux Profile
+  linuxProfile:
+    adminUsername: localadmin
+    ssh:
+      publicKeys:
+      - keyData: ${SSH_PUBLIC_KEY}
+  
+  # Monitoring Profiles
+  azureMonitorProfile:
+    metrics:
+      enabled: true
+  
+  metricsProfile:
+    costAnalysis:
+      enabled: true
+  
+  # Workload AutoScaler Profile
+  workloadAutoScalerProfile:
+    keda:
+      enabled: true
+  
+  # Support Plan
+  supportPlan: KubernetesOfficial
+  
+  # SKU
+  sku:
+    tier: Standard
+    name: Base
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedCluster
+metadata:
+  name: ${CLUSTER_NAME}
+  namespace: default
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: systempool
+  namespace: default
+spec:
+  clusterName: ${CLUSTER_NAME}
+  replicas: ${NODE_COUNT}
+  template:
+    spec:
+      bootstrap:
+        dataSecretName: ""
+      clusterName: ${CLUSTER_NAME}
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
+        name: systempool
+        namespace: default
+      version: ${KUBERNETES_VERSION}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: systempool
+  namespace: default
+spec:
+  mode: System
+  sku: ${VM_SIZE}
+  osDiskSizeGB: ${OS_DISK_SIZE}
+  osSKU: AzureLinux
+  
+  # Node scaling
+  enableAutoScaling: ${ENABLE_AUTO_SCALING}
+  maxPods: 250
+  
+  # Node security profile
+  securityProfile:
+    enableSecureBoot: false
+    enableVTPM: false
+  
+  # Availability zones
+  availabilityZones:
+  - "1"
+  - "2"
+  - "3"
+  
+  # Node upgrade settings
+  upgradeSettings:
+    maxSurge: "10%"
+  
+  # Identity settings
+  kubeletIdentityClientID: ${KUBELET_CLIENT_ID}
+  runtimeIdentityResourceID: /subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${IDENTITY_RG}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${RUNTIME_IDENTITY}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureClusterIdentity
+metadata:
+  name: ${CLUSTER_IDENTITY_NAME}
+  namespace: default
+spec:
+  type: ServicePrincipal
+  tenantID: ${AZURE_TENANT_ID}
+  clientID: ${AZURE_CLIENT_ID}
+  clientSecret:
+    name: ${AZURE_CLUSTER_IDENTITY_SECRET_NAME}
+    namespace: ${AZURE_CLUSTER_IDENTITY_SECRET_NAMESPACE}
+  allowedNamespaces:
+    selector:
+      matchLabels: {}

@@ -1,0 +1,71 @@
+I'll help you debug your node pool issue in AKS. Based on the information in your document, it seems like you're working with Node Autoprovisioning (NAP) in AKS, which is currently in preview.
+
+To debug node pools that aren't creating nodes, try these troubleshooting steps:
+
+### 1. Check NAP events
+Since you're using Node Autoprovisioning, check Karpenter events first:
+
+```bash
+kubectl get events -A --field-selector source=karpenter -w
+```
+
+This will show decision-making events from the autoprovisioner.
+
+### 2. Verify NAP configuration
+Make sure your NodePool and AKSNodeClass resources are properly configured:
+
+```bash
+kubectl get nodepools
+kubectl get aksnodeclasses
+```
+
+Then examine them in detail:
+
+```bash
+kubectl describe nodepool <name>
+kubectl describe aksnodeclass <name>
+```
+
+### 3. Check for resource constraints
+NAP might not be provisioning nodes due to:
+- Azure quota limits reached
+- Resource limits defined in your NodePool configuration
+- Network plugin compatibility issues
+
+### 4. Verify workload requirements
+Check if your pending pods have resource requirements that can't be fulfilled:
+
+```bash
+kubectl get pods -A | grep Pending
+kubectl describe pod <pending-pod-name>
+```
+
+Look for events explaining why scheduling failed.
+
+### 5. Check network configuration
+From your document, NAP requires specific networking setup:
+- Azure CNI Overlay
+- Powered by Cilium
+
+Verify your cluster has the correct configuration:
+
+```bash
+az aks show -n <cluster-name> -g <resource-group> --query "networkProfile"
+```
+
+### 6. Check service logs
+Examine the Karpenter controller logs:
+
+```bash
+kubectl logs -n kube-system -l app.kubernetes.io/name=karpenter
+```
+
+### 7. Verify prerequisites
+Ensure you:
+- Have the latest aks-preview CLI extension (minimum version 0.5.170)
+- Registered the NodeAutoProvisioningPreview feature flag
+- Are not using other features incompatible with NAP (as listed in the limitations section)
+
+If you're still having issues, consider checking Azure Service Health for any outages in your region that might impact VM provisioning.
+
+Would you like me to elaborate on any of these steps? Or do you have any specific error messages you're seeing that I could help interpret?

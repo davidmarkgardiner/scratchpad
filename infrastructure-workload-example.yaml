@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingress-controller
+  namespace: ingress-system
+  labels:
+    app: ingress-controller
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ingress-controller
+  template:
+    metadata:
+      labels:
+        app: ingress-controller
+    spec:
+      # Toleration for the infrastructure taint
+      tolerations:
+      - key: "workload-type"
+        value: "infrastructure"
+        effect: "NoSchedule"
+      # Node affinity to target infrastructure nodes
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - infrastructure
+      containers:
+      - name: nginx-ingress
+        image: nginx/nginx-ingress:3.1.1
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+---
+# Another example: Prometheus monitoring
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  serviceName: prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      tolerations:
+      - key: "workload-type"
+        value: "infrastructure"
+        effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - infrastructure
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.42.0
+        ports:
+        - containerPort: 9090
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        volumeMounts:
+        - name: prometheus-data
+          mountPath: /prometheus
+  volumeClaimTemplates:
+  - metadata:
+      name: prometheus-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 50Gi 

@@ -43,7 +43,7 @@ spec:
             spec:
               containers:
               - name: "{{ element.name }}"
-                image: "xxxreleaseacr.azurecr.io/{{ regex_replace_all_literal('container-registry\\.xxx\\.net/', element.image, '') }}"
+                image: "xxxreleaseacr.azurecr.io/{{ regex_replace_all_literal('(^|/)container-registry\\.xxx\\.net/', element.image, '') }}"
           preconditions:
             all:
             - key: "{{ contains(element.image, 'container-registry.xxx.net/') }}"
@@ -79,7 +79,7 @@ spec:
             spec:
               initContainers:
               - name: "{{ element.name }}"
-                image: "xxxreleaseacr.azurecr.io/{{ regex_replace_all_literal('container-registry\\.xxx\\.net/', element.image, '') }}"
+                image: "xxxreleaseacr.azurecr.io/{{ regex_replace_all_literal('(^|/)container-registry\\.xxx\\.net/', element.image, '') }}"
           preconditions:
             all:
             - key: "{{ contains(element.image, 'container-registry.xxx.net/') }}"

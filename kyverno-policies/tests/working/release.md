@@ -76,22 +76,24 @@ This plan balances strict banking governance requirements with the need for engi
 
 
 ---
+Current challenges:
 
-I've made note of your requirements for automating the cluster rebuild process. Here's a summary of the key points:
+Need to automate cluster rebuilds and deployments
+Code needs to push to both GitLab and ADO
+Core chart is complex, making debugging difficult
+Engineering environments need daily rebuilds
+CU and EU environments need repurposing in ADO
+Configuration files are too complex and drift across clusters
 
-**Current challenges:**
-- Need to automate cluster rebuilds and deployments
-- Code needs to push to both GitLab and ADO
-- Core chart is complex, making debugging difficult
-- Engineering environments need daily rebuilds
-- CU and EU environments need repurposing in ADO
+Future considerations:
 
-**Future considerations:**
-- Potentially consolidate into GitLab only and remove ADO
-- Consider using a single pipeline for cluster and core
-- Possibly use ASO to extract cluster components
+Potentially consolidate into GitLab only and remove ADO
+Consider using a single pipeline for cluster and core
+Possibly use ASO to extract cluster components
+Establish a single source of truth for configuration
+Implement GitOps to write configurations to clusters as config maps
+Enable easy amendments to configuration files when needed
 
-**Primary goal:**
-- Simplify daily cluster rebuilds with automated testing and evidence gathering to focus on engineering rather than release management
+Primary goal:
 
-Would you like me to help develop a more detailed plan for implementing these changes or discuss specific aspects of the automation process?
+Simplify daily cluster rebuilds with automated testing and evidence gathering to focus on engineering rather than release management

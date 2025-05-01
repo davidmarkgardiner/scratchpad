@@ -31,8 +31,8 @@ spec:
               matchLabels:
                 skip-verify: "true"
       preconditions:
-        all:
-        - key: "{{ contains(request.object.spec.containers[0].image, 'container-registry.xxx.net/') }}"
+        all:        - key: "{{ contains(request.object.spec.containers[0].image, 'container-registry.xxx.net/') }}"
+
           operator: Equals
           value: true
       mutate:

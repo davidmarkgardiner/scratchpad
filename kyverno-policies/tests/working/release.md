@@ -76,24 +76,25 @@ This plan balances strict banking governance requirements with the need for engi
 
 
 ---
-Current challenges:
+I've added your points about configuration file complexity:
 
-Need to automate cluster rebuilds and deployments
-Code needs to push to both GitLab and ADO
-Core chart is complex, making debugging difficult
-Engineering environments need daily rebuilds
-CU and EU environments need repurposing in ADO
-Configuration files are too complex and drift across clusters
+**Current challenges:**
+- Need to automate cluster rebuilds and deployments
+- Code needs to push to both GitLab and ADO
+- Core chart is complex, making debugging difficult
+- Engineering environments need daily rebuilds
+- CU and EU environments need repurposing in ADO
+- **Configuration files are too complex and drift across clusters**
 
-Future considerations:
+**Future considerations:**
+- Potentially consolidate into GitLab only and remove ADO
+- Consider using a single pipeline for cluster and core
+- Possibly use ASO to extract cluster components
+- **Establish a single source of truth for configuration**
+- **Implement GitOps to write configurations to clusters as config maps**
+- **Enable easy amendments to configuration files when needed**
 
-Potentially consolidate into GitLab only and remove ADO
-Consider using a single pipeline for cluster and core
-Possibly use ASO to extract cluster components
-Establish a single source of truth for configuration
-Implement GitOps to write configurations to clusters as config maps
-Enable easy amendments to configuration files when needed
+**Primary goal:**
+- Simplify daily cluster rebuilds with automated testing and evidence gathering to focus on engineering rather than release management
 
-Primary goal:
-
-Simplify daily cluster rebuilds with automated testing and evidence gathering to focus on engineering rather than release management
+This approach with GitOps for configuration management should help eliminate drift between environments and provide better consistency across your clusters.

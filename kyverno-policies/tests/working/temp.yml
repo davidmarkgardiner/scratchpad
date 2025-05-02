@@ -12,7 +12,7 @@ metadata:
     policies.kyverno.io/minversion: 1.6.0
     kyverno.io/kubernetes-version: "1.31"
     policies.kyverno.io/description: >-
-      This policy mutates container images from container-registry.xxx.net to use ubsreleaseacr.azurecr.io
+      This policy mutates container images from container-registry.xxx.net to use xxxleaseacr.azurecr.io
 spec:
   background: false
   rules:
@@ -43,7 +43,7 @@ spec:
             spec:
               containers:
                 - name: "{{ element.name }}"
-                  image: "ubsreleaseacr.azurecr.io/{{ regex_replace_all_literal('container-registry\\.xxx\\.net/', element.image, '') }}"
+                  image: "xxxleaseacr.azurecr.io/{{ regex_replace_all_literal('container-registry\\.xxx\\.net/', element.image, '') }}"
           preconditions:
             all:
             - key: "{{ contains(element.image, 'container-registry.xxx.net/') }}"
@@ -79,7 +79,7 @@ spec:
             spec:
               initContainers:
                 - name: "{{ element.name }}"
-                  image: "ubsreleaseacr.azurecr.io/{{ regex_replace_all_literal('container-registry\\.xxx\\.net/', element.image, '') }}"
+                  image: "xxxleaseacr.azurecr.io/{{ regex_replace_all_literal('container-registry\\.xxx\\.net/', element.image, '') }}"
           preconditions:
             all:
             - key: "{{ contains(element.image, 'container-registry.xxx.net/') }}"

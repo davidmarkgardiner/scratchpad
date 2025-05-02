@@ -4,4 +4,4 @@ metadata:
   name: kyverno-variables
   namespace: default
 data:
-  acr: ubsreleaseacr.azurecr.io 
+  acr: xxxleaseacr.azurecr.io 

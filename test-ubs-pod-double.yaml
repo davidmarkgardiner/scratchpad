@@ -6,10 +6,10 @@ metadata:
 spec:
   containers:
   - name: app
-    image: ubsreleaseacr.azurecr.io/my-app:1.0
+    image: xxxleaseacr.azurecr.io/my-app:1.0
     command: ["sleep"]
     args: ["infinity"]
   initContainers:
   - name: init-app
-    image: ubsreleaseacr.azurecr.io/init-app:latest
+    image: xxxleaseacr.azurecr.io/init-app:latest
     command: ["sh", "-c", "echo 'Initializing'"] 

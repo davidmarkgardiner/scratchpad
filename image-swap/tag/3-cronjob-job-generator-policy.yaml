@@ -16,7 +16,7 @@ metadata:
 spec:
   background: false
   rules:
-    - name: generate-push-job-containers
+    - name: generate-push-job-container-0
       match:
         any:
         - resources:
@@ -35,90 +35,94 @@ spec:
             namespaces:
               - kube-system
               - kyverno
-      foreach:
-        - list: "request.object.spec.jobTemplate.spec.template.spec.containers[]"
-          preconditions:
-            all:
-            - key: "{{ contains(element.image, 'my.registry.com/') }}"
-              operator: Equals
-              value: true
-          generate:
-            apiVersion: batch/v1
-            kind: Job
-            name: "image-push-job-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', element.image, '')) }}"
-            namespace: "{{request.namespace}}"
-            synchronize: true
-            data:
-              apiVersion: batch/v1
-              kind: Job
+      preconditions:
+        all:
+        - key: "{{ request.object.spec.jobTemplate.spec.template.spec.containers[0] }}"
+          operator: NotEquals
+          value: null
+        - key: "{{ contains(request.object.spec.jobTemplate.spec.template.spec.containers[0].image, 'my.registry.com/') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "image-push-job-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[0].image, '')) }}"
+        namespace: "{{request.namespace}}"
+        synchronize: true
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "image-push-job-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[0].image, '')) }}"
+            labels:
+              skip-verify: "true"
+              image-info: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[0].image, '')) }}"
+              container-type: "regular"
+              container-index: "0"
+          spec:
+            template:
               metadata:
-                name: "image-push-job-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', element.image, '')) }}"
                 labels:
                   skip-verify: "true"
-                  image-info: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', element.image, '')) }}"
-                  container-type: "regular"
               spec:
-                template:
-                  metadata:
-                    labels:
-                      skip-verify: "true"
-                  spec:
-                    containers:
-                    - name: push-image
-                      image: mcr.microsoft.com/azure-cli
-                      env:
-                      - name: RESOURCE_NAME
-                        value: "{{ request.object.metadata.name }}"
-                      - name: RESOURCE_NAMESPACE
-                        value: "{{ request.namespace }}"
-                      - name: ORIGINAL_IMAGE
-                        value: "{{ element.image }}"
-                      - name: IMAGE_INFO
-                        value: "{{ regex_replace_all_literal('^.*\\.com/', element.image, '') }}"
-                      - name: IMAGE_ID
-                        value: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', element.image, '')) }}"
-                      - name: CONTAINER_NAME
-                        value: "{{ element.name }}"
-                      - name: CONTAINER_TYPE
-                        value: "container"
-                      command:
-                      - /bin/bash
-                      - -c
-                      - |
-                        echo "Job processing image information for cronjob $RESOURCE_NAME in namespace $RESOURCE_NAMESPACE"
-                        echo "Container: $CONTAINER_NAME (Type: $CONTAINER_TYPE)"
-                        echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
-                        echo "IMAGE_INFO: $IMAGE_INFO"
-                        echo "IMAGE_ID: $IMAGE_ID"
-                        
-                        # Extract just the image/version part by removing anything before the first slash
-                        PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^.*/||')
-                        echo "Pure image/version: $PURE_IMAGE"
-                        
-                        # Check if the image is from docker.io and change it to my.registry.com
-                        if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
-                          # Extract everything after docker.io/
-                          IMAGE_PATH="${ORIGINAL_IMAGE#docker.io/}"
-                          NEW_IMAGE="my.registry.com/$IMAGE_PATH"
-                          echo "Image is from docker.io, changing to: $NEW_IMAGE"
-                          
-                          # Here you could add code to push the image to my.registry.com
-                          # For example:
-                          # az acr login --name myregistry
-                          # docker pull $ORIGINAL_IMAGE
-                          # docker tag $ORIGINAL_IMAGE $NEW_IMAGE
-                          # docker push $NEW_IMAGE
-                          
-                          echo "Image transformation complete"
-                        else
-                          echo "Performing actions based on image information..."
-                        fi
-                        
-                        sleep 30
-                    restartPolicy: Never
-                backoffLimit: 3
+                containers:
+                - name: push-image
+                  image: mcr.microsoft.com/azure-cli
+                  env:
+                  - name: RESOURCE_NAME
+                    value: "{{ request.object.metadata.name }}"
+                  - name: RESOURCE_NAMESPACE
+                    value: "{{ request.namespace }}"
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.jobTemplate.spec.template.spec.containers[0].image }}"
+                  - name: IMAGE_INFO
+                    value: "{{ regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[0].image, '') }}"
+                  - name: IMAGE_ID
+                    value: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[0].image, '')) }}"
+                  - name: CONTAINER_NAME
+                    value: "{{ request.object.spec.jobTemplate.spec.template.spec.containers[0].name }}"
+                  - name: CONTAINER_TYPE
+                    value: "container"
+                  - name: CONTAINER_INDEX
+                    value: "0"
+                  command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    echo "Job processing image information for cronjob $RESOURCE_NAME in namespace $RESOURCE_NAMESPACE"
+                    echo "Container: $CONTAINER_NAME (Type: $CONTAINER_TYPE, Index: $CONTAINER_INDEX)"
+                    echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
+                    echo "IMAGE_INFO: $IMAGE_INFO"
+                    echo "IMAGE_ID: $IMAGE_ID"
+                    
+                    # Extract just the image/version part by removing anything before the first slash
+                    PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^.*/||')
+                    echo "Pure image/version: $PURE_IMAGE"
+                    
+                    # Check if the image is from docker.io and change it to my.registry.com
+                    if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
+                      # Extract everything after docker.io/
+                      IMAGE_PATH="${ORIGINAL_IMAGE#docker.io/}"
+                      NEW_IMAGE="my.registry.com/$IMAGE_PATH"
+                      echo "Image is from docker.io, changing to: $NEW_IMAGE"
+                      
+                      # Here you could add code to push the image to my.registry.com
+                      # For example:
+                      # az acr login --name myregistry
+                      # docker pull $ORIGINAL_IMAGE
+                      # docker tag $ORIGINAL_IMAGE $NEW_IMAGE
+                      # docker push $NEW_IMAGE
+                      
+                      echo "Image transformation complete"
+                    else
+                      echo "Performing actions based on image information..."
+                    fi
+                    
+                    sleep 30
+                restartPolicy: Never
+            backoffLimit: 3
     
-    - name: generate-push-job-initcontainers
+    - name: generate-push-job-container-1
       match:
         any:
         - resources:
@@ -137,85 +141,195 @@ spec:
             namespaces:
               - kube-system
               - kyverno
-      foreach:
-        - list: "request.object.spec.jobTemplate.spec.template.spec.initContainers[]"
-          preconditions:
-            all:
-            - key: "{{ contains(element.image, 'my.registry.com/') }}"
-              operator: Equals
-              value: true
-          generate:
-            apiVersion: batch/v1
-            kind: Job
-            name: "image-push-job-init-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', element.image, '')) }}"
-            namespace: "{{request.namespace}}"
-            synchronize: true
-            data:
-              apiVersion: batch/v1
-              kind: Job
+      preconditions:
+        all:
+        - key: "{{ request.object.spec.jobTemplate.spec.template.spec.containers[1] }}"
+          operator: NotEquals
+          value: null
+        - key: "{{ contains(request.object.spec.jobTemplate.spec.template.spec.containers[1].image, 'my.registry.com/') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "image-push-job-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[1].image, '')) }}"
+        namespace: "{{request.namespace}}"
+        synchronize: true
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "image-push-job-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[1].image, '')) }}"
+            labels:
+              skip-verify: "true"
+              image-info: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[1].image, '')) }}"
+              container-type: "regular"
+              container-index: "1"
+          spec:
+            template:
               metadata:
-                name: "image-push-job-init-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', element.image, '')) }}"
                 labels:
                   skip-verify: "true"
-                  image-info: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', element.image, '')) }}"
-                  container-type: "init"
               spec:
-                template:
-                  metadata:
-                    labels:
-                      skip-verify: "true"
-                  spec:
-                    containers:
-                    - name: push-image
-                      image: mcr.microsoft.com/azure-cli
-                      env:
-                      - name: RESOURCE_NAME
-                        value: "{{ request.object.metadata.name }}"
-                      - name: RESOURCE_NAMESPACE
-                        value: "{{ request.namespace }}"
-                      - name: ORIGINAL_IMAGE
-                        value: "{{ element.image }}"
-                      - name: IMAGE_INFO
-                        value: "{{ regex_replace_all_literal('^.*\\.com/', element.image, '') }}"
-                      - name: IMAGE_ID
-                        value: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', element.image, '')) }}"
-                      - name: CONTAINER_NAME
-                        value: "{{ element.name }}"
-                      - name: CONTAINER_TYPE
-                        value: "initContainer"
-                      command:
-                      - /bin/bash
-                      - -c
-                      - |
-                        echo "Job processing image information for cronjob $RESOURCE_NAME in namespace $RESOURCE_NAMESPACE"
-                        echo "Container: $CONTAINER_NAME (Type: $CONTAINER_TYPE)"
-                        echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
-                        echo "IMAGE_INFO: $IMAGE_INFO"
-                        echo "IMAGE_ID: $IMAGE_ID"
-                        
-                        # Extract just the image/version part by removing anything before the first slash
-                        PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^.*/||')
-                        echo "Pure image/version: $PURE_IMAGE"
-                        
-                        # Check if the image is from docker.io and change it to my.registry.com
-                        if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
-                          # Extract everything after docker.io/
-                          IMAGE_PATH="${ORIGINAL_IMAGE#docker.io/}"
-                          NEW_IMAGE="my.registry.com/$IMAGE_PATH"
-                          echo "Image is from docker.io, changing to: $NEW_IMAGE"
-                          
-                          # Here you could add code to push the image to my.registry.com
-                          # For example:
-                          # az acr login --name myregistry
-                          # docker pull $ORIGINAL_IMAGE
-                          # docker tag $ORIGINAL_IMAGE $NEW_IMAGE
-                          # docker push $NEW_IMAGE
-                          
-                          echo "Image transformation complete"
-                        else
-                          echo "Performing actions based on image information..."
-                        fi
-                        
-                        sleep 30
-                    restartPolicy: Never
-                backoffLimit: 3 
+                containers:
+                - name: push-image
+                  image: mcr.microsoft.com/azure-cli
+                  env:
+                  - name: RESOURCE_NAME
+                    value: "{{ request.object.metadata.name }}"
+                  - name: RESOURCE_NAMESPACE
+                    value: "{{ request.namespace }}"
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.jobTemplate.spec.template.spec.containers[1].image }}"
+                  - name: IMAGE_INFO
+                    value: "{{ regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[1].image, '') }}"
+                  - name: IMAGE_ID
+                    value: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.containers[1].image, '')) }}"
+                  - name: CONTAINER_NAME
+                    value: "{{ request.object.spec.jobTemplate.spec.template.spec.containers[1].name }}"
+                  - name: CONTAINER_TYPE
+                    value: "container"
+                  - name: CONTAINER_INDEX
+                    value: "1"
+                  command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    echo "Job processing image information for cronjob $RESOURCE_NAME in namespace $RESOURCE_NAMESPACE"
+                    echo "Container: $CONTAINER_NAME (Type: $CONTAINER_TYPE, Index: $CONTAINER_INDEX)"
+                    echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
+                    echo "IMAGE_INFO: $IMAGE_INFO"
+                    echo "IMAGE_ID: $IMAGE_ID"
+                    
+                    # Extract just the image/version part by removing anything before the first slash
+                    PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^.*/||')
+                    echo "Pure image/version: $PURE_IMAGE"
+                    
+                    # Check if the image is from docker.io and change it to my.registry.com
+                    if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
+                      # Extract everything after docker.io/
+                      IMAGE_PATH="${ORIGINAL_IMAGE#docker.io/}"
+                      NEW_IMAGE="my.registry.com/$IMAGE_PATH"
+                      echo "Image is from docker.io, changing to: $NEW_IMAGE"
+                      
+                      # Here you could add code to push the image to my.registry.com
+                      # For example:
+                      # az acr login --name myregistry
+                      # docker pull $ORIGINAL_IMAGE
+                      # docker tag $ORIGINAL_IMAGE $NEW_IMAGE
+                      # docker push $NEW_IMAGE
+                      
+                      echo "Image transformation complete"
+                    else
+                      echo "Performing actions based on image information..."
+                    fi
+                    
+                    sleep 30
+                restartPolicy: Never
+            backoffLimit: 3
+            
+    - name: generate-push-job-initcontainer-0
+      match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+            namespaces:
+            - default
+            - a*
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        all:
+        - key: "{{ request.object.spec.jobTemplate.spec.template.spec.initContainers[0] }}"
+          operator: NotEquals
+          value: null
+        - key: "{{ contains(request.object.spec.jobTemplate.spec.template.spec.initContainers[0].image, 'my.registry.com/') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "image-push-job-init-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.initContainers[0].image, '')) }}"
+        namespace: "{{request.namespace}}"
+        synchronize: true
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "image-push-job-init-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.initContainers[0].image, '')) }}"
+            labels:
+              skip-verify: "true"
+              image-info: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.initContainers[0].image, '')) }}"
+              container-type: "init"
+              container-index: "0"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+              spec:
+                containers:
+                - name: push-image
+                  image: mcr.microsoft.com/azure-cli
+                  env:
+                  - name: RESOURCE_NAME
+                    value: "{{ request.object.metadata.name }}"
+                  - name: RESOURCE_NAMESPACE
+                    value: "{{ request.namespace }}"
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.jobTemplate.spec.template.spec.initContainers[0].image }}"
+                  - name: IMAGE_INFO
+                    value: "{{ regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.initContainers[0].image, '') }}"
+                  - name: IMAGE_ID
+                    value: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.jobTemplate.spec.template.spec.initContainers[0].image, '')) }}"
+                  - name: CONTAINER_NAME
+                    value: "{{ request.object.spec.jobTemplate.spec.template.spec.initContainers[0].name }}"
+                  - name: CONTAINER_TYPE
+                    value: "initContainer"
+                  - name: CONTAINER_INDEX
+                    value: "0"
+                  command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    echo "Job processing image information for cronjob $RESOURCE_NAME in namespace $RESOURCE_NAMESPACE"
+                    echo "Container: $CONTAINER_NAME (Type: $CONTAINER_TYPE, Index: $CONTAINER_INDEX)"
+                    echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
+                    echo "IMAGE_INFO: $IMAGE_INFO"
+                    echo "IMAGE_ID: $IMAGE_ID"
+                    
+                    # Extract just the image/version part by removing anything before the first slash
+                    PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^.*/||')
+                    echo "Pure image/version: $PURE_IMAGE"
+                    
+                    # Check if the image is from docker.io and change it to my.registry.com
+                    if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
+                      # Extract everything after docker.io/
+                      IMAGE_PATH="${ORIGINAL_IMAGE#docker.io/}"
+                      NEW_IMAGE="my.registry.com/$IMAGE_PATH"
+                      echo "Image is from docker.io, changing to: $NEW_IMAGE"
+                      
+                      # Here you could add code to push the image to my.registry.com
+                      # For example:
+                      # az acr login --name myregistry
+                      # docker pull $ORIGINAL_IMAGE
+                      # docker tag $ORIGINAL_IMAGE $NEW_IMAGE
+                      # docker push $NEW_IMAGE
+                      
+                      echo "Image transformation complete"
+                    else
+                      echo "Performing actions based on image information..."
+                    fi
+                    
+                    sleep 30
+                restartPolicy: Never
+            backoffLimit: 3 

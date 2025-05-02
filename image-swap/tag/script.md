@@ -1,3 +1,4 @@
+```
 echo "Performing actions based on image information..."
 echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
 echo "IMAGE_INFO: $IMAGE_INFO"

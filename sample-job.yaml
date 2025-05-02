@@ -11,6 +11,9 @@ spec:
   # Set TTL for automatic cleanup after 1 hour (3600 seconds)
   ttlSecondsAfterFinished: 3600
   
+  # Ensure only one pod runs at a time
+  parallelism: 1
+  
   template:
     metadata:
       labels:

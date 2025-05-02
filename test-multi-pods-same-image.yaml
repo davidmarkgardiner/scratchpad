@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment1
+  labels:
+    app: test1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test1
+  template:
+    metadata:
+      labels:
+        app: test1
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com/hello-world:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment2
+  labels:
+    app: test2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test2
+  template:
+    metadata:
+      labels:
+        app: test2
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com/hello-world:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment3
+  labels:
+    app: test3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test3
+  template:
+    metadata:
+      labels:
+        app: test3
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com/nginx:latest
+        ports:
+        - containerPort: 80 

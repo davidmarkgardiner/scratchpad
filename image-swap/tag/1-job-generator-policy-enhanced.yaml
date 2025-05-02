@@ -1,9 +1,9 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: image-job-generator
+  name: image-job-generator-per-image
   annotations:
-    policies.kyverno.io/title: Image Push Job Generator
+    policies.kyverno.io/title: Image Push Job Generator (Once Per Image)
     pod-policies.kyverno.io/autogen-controllers: none
     policies.kyverno.io/category: Sample
     policies.kyverno.io/severity: medium
@@ -12,7 +12,7 @@ metadata:
     policies.kyverno.io/minversion: 1.6.0
     kyverno.io/kubernetes-version: "1.23"
     policies.kyverno.io/description: >-
-      This policy generates jobs with image information for images from my.registry.com.
+      This policy generates jobs with image information for images from my.registry.com only once per unique image.
 spec:
   background: false
   rules:
@@ -22,6 +22,8 @@ spec:
         - resources:
             kinds:
             - Pod
+            - Job
+            - CronJob
             namespaces:
             - default
             - a*
@@ -37,23 +39,25 @@ spec:
               - kyverno
       preconditions:
         all:
-        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com/') }}"
+        # Combined condition to check for image path based on resource type
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com/') || contains(request.object.spec.template.spec.containers[0].image, 'my.registry.com/') || contains(request.object.spec.jobTemplate.spec.template.spec.containers[0].image, 'my.registry.com/') }}"
           operator: Equals
           value: true
       generate:
         apiVersion: batch/v1
         kind: Job
-        name: "image-push-job-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.containers[0].image, '')) }}"
+        # Using only the image name for job, not the pod name
+        name: "image-process-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', images[0], '')) }}"
         namespace: "{{request.namespace}}"
         synchronize: true
         data:
           apiVersion: batch/v1
           kind: Job
           metadata:
-            name: "image-push-job-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.containers[0].image, '')) }}"
+            name: "image-process-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', images[0], '')) }}"
             labels:
               skip-verify: "true"
-              image-info: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.containers[0].image, '')) }}"
+              image-info: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', images[0], '')) }}"
           spec:
             template:
               metadata:
@@ -64,21 +68,23 @@ spec:
                 - name: push-image
                   image: mcr.microsoft.com/azure-cli
                   env:
-                  - name: POD_NAME
+                  - name: RESOURCE_TYPE
+                    value: "{{ request.object.kind }}"
+                  - name: RESOURCE_NAME
                     value: "{{ request.object.metadata.name }}"
-                  - name: POD_NAMESPACE
+                  - name: RESOURCE_NAMESPACE
                     value: "{{ request.namespace }}"
                   - name: ORIGINAL_IMAGE
-                    value: "{{ request.object.spec.containers[0].image }}"
+                    value: "{{ images[0] }}"
                   - name: IMAGE_INFO
-                    value: "{{ regex_replace_all_literal('^.*\\.com/', request.object.spec.containers[0].image, '') }}"
+                    value: "{{ regex_replace_all_literal('^.*\\.com/', images[0], '') }}"
                   - name: IMAGE_ID
-                    value: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.containers[0].image, '')) }}"
+                    value: "{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', images[0], '')) }}"
                   command:
                   - /bin/bash
                   - -c
                   - |
-                    echo "Job processing image information for pod $POD_NAME in namespace $POD_NAMESPACE"
+                    echo "Processing image information for $RESOURCE_TYPE $RESOURCE_NAME in namespace $RESOURCE_NAMESPACE"
                     echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
                     echo "IMAGE_INFO: $IMAGE_INFO"
                     echo "IMAGE_ID: $IMAGE_ID"
@@ -108,4 +114,5 @@ spec:
                     
                     sleep 30
                 restartPolicy: Never
-            backoffLimit: 3 
+            backoffLimit: 3
+            ttlSecondsAfterFinished: 300  # Auto-cleanup after 5 minutes 

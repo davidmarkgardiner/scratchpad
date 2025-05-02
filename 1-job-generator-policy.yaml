@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: image-job-generator
+  name: image-job-generator-test
   annotations:
     policies.kyverno.io/title: Image Push Job Generator
     pod-policies.kyverno.io/autogen-controllers: none
@@ -45,7 +45,7 @@ spec:
         kind: Job
         name: "image-push-job-{{ replace('/', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.containers[0].image, '')) }}"
         namespace: "{{request.namespace}}"
-        synchronize: true
+        synchronize: false
         data:
           apiVersion: batch/v1
           kind: Job

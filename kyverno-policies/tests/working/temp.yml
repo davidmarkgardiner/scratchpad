@@ -1,0 +1,87 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: image-mutator
+  annotations:
+    policies.kyverno.io/title: Image Mutator
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: 1.7.2
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kubernetes-version: "1.31"
+    policies.kyverno.io/description: >-
+      This policy mutates container images from container-registry.ubs.net to use ubsreleaseacr.azurecr.io
+spec:
+  background: false
+  rules:
+    # Rule for main containers
+    - name: mutate-container-images
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - at*
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      preconditions:
+        all:
+        - key: "{{ request.operation }}"
+          operator: Equals
+          value: CREATE
+      mutate:
+        foreach:
+        - list: request.object.spec.containers
+          patchStrategicMerge:
+            spec:
+              containers:
+                - name: "{{ element.name }}"
+                  image: "ubsreleaseacr.azurecr.io/{{ regex_replace_all_literal('container-registry\\.ubs\\.net/', element.image, '') }}"
+          preconditions:
+            all:
+            - key: "{{ contains(element.image, 'container-registry.ubs.net/') }}"
+              operator: Equals
+              value: true
+    # Rule for init containers
+    - name: mutate-init-container-images
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - at*
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      preconditions:
+        all:
+        - key: "{{ request.operation }}"
+          operator: Equals
+          value: CREATE
+        - key: "{{ request.object.spec.initContainers[] || `[]` | length(@) }}"
+          operator: GreaterThanOrEquals
+          value: 1
+      mutate:
+        foreach:
+        - list: request.object.spec.initContainers
+          patchStrategicMerge:
+            spec:
+              initContainers:
+                - name: "{{ element.name }}"
+                  image: "ubsreleaseacr.azurecr.io/{{ regex_replace_all_literal('container-registry\\.ubs\\.net/', element.image, '') }}"
+          preconditions:
+            all:
+            - key: "{{ contains(element.image, 'container-registry.ubs.net/') }}"
+              operator: Equals
+              value: true

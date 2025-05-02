@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kyverno-variables
+  namespace: default
+data:
+  acr: ubsreleaseacr.azurecr.io 

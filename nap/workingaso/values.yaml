@@ -1,0 +1,45 @@
+# Cluster Configuration
+CLUSTER_NAME: k8s-cluster
+KUBERNETES_VERSION: "1.31"
+LOCATION: uksouth
+RESOURCE_GROUP: test-rg
+
+# Network Configuration
+VNET_RG: aks-cluster
+VNET_NAME: aks-vnet
+SUBNET_NAME: aks-subnet
+DNS_SERVICE_IP: 10.251.0.10
+POD_CIDR: 10.244.0.0/16
+SERVICE_CIDR: 10.251.0.0/17
+
+# Node Pool Configuration
+NODE_COUNT: 1
+ENABLE_AUTO_SCALING: false
+OS_DISK_SIZE: 128
+VM_SIZE: Standard_D2s_v3
+
+# Identity Configuration
+IDENTITY_RG: aks-cluster
+CONTROL_PLANE_IDENTITY: control-plane-identity
+RUNTIME_IDENTITY: runtime-identity
+KUBELET_CLIENT_ID: b9682ec6-dadd-4913-aed9-fd3380dffe22
+KUBELET_OBJECT_ID: 90eb188a-8c0e-472f-be02-523990cf1cfd
+
+# AAD Configuration
+TENANT_ID: 550cfcda-8a2d-452c-ba71-d6bc6bf5bb31
+ADMIN_GROUP_ID: c3917653-b066-45e1-a1ba-b0d753c0f5af
+
+# Log Analytics
+LOG_ANALYTICS_RG: test-rg
+LOG_ANALYTICS_WORKSPACE: test-workspace
+
+# SSH Configuration
+SSH_PUBLIC_KEY: "your-ssh-public-key"
+
+# Tags
+APPLICATION_TAG: AKS-AutoNodeProvisioning
+COST_CENTER: IT-123456
+ENVIRONMENT: Development
+
+# Subscription
+SUBSCRIPTION_ID: 133d5755-4074-4d6e-ad38-eb2a6ad12903 

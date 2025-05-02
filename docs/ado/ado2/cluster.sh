@@ -30,7 +30,7 @@ az account set --subscription $SUBSCRIPTION --output none
 
 # Get existing cluster information
 CLUSTER_COUNT=$(az aks list --resource-group ${resourceGroupName} --query "length(@)" --output tsv)
-EXISTING_CLUSTER_NAME=$(az aks list --resource-group ${resourceGroupName} --query "[].name" --output tsv)
+EXISTING_CLUSTER_NAME=$(az aks list --resource-group ${resourceGroupName} --query "[0].name" --output tsv)
 
 ###########################################
 # Naming Convention Configuration

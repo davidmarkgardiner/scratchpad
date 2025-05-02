@@ -1,0 +1,59 @@
+{
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "creationTimestamp": "2025-02-07T10:17:29Z",
+        "deletionTimestamp": "2025-04-13T18:46:39Z",
+        "labels": {
+            "kubernetes.io/metadata.name": "demo"
+        },
+        "name": "demo",
+        "resourceVersion": "70003169",
+        "uid": "94ad3548-5f02-4ce1-9536-1a1aefb39758"
+    },
+    "spec": {
+        "finalizers": [
+            "kubernetes"
+        ]
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastTransitionTime": "2025-04-13T18:46:46Z",
+                "message": "All resources successfully discovered",
+                "reason": "ResourcesDiscovered",
+                "status": "False",
+                "type": "NamespaceDeletionDiscoveryFailure"
+            },
+            {
+                "lastTransitionTime": "2025-04-13T18:46:46Z",
+                "message": "All legacy kube types successfully parsed",
+                "reason": "ParsedGroupVersions",
+                "status": "False",
+                "type": "NamespaceDeletionGroupVersionParsingFailure"
+            },
+            {
+                "lastTransitionTime": "2025-04-13T18:46:46Z",
+                "message": "All content successfully deleted, may be waiting on finalization",
+                "reason": "ContentDeleted",
+                "status": "False",
+                "type": "NamespaceDeletionContentFailure"
+            },
+            {
+                "lastTransitionTime": "2025-04-13T18:46:46Z",
+                "message": "Some resources are remaining: gatewaylbconfigurations.egressgateway.kubernetes.azure.com has 1 resource instances, staticgatewayconfigurations.egressgateway.kubernetes.azure.com has 1 resource instances",
+                "reason": "SomeResourcesRemain",
+                "status": "True",
+                "type": "NamespaceContentRemaining"
+            },
+            {
+                "lastTransitionTime": "2025-04-13T18:46:46Z",
+                "message": "Some content in the namespace has finalizers remaining: gateway-lb-configuration-controller.microsoft.com in 1 resource instances, static-gateway-configuration-controller.microsoft.com in 1 resource instances",
+                "reason": "SomeFinalizersRemain",
+                "status": "True",
+                "type": "NamespaceFinalizersRemaining"
+            }
+        ],
+        "phase": "Terminating"
+    }
+}

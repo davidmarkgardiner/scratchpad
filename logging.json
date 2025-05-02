@@ -1,0 +1,59 @@
+{
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "creationTimestamp": "2025-01-28T17:19:40Z",
+        "deletionTimestamp": "2025-04-13T18:45:00Z",
+        "labels": {
+            "kubernetes.io/metadata.name": "logging"
+        },
+        "name": "logging",
+        "resourceVersion": "70002687",
+        "uid": "edc7c409-0547-49bc-ad41-c83c6f718d65"
+    },
+    "spec": {
+        "finalizers": [
+            "kubernetes"
+        ]
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastTransitionTime": "2025-04-13T18:45:07Z",
+                "message": "All resources successfully discovered",
+                "reason": "ResourcesDiscovered",
+                "status": "False",
+                "type": "NamespaceDeletionDiscoveryFailure"
+            },
+            {
+                "lastTransitionTime": "2025-04-13T18:45:07Z",
+                "message": "All legacy kube types successfully parsed",
+                "reason": "ParsedGroupVersions",
+                "status": "False",
+                "type": "NamespaceDeletionGroupVersionParsingFailure"
+            },
+            {
+                "lastTransitionTime": "2025-04-13T18:45:07Z",
+                "message": "All content successfully deleted, may be waiting on finalization",
+                "reason": "ContentDeleted",
+                "status": "False",
+                "type": "NamespaceDeletionContentFailure"
+            },
+            {
+                "lastTransitionTime": "2025-04-13T18:45:07Z",
+                "message": "Some resources are remaining: configmaptests.kro.run has 1 resource instances, evas.kro.run has 1 resource instances, loggings.kro.run has 1 resource instances",
+                "reason": "SomeResourcesRemain",
+                "status": "True",
+                "type": "NamespaceContentRemaining"
+            },
+            {
+                "lastTransitionTime": "2025-04-13T18:45:07Z",
+                "message": "Some content in the namespace has finalizers remaining: 343306f7-5173-4a3f-85b9-82f16f88700f.kro.run/finalizer in 1 resource instances, 9b8980f8-076e-4a84-a540-494bac905c6f.kro.run/finalizer in 1 resource instances, c331f16b-27fe-460a-ae62-dd26f0cce8b0.kro.run/finalizer in 1 resource instances",
+                "reason": "SomeFinalizersRemain",
+                "status": "True",
+                "type": "NamespaceFinalizersRemaining"
+            }
+        ],
+        "phase": "Terminating"
+    }
+}

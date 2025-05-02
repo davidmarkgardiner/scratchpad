@@ -18,7 +18,7 @@ else
         --identity-name ${UAMI} \
         --resource-group ${UAMI_RESOURCE_GROUP} \
         --issuer "${AKS_OIDC_ISSUER}" \
-        --subject system:serviceaccount:"ubs-system":"vault-sa"
+        --subject system:serviceaccount:"xxx-system":"vault-sa"
     
     [ $? -eq 0 ] && echo "[SUCCESS] Federated Credentials created for federated_workload_identity_vault." || { echo "[ERROR] Failed to create federated credentials for federated_workload_identity_vault."; exit 1; }
 fi
@@ -52,7 +52,7 @@ az identity federated-credential update --name federated_workload_identity_vault
     --identity-name ${UAMI} \
     --resource-group ${UAMI_RESOURCE_GROUP} \
     --issuer "${AKS_OIDC_ISSUER}" \
-    --subject system:serviceaccount:"ubs-system":"vault-sa"
+    --subject system:serviceaccount:"xxx-system":"vault-sa"
 
 # Update the existing federated credential for imageswap
 az identity federated-credential update --name federated_workload_identity_imageswap${trimmed_clusterprefix} \
@@ -71,7 +71,7 @@ az identity federated-credential create --name federated_workload_identity_vault
     --identity-name ${UAMI} \
     --resource-group ${UAMI_RESOURCE_GROUP} \
     --issuer "${AKS_OIDC_ISSUER}" \
-    --subject system:serviceaccount:"ubs-system":"vault-sa" 2>&1 | grep -q "already exists"
+    --subject system:serviceaccount:"xxx-system":"vault-sa" 2>&1 | grep -q "already exists"
 
 if [ $? -eq 0 ]; then
     echo "[INFO] Federated credential for vault already exists. Skipping creation."
@@ -81,7 +81,7 @@ else
         --identity-name ${UAMI} \
         --resource-group ${UAMI_RESOURCE_GROUP} \
         --issuer "${AKS_OIDC_ISSUER}" \
-        --subject system:serviceaccount:"ubs-system":"vault-sa"
+        --subject system:serviceaccount:"xxx-system":"vault-sa"
     
     [ $? -eq 0 ] && echo "[SUCCESS] Federated Credentials created for federated_workload_identity_vault." || { echo "[WARNING] Failed to create federated credentials for federated_workload_identity_vault - may already exist."; }
 fi
@@ -122,7 +122,7 @@ az identity federated-credential create --name federated_workload_identity_vault
     --identity-name ${UAMI} \
     --resource-group ${UAMI_RESOURCE_GROUP} \
     --issuer "${AKS_OIDC_ISSUER}" \
-    --subject system:serviceaccount:"ubs-system":"vault-sa" || \
+    --subject system:serviceaccount:"xxx-system":"vault-sa" || \
     echo "[INFO] Federated credential for vault may already exist. Continuing..."
 
 # Make sure to set the account regardless of previous command success

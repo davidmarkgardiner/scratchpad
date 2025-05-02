@@ -126,8 +126,8 @@ spec:
   #   userAssignedIdentityExceptions:
   #   - name: k8s-control-plane-exception
   #     namespace: kube-system
-  #   - name: ubs-control-plane-exception
-  #     namespace: ubs-system
+  #   - name: xxx-control-plane-exception
+  #     namespace: xxx-system
   # privateLinkResources:
   # - groupId: management
   #   name: management

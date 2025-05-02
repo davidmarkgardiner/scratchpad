@@ -43,18 +43,24 @@ spec:
       generate:
         apiVersion: batch/v1
         kind: Job
-        # Simpler name generation - convert dots to dashes too
-        name: "image-process-{{ to_lower(replace('.', replace('/', '-', request.object.spec.containers[0].image), '-')) }}"
+        # Extract the middle part safely, with index fallback using a ternary expression
+        name: "image-process-{{ length(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))) > 2 ? 
+                            to_lower(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))[1]) : 
+                            to_lower(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))[length(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))) - 1]) }}"
         namespace: "{{request.namespace}}"
         synchronize: true
         data:
           apiVersion: batch/v1
           kind: Job
           metadata:
-            name: "image-process-{{ to_lower(replace('.', replace('/', '-', request.object.spec.containers[0].image), '-')) }}"
+            name: "image-process-{{ length(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))) > 2 ? 
+                                 to_lower(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))[1]) : 
+                                 to_lower(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))[length(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))) - 1]) }}"
             labels:
               skip-verify: "true"
-              image-info: "{{ to_lower(replace('.', replace('/', '-', request.object.spec.containers[0].image), '-')) }}"
+              image-info: "{{ length(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))) > 2 ? 
+                           to_lower(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))[1]) : 
+                           to_lower(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))[length(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))) - 1]) }}"
           spec:
             template:
               metadata:
@@ -76,7 +82,9 @@ spec:
                   - name: IMAGE_INFO
                     value: "{{ request.object.spec.containers[0].image }}"
                   - name: IMAGE_ID
-                    value: "{{ to_lower(replace('.', replace('/', '-', request.object.spec.containers[0].image), '-')) }}"
+                    value: "{{ length(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))) > 2 ? 
+                            to_lower(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))[1]) : 
+                            to_lower(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))[length(split('/', regex_replace(':[^/]*$', request.object.spec.containers[0].image, ''))) - 1]) }}"
                   command:
                   - /bin/bash
                   - -c

@@ -1,0 +1,77 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+    generate.kyverno.io/policy-name: image-job-generator
+    generate.kyverno.io/policy-namespace: ""
+    generate.kyverno.io/rule-name: generate-push-job
+    generate.kyverno.io/trigger-group: ""
+    generate.kyverno.io/trigger-kind: Pod
+    generate.kyverno.io/trigger-namespace: default
+    generate.kyverno.io/trigger-uid: ""
+    generate.kyverno.io/trigger-version: v1
+    generator: kyverno-policy
+    image-info: nginx-1.19.3
+    job-type: image-push
+    monitoring: "true"
+    skip-verify: "true"
+  name: image-push-job-nginx-1.19.3
+  namespace: default
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        job-type: image-push
+        monitoring: "true"
+        skip-verify: "true"
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Job processing image information for pod $POD_NAME in namespace $POD_NAMESPACE"
+          echo "ORIGINAL_IMAGE: $ORIGINAL_IMAGE"
+          echo "IMAGE_INFO: $IMAGE_INFO"
+          echo "IMAGE_ID: $IMAGE_ID"
+          
+          # Extract just the image/version part by removing anything before the first slash
+          PURE_IMAGE=$(echo "$ORIGINAL_IMAGE" | sed 's|^[^/]*/||')
+          echo "Pure image/version: $PURE_IMAGE"
+          
+          # Check if the image is from docker.io and change it to my.registry.com
+          if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
+            # Extract everything after docker.io/
+            IMAGE_PATH="${ORIGINAL_IMAGE#docker.io/}"
+            NEW_IMAGE="my.registry.com/$IMAGE_PATH"
+            echo "Image is from docker.io, changing to: $NEW_IMAGE"
+            
+            # Here you could add code to push the image to my.registry.com
+            # For example:
+            # az acr login --name myregistry
+            # docker pull $ORIGINAL_IMAGE
+            # docker tag $ORIGINAL_IMAGE $NEW_IMAGE
+            # docker push $NEW_IMAGE
+            
+            echo "Image transformation complete"
+          else
+            echo "Performing actions based on image information..."
+          fi
+          
+          sleep 30
+        env:
+        - name: POD_NAME
+          value: test-image-policy-pod
+        - name: POD_NAMESPACE
+          value: default
+        - name: ORIGINAL_IMAGE
+          value: my.registry.com/nginx:1.19.3
+        - name: IMAGE_INFO
+          value: nginx:1.19.3
+        - name: IMAGE_ID
+          value: nginx-1.19.3
+        image: mcr.microsoft.com/azure-cli
+        name: push-image
+      restartPolicy: Never

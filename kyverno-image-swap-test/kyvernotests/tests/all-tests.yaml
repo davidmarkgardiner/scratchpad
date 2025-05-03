@@ -1,0 +1,75 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: image-swap-test
+policies:
+  - ../../base/kyvernopolicies/job-generator-policy.yaml
+  - ../../base/kyvernopolicies/image-mutator-policy.yaml
+resources:
+  - ../resources/test-pod.yaml
+  - ../resources/test-pod2.yaml
+  - ../resources/test-pod-multi.yaml
+  - ../resources/exempted-pod.yaml
+exceptions:
+  - ../exceptions/image-exception.yaml
+variables: variables.yaml
+results:
+  # Image Mutator Tests
+  - policy: image-mutator
+    rule: mutate-container-images
+    resources:
+      - test-image-policy-pod
+    kind: Pod
+    result: pass
+  
+  - policy: image-mutator
+    rule: mutate-docker-images
+    resources:
+      - test-image-policy-pod2
+    kind: Pod
+    result: pass
+  
+  # Job Generator Tests
+  - policy: image-job-generator
+    rule: generate-push-job
+    resources:
+      - test-image-policy-pod
+    kind: Pod
+    result: pass
+    generatedResource: ../patched/generated-job.yaml
+  
+  # Enhanced Job Generator Tests
+  # - policy: enhanced-job-generator
+  #   rule: generate-image-push-job
+  #   resources:
+  #     - test-multi-container-pod
+  #   kind: Pod
+  #   result: pass
+  #   generatedResource: ../patched/generated-job-multi.yaml
+
+  # Multi-container handling test
+  - policy: image-mutator
+    rule: mutate-container-images
+    resources:
+      - test-multi-container-pod
+    kind: Pod
+    result: pass
+
+  # Exception test
+  - policy: image-mutator
+    rule: mutate-container-images
+    resources:
+      - exempted-pod
+    kind: Pod
+    result: skip
+
+checks:
+- match:
+    resource:
+      kind: Pod
+      name: test-image-policy-pod
+  assert:
+    pattern:
+      spec:
+        containers:
+        - image: my.registry.com/*

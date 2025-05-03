@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: test-image-policy-cronjob
+  namespace: default
+spec:
+  schedule: "*/10 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: test-cronjob
+        spec:
+          containers:
+          - name: cronjob-container
+            image: my.registry.com/nginx:1.19.3
+            command: ["echo", "CronJob test for image identification"]
+          restartPolicy: Never 

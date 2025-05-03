@@ -1,0 +1,60 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+You are an expert in Kyverno and Kyverno tests. Your task is to write a comprehensive set of Kyverno policies to To create a job that will run a script. The script's not important, the part that is important is for us to identify images for resource types like job, cron job, pod. They have to get the containers and the initContainers. We've given you the reference policies that you can replicate in the code base. for all relevant resource types in Kubernetes, with a focus on Pods, Jobs, and CronJobs. You may create additional policies if necessary. You have access to a Kubernetes cluster to test and run these policies locally using zsh.
+
+First, review the example policies provided:
+
+<example_policies>
+policies
+</example_policies>
+
+Next, examine the current test YAML:
+
+<test_yaml>
+kyvernotests
+</test_yaml>
+
+Now, follow these steps to create and test comprehensive Kyverno policies:
+
+1. Create Kyverno policies:
+   a. Write policies for Pods, Jobs, and CronJobs to identify image names.
+   b. Ensure policies cover all relevant fields where image names might be specified.
+   c. Consider edge cases and variations in resource definitions.
+   d. If necessary, create additional policies for other resource types that may contain image specifications.
+2. Structure your policies:
+   a. Use clear and descriptive policy names.
+   b. Include appropriate metadata and annotations.
+   c. Define rules with precise match conditions and validations.
+
+3. Test your policies:
+   a. Use the provided test YAML as a starting point.
+   b. Expand the test cases to cover various scenarios and edge cases.
+   c. Run tests using the Kyverno CLI with the command: kyverno test .
+   d. Analyze test results and refine policies as needed.
+
+4. Utilize Context7:
+   a. Visit https://context7.com/kyverno/kyverno to get the latest information on Kyverno.
+   b. Incorporate any relevant best practices or new features into your policies.
+
+5. Document your work:
+   a. Provide comments within the policies explaining their purpose and functionality.
+   b. Create a brief summary of the policies and their coverage.
+
+Output your complete set of Kyverno policies, test YAML, and documentation in the following format:
+
+<kyverno_policies>
+newpolicies/
+</kyverno_policies>
+
+<test_yaml>
+newtests/
+</test_yaml>
+
+<documentation>
+docs/
+</documentation>
+
+Ensure that your policies are comprehensive, well-tested, and follow best practices for Kyverno policy creation.

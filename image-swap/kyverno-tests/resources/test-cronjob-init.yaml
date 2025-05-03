@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: test-image-policy-cronjob-init
+  namespace: default
+spec:
+  schedule: "*/15 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: test-cronjob-init
+        spec:
+          initContainers:
+          - name: init-cronjob
+            image: my.registry.com/busybox:1.33.1
+            command: ["sh", "-c", "echo 'Setting up cronjob environment' && sleep 2"]
+          containers:
+          - name: cronjob-container
+            image: my.registry.com/nginx:1.19.3
+            command: ["echo", "CronJob test with init container"]
+          restartPolicy: Never 

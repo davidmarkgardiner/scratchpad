@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: image-exception
+  namespace: default
+spec:
+  exceptions:
+  - policyName: image-mutator
+    ruleNames:
+    - mutate-container-images
+    - mutate-docker-images
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        names:
+        - exempted-pod* 

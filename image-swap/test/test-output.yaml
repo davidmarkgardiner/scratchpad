@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  namespace: default
+spec:
+  containers:
+  - image: my.registry.com/Nginx/1.19.0_WithSpecial@Characters!
+    name: nginx
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    kyverno.io/kubernetes-version: "1.23"
+    kyverno.io/kyverno-version: 1.7.2
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/description: This policy generates jobs with image information
+      for images from my.registry.com only once per unique image.
+    policies.kyverno.io/minversion: 1.6.0
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/title: Image Push Job Generator (Once Per Image)
+  name: image-job-generator-enhanced
+spec:
+  background: false
+  rules:
+  - exclude:
+      any:
+      - resources:
+          selector:
+            matchLabels:
+              skip-verify: "true"
+      - resources:
+          namespaces:
+          - kube-system
+          - kyverno
+    generate:
+      apiVersion: batch/v1
+      data:
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          labels:
+            image-info: '{{ regex_replace_all(''[^a-z0-9-]'', lower(replace(''/'',
+              ''-'', regex_replace_all_literal(''^.*\.com/'', request.object.spec.containers[0].image,
+              ''''))), ''-'') }}'
+            skip-verify: "true"
+          name: image-process-{{ regex_replace_all('[^a-z0-9-]', lower(replace('/',
+            '-', regex_replace_all_literal('^.*\.com/', request.object.spec.containers[0].image,
+            ''))), '-') }}
+        spec:
+          backoffLimit: 3
+          template:
+            metadata:
+              labels:
+                skip-verify: "true"
+            spec:
+              containers:
+              - command:
+                - /bin/bash
+                - -c
+                - "echo \"Processing image information for $RESOURCE_TYPE $RESOURCE_NAME
+                  in namespace $RESOURCE_NAMESPACE\"\necho \"ORIGINAL_IMAGE: $ORIGINAL_IMAGE\"\necho
+                  \"IMAGE_INFO: $IMAGE_INFO\"\necho \"IMAGE_ID: $IMAGE_ID\"\n\n# Extract
+                  just the image/version part by removing anything before the first
+                  slash\nPURE_IMAGE=$(echo \"$ORIGINAL_IMAGE\" | sed 's|^.*/||')\necho
+                  \"Pure image/version: $PURE_IMAGE\"\n\n# Check if the image is from
+                  docker.io and change it to my.registry.com\nif [[ $ORIGINAL_IMAGE
+                  == docker.io/* ]]; then\n  # Extract everything after docker.io/\n
+                  \ IMAGE_PATH=\"${ORIGINAL_IMAGE#docker.io/}\"\n  NEW_IMAGE=\"my.registry.com/$IMAGE_PATH\"\n
+                  \ echo \"Image is from docker.io, changing to: $NEW_IMAGE\"\n  \n
+                  \ # Here you could add code to push the image to my.registry.com\n
+                  \ # For example:\n  # az acr login --name myregistry\n  # docker
+                  pull $ORIGINAL_IMAGE\n  # docker tag $ORIGINAL_IMAGE $NEW_IMAGE\n
+                  \ # docker push $NEW_IMAGE\n  \n  echo \"Image transformation complete\"\nelse\n
+                  \ echo \"Performing actions based on image information...\"\nfi\n\nsleep
+                  30\n"
+                env:
+                - name: RESOURCE_TYPE
+                  value: '{{ request.object.kind }}'
+                - name: RESOURCE_NAME
+                  value: '{{ request.object.metadata.name }}'
+                - name: RESOURCE_NAMESPACE
+                  value: '{{ request.namespace }}'
+                - name: ORIGINAL_IMAGE
+                  value: '{{ request.object.spec.containers[0].image }}'
+                - name: IMAGE_INFO
+                  value: '{{ regex_replace_all_literal(''^.*\.com/'', request.object.spec.containers[0].image,
+                    '''') }}'
+                - name: IMAGE_ID
+                  value: '{{ regex_replace_all(''[^a-z0-9-]'', lower(replace(''/'',
+                    ''-'', regex_replace_all_literal(''^.*\.com/'', request.object.spec.containers[0].image,
+                    ''''))), ''-'') }}'
+                image: mcr.microsoft.com/azure-cli
+                name: push-image
+              restartPolicy: Never
+          ttlSecondsAfterFinished: 300
+      kind: Job
+      name: image-process-{{ regex_replace_all('[^a-z0-9-]', lower(replace('/', '-',
+        regex_replace_all_literal('^.*\.com/', request.object.spec.containers[0].image,
+        ''))), '-') }}
+      namespace: '{{request.namespace}}'
+      synchronize: true
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - default
+          - a*
+    name: generate-push-job-pod
+    preconditions:
+      all:
+      - key: '{{ contains(request.object.spec.containers[0].image, ''my.registry.com/'')
+          }}'
+        operator: Equals
+        value: true

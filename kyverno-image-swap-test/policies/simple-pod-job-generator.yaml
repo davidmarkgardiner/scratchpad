@@ -1,0 +1,57 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: simple-pod-job-generator
+  annotations:
+    policies.kyverno.io/title: Simple Pod Job Generator
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/description: >-
+      This policy generates jobs from pods with my.registry.com images
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: generate-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "image-job-{{ request.object.metadata.name }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "image-job-{{ request.object.metadata.name }}"
+            labels:
+              skip-verify: "true"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+              spec:
+                containers:
+                - name: process-image
+                  image: busybox
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "Processing image for pod {{ request.object.metadata.name }}"
+                    echo "Image: {{ request.object.spec.containers[0].image }}"
+                    sleep 30
+                restartPolicy: Never
+            backoffLimit: 3 

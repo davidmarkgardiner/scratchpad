@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-image-policy-job
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        app: test-job
+    spec:
+      containers:
+      - name: job-container
+        image: my.registry.com/nginx:1.19.3
+        command: ["echo", "Job test for image identification"]
+      restartPolicy: Never
+  backoffLimit: 1 

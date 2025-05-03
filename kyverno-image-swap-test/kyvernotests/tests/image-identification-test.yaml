@@ -1,0 +1,124 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: image-identification-test
+policies:
+  - ../../policies/pod-job-generator-policy.yaml
+  - ../../policies/job-job-generator-policy.yaml
+  - ../../policies/cronjob-job-generator-policy.yaml
+resources:
+  - resources/test-pod.yaml
+  - resources/test-pod-multi.yaml
+  - resources/test-job.yaml
+  - resources/test-job-init.yaml
+  - resources/test-cronjob.yaml
+  - resources/test-cronjob-init.yaml
+exceptions:
+  - ../exceptions/image-exception.yaml
+variables: variables.yaml
+results:
+  # Pod policy tests
+  - policy: image-pod-job-generator
+    rule: generate-push-job-pod-container
+    resources:
+      - test-image-policy-pod
+    kind: Pod
+    result: pass
+    generatedResource: ../patched/generated-pod-job.yaml
+  
+  # Job policy tests
+  - policy: image-job-job-generator
+    rule: generate-push-job-container
+    resources:
+      - test-image-policy-job
+    kind: Job
+    result: pass
+    generatedResource: ../patched/generated-job-job.yaml
+    
+  - policy: image-job-job-generator
+    rule: generate-push-job-init-container
+    resources:
+      - test-image-policy-job-init
+    kind: Job
+    result: pass
+    generatedResource: ../patched/generated-job-init-job.yaml
+    
+  # CronJob policy tests
+  - policy: image-cronjob-job-generator
+    rule: generate-push-job-container-0
+    resources:
+      - test-image-policy-cronjob
+    kind: CronJob
+    result: pass
+    generatedResource: ../patched/generated-cronjob-job.yaml
+    
+  - policy: image-cronjob-job-generator
+    rule: generate-push-job-init-container
+    resources:
+      - test-image-policy-cronjob-init
+    kind: CronJob
+    result: pass
+    generatedResource: ../patched/generated-cronjob-init-job.yaml
+
+checks:
+- match:
+    resource:
+      kind: Pod
+      name: test-image-policy-pod
+  assert:
+    pattern:
+      spec:
+        containers:
+        - image: my.registry.com/*
+
+- match:
+    resource:
+      kind: Job
+      name: test-image-policy-job
+  assert:
+    pattern:
+      spec:
+        template:
+          spec:
+            containers:
+            - image: my.registry.com/*
+
+- match:
+    resource:
+      kind: Job
+      name: test-image-policy-job-init
+  assert:
+    pattern:
+      spec:
+        template:
+          spec:
+            initContainers:
+            - image: my.registry.com/*
+
+- match:
+    resource:
+      kind: CronJob
+      name: test-image-policy-cronjob
+  assert:
+    pattern:
+      spec:
+        jobTemplate:
+          spec:
+            template:
+              spec:
+                containers:
+                - image: my.registry.com/*
+
+- match:
+    resource:
+      kind: CronJob
+      name: test-image-policy-cronjob-init
+  assert:
+    pattern:
+      spec:
+        jobTemplate:
+          spec:
+            template:
+              spec:
+                initContainers:
+                - image: my.registry.com/* 

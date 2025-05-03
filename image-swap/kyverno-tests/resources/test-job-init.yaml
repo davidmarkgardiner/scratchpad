@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-image-policy-job-init
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        app: test-job-init
+    spec:
+      initContainers:
+      - name: init-container
+        image: my.registry.com/busybox:1.33.1
+        command: ["sh", "-c", "echo 'Setting up environment' && sleep 2"]
+      containers:
+      - name: job-container
+        image: my.registry.com/nginx:1.19.3
+        command: ["echo", "Job test with init container"]
+      restartPolicy: Never
+  backoffLimit: 1 

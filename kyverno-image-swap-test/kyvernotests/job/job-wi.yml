@@ -1,0 +1,50 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-workload-identity-resources
+spec:
+  rules:
+  - name: generate-job
+    match:
+      resources:
+        kinds:
+        - Namespace
+        name: "your-namespace"
+    generate:
+      apiVersion: batch/v1
+      kind: Job
+      name: workload-identity-job
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      data:
+        spec:
+          template:
+            metadata:
+              labels:
+                azure.workload.identity/use: "true"
+            spec:
+              serviceAccountName: workload-identity-sa
+              containers:
+              - name: workload-container
+                image: your-image:tag
+                command:
+                - "/bin/bash"
+                - "-c"
+                - |
+                  # Use the client ID from the service account's annotation
+                  # The annotation is available through environment variable via Downward API
+                  CLIENT_ID=$(cat /var/run/secrets/azure/serviceaccount/client-id)
+                  
+                  echo "Logging in with client ID: $CLIENT_ID"
+                  
+                  # Login using managed identity with the specific client ID
+                  az login --identity --username $CLIENT_ID
+                  
+                  # Your job commands here
+                  # ...
+                env:
+                - name: CLIENT_ID
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.serviceAccountName
+              restartPolicy: Never

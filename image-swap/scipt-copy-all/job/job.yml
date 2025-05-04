@@ -1,0 +1,131 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-sync-job
+spec:
+  template:
+    spec:
+      serviceAccountName: image-sync-service-account
+      initContainers:
+      - name: collect-images
+        image: bitnami/kubectl:latest
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          echo "Collecting images from all Kubernetes resources..."
+          
+          # Get images from all resources
+          DEPLOYMENT_IMAGES=$(kubectl get deployments --all-namespaces -o jsonpath="{.items[*].spec.template.spec.containers[*].image}" 2>/dev/null)
+          STATEFULSET_IMAGES=$(kubectl get statefulsets --all-namespaces -o jsonpath="{.items[*].spec.template.spec.containers[*].image}" 2>/dev/null)
+          DAEMONSET_IMAGES=$(kubectl get daemonsets --all-namespaces -o jsonpath="{.items[*].spec.template.spec.containers[*].image}" 2>/dev/null)
+          JOB_IMAGES=$(kubectl get jobs --all-namespaces -o jsonpath="{.items[*].spec.template.spec.containers[*].image}" 2>/dev/null)
+          CRONJOB_IMAGES=$(kubectl get cronjobs --all-namespaces -o jsonpath="{.items[*].spec.jobTemplate.spec.template.spec.containers[*].image}" 2>/dev/null)
+          POD_IMAGES=$(kubectl get pods --all-namespaces -o jsonpath="{.items[*].spec.containers[*].image}" 2>/dev/null)
+          
+          # Combine all images and filter for source registry
+          ALL_IMAGES=$(echo "$DEPLOYMENT_IMAGES $STATEFULSET_IMAGES $DAEMONSET_IMAGES $JOB_IMAGES $CRONJOB_IMAGES $POD_IMAGES" | tr -s '[[:space:]]' '\n' | sort -u)
+          
+          # Save to file for main container
+          echo "$ALL_IMAGES" > /tmp/workdir/all-images.txt
+          
+          # Filter for source registry and save
+          echo "$ALL_IMAGES" | grep "^container-registry.xxx.net" > /tmp/workdir/source-images.txt || true
+          
+          echo "Found $(wc -l < /tmp/workdir/source-images.txt) images to process"
+        volumeMounts:
+        - name: workdir
+          mountPath: /tmp/workdir
+      containers:
+      - name: sync-images
+        image: your-org/oras:1.2.2  # Image with ORAS installed
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          SOURCE_REGISTRY="container-registry.xxx.net"
+          DESTINATION_REGISTRY="${acr}"
+          
+          # Login to destination registry
+          echo "Logging in to destination registry..."
+          oras login ${DESTINATION_REGISTRY} -u 00000000-0000-0000-0000-000000000000 -p $(cat /token/acr-token)
+          
+          # Read the image list from init container
+          if [ ! -f /tmp/workdir/source-images.txt ]; then
+            echo "No source images found"
+            exit 0
+          fi
+          
+          SOURCE_IMAGES=$(cat /tmp/workdir/source-images.txt)
+          TOTAL_IMAGES=$(echo "$SOURCE_IMAGES" | wc -l)
+          CURRENT_IMAGE=0
+          
+          echo "Processing ${TOTAL_IMAGES} images from ${SOURCE_REGISTRY}"
+          
+          # Process each image
+          for FULL_IMAGE in $SOURCE_IMAGES; do
+            CURRENT_IMAGE=$((CURRENT_IMAGE + 1))
+            echo "[$CURRENT_IMAGE/$TOTAL_IMAGES] Processing: $FULL_IMAGE"
+            
+            IMAGE_INFO=$(echo "$FULL_IMAGE" | sed "s|^${SOURCE_REGISTRY}/||")
+            
+            if [[ "$IMAGE_INFO" != *":"* ]]; then
+              IMAGE_INFO="${IMAGE_INFO}:latest"
+            fi
+            
+            SOURCE_REF="${SOURCE_REGISTRY}/${IMAGE_INFO}"
+            DEST_REF="${DESTINATION_REGISTRY}/${IMAGE_INFO}"
+            
+            # Check if image exists in destination
+            if oras manifest fetch --descriptor ${DEST_REF} > /dev/null 2>&1; then
+              echo "  Image exists in destination. Checking manifests..."
+              
+              SOURCE_MANIFEST=$(oras manifest fetch --insecure --descriptor ${SOURCE_REF} 2>/dev/null)
+              DEST_MANIFEST=$(oras manifest fetch --descriptor ${DEST_REF} 2>/dev/null)
+              
+              if [[ "$SOURCE_MANIFEST" == "$DEST_MANIFEST" ]]; then
+                echo "  ✓ Image already exists with same manifest. Skipping."
+                continue
+              else
+                echo "  ⚠ Manifests differ. Updating image..."
+              fi
+            else
+              echo "  Image not found in destination. Copying..."
+            fi
+            
+            # Copy the image
+            echo "  Copying image..."
+            if oras cp --from-insecure ${SOURCE_REF} ${DEST_REF}; then
+              # Verify copy success
+              echo "  Verifying copy..."
+              SOURCE_MANIFEST=$(oras manifest fetch --insecure --descriptor ${SOURCE_REF} 2>/dev/null)
+              DEST_MANIFEST=$(oras manifest fetch --descriptor ${DEST_REF} 2>/dev/null)
+              
+              if [[ "$SOURCE_MANIFEST" == "$DEST_MANIFEST" ]]; then
+                echo "  ✓ Successfully copied ${IMAGE_INFO}"
+              else
+                echo "  ✗ ERROR: Failed to copy ${IMAGE_INFO} - manifests don't match"
+                exit 1
+              fi
+            else
+              echo "  ✗ ERROR: Failed to copy ${IMAGE_INFO}"
+              exit 1
+            fi
+          done
+          
+          echo "Successfully processed all ${TOTAL_IMAGES} images."
+        env:
+        - name: acr
+          value: "your-azure-container-registry.azurecr.io"
+        volumeMounts:
+        - name: acr-token
+          mountPath: /token
+          readOnly: true
+        - name: workdir
+          mountPath: /tmp/workdir
+      volumes:
+      - name: acr-token
+        secret:
+          secretName: acr-token-secret
+      - name: workdir
+        emptyDir: {}
+      restartPolicy: Never
+  backoffLimit: 2

@@ -1,0 +1,43 @@
+# ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: acrpush-workload-identity-sa
+  namespace: xxx-system
+  annotations:
+    azure.workload.identity/client-id: ${runtime_managedidentity_clientid}
+    azure.workload.identity/tenant-id: ${tenantID}
+  labels:
+    azure.workload.identity/use: "true"
+
+---
+# ClusterRole for reading all image-related resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: image-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+  verbs: ["get", "list"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: acrpush-workload-identity-binding
+subjects:
+- kind: ServiceAccount
+  name: acrpush-workload-identity-sa
+  namespace: xxx-system
+roleRef:
+  kind: ClusterRole
+  name: image-reader
+  apiGroup: rbac.authorization.k8s.io

@@ -232,10 +232,7 @@ spec:
               mountPath: /tmp/workdir
               readOnly: true
       restartPolicy: Never
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        fsGroup: 2000
+
 ```
 
 Key improvements made:

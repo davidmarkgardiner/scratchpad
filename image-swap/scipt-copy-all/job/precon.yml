@@ -1,0 +1,63 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-job-for-new-pod
+  annotations:
+    policies.kyverno.io/title: Generate Job for New Pod
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/subject: Pod, Job
+    policies.kyverno.io/description: >-
+      This policy generates a job when a new pod is deployed. The job will only run once
+      per deployment based on the job name derived from the pod name. The policy uses
+      preconditions to ensure the job is only generated for newly created pods, not existing ones.
+spec:
+  background: false
+  rules:
+    - name: generate-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+      preconditions:
+        all:
+        # Only apply to newly created pods (not updates to existing pods)
+        - key: "{{ request.operation || 'BACKGROUND' }}"
+          operator: Equals
+          value: CREATE
+        # Skip if a job with this name already exists
+        - key: "{{ lookup('v1/Job', '', 'job-' + request.object.metadata.name, 'exists') }}"
+          operator: Equals
+          value: false
+        # Skip if the pod is created by a Job controller
+        - key: "{{ request.object.metadata.ownerReferences[].kind || '' }}"
+          operator: NotEquals
+          value: Job
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "job-{{ request.object.metadata.name }}"
+        namespace: "{{ request.object.metadata.namespace }}"
+        synchronize: false
+        data:
+          metadata:
+            labels:
+              generated-by-kyverno: "true"
+              source-pod: "{{ request.object.metadata.name }}"
+          spec:
+            backoffLimit: 0
+            ttlSecondsAfterFinished: 100  # Auto-cleanup after completion
+            template:
+              spec:
+                containers:
+                - name: job-container
+                  image: busybox:latest
+                  command:
+                  - "/bin/sh"
+                  - "-c"
+                  - |
+                    echo "Running job for pod: {{ request.object.metadata.name }}"
+                    echo "Pod namespace: {{ request.object.metadata.namespace }}"
+                    echo "Pod image: {{ request.object.spec.containers[0].image }}"
+                    # Add your job logic here
+                restartPolicy: Never

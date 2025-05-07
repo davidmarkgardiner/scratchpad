@@ -1,0 +1,177 @@
+trigger:
+  - main
+
+variables:
+  - group: AKSDeploymentVariables
+
+stages:
+  - stage: DeployToAKSClusters
+    jobs:
+      - job: DeployHelmChart
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: AzureCLI@2
+            displayName: 'Deploy Helm chart to multiple AKS clusters'
+            inputs:
+              azureSubscription: 'AzureServiceConnection'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Parse AKS cluster list
+                IFS=',' read -ra CLUSTERS <<< "$AKS_CLUSTER_LIST"
+                
+                # Initialize arrays for reporting
+                successful_deployments=()
+                failed_deployments=()
+                
+                # Create output directory for reports
+                mkdir -p $(Build.ArtifactStagingDirectory)/reports
+                
+                for cluster in "${CLUSTERS[@]}"; do
+                  echo "Processing cluster: $cluster"
+                  cluster_report="$(Build.ArtifactStagingDirectory)/reports/$cluster-deployment.log"
+                  echo "Starting deployment to $cluster at $(date)" > "$cluster_report"
+                  
+                  # Get AKS credentials
+                  if az aks get-credentials --name "$cluster" --resource-group "$cluster-rg" --admin; then
+                    echo "Successfully obtained credentials for cluster $cluster" | tee -a "$cluster_report"
+                  else
+                    echo "Failed to get credentials for cluster $cluster" | tee -a "$cluster_report"
+                    failed_deployments+=("$cluster")
+                    continue
+                  fi
+                  
+                  # Check and enable workload identity if needed
+                  if ! az aks show --name "$cluster" --resource-group "$cluster-rg" --query "workloadIdentityEnabled" -o tsv | grep -q "true"; then
+                    echo "Enabling workload identity on cluster $cluster" | tee -a "$cluster_report"
+                    if ! az aks update --name "$cluster" --resource-group "$cluster-rg" --enable-workload-identity; then
+                      echo "Failed to enable workload identity on cluster $cluster" | tee -a "$cluster_report"
+                      failed_deployments+=("$cluster")
+                      continue
+                    fi
+                  else
+                    echo "Workload identity already enabled on cluster $cluster" | tee -a "$cluster_report"
+                  fi
+                  
+                  # Create user-assigned managed identity
+                  identity_name="${cluster}-app-identity"
+                  echo "Creating/checking user-assigned managed identity: $identity_name" | tee -a "$cluster_report"
+                  
+                  # Check if identity exists
+                  if ! az identity show --name "$identity_name" --resource-group "$cluster-rg" &>/dev/null; then
+                    if ! az identity create --name "$identity_name" --resource-group "$cluster-rg"; then
+                      echo "Failed to create managed identity for cluster $cluster" | tee -a "$cluster_report"
+                      failed_deployments+=("$cluster")
+                      continue
+                    fi
+                  else
+                    echo "Managed identity already exists for cluster $cluster" | tee -a "$cluster_report"
+                  fi
+                  
+                  # Get identity client ID
+                  identity_client_id=$(az identity show --name "$identity_name" --resource-group "$cluster-rg" --query clientId -o tsv)
+                  echo "Identity client ID: $identity_client_id" | tee -a "$cluster_report"
+                  
+                  # Set up federated identity credential
+                  fed_cred_name="${cluster}-federated-id"
+                  echo "Setting up federated identity credential: $fed_cred_name" | tee -a "$cluster_report"
+                  
+                  # Get OIDC issuer URL
+                  oidc_issuer=$(az aks show --name "$cluster" --resource-group "$cluster-rg" --query "oidcIssuerProfile.issuerUrl" -o tsv)
+                  
+                  # Check if federated credential exists
+                  if ! az identity federated-credential show --name "$fed_cred_name" --identity-name "$identity_name" --resource-group "$cluster-rg" &>/dev/null; then
+                    if ! az identity federated-credential create --name "$fed_cred_name" --identity-name "$identity_name" \
+                        --resource-group "$cluster-rg" --issuer "$oidc_issuer" \
+                        --subject "system:serviceaccount:default:workload-identity-sa"; then
+                      echo "Failed to create federated credential for cluster $cluster" | tee -a "$cluster_report"
+                      failed_deployments+=("$cluster")
+                      continue
+                    fi
+                  else
+                    echo "Federated credential already exists for cluster $cluster" | tee -a "$cluster_report"
+                  fi
+                  
+                  # Grant Key Vault access
+                  echo "Granting Key Vault access to managed identity" | tee -a "$cluster_report"
+                  if ! az keyvault set-policy --name "$KEYVAULT_NAME" --secret-permissions get --spn "$identity_client_id"; then
+                    echo "Failed to grant Key Vault access for cluster $cluster" | tee -a "$cluster_report"
+                    failed_deployments+=("$cluster")
+                    continue
+                  fi
+                  
+                  # Create Kubernetes namespace if it doesn't exist
+                  echo "Ensuring 'default' namespace exists and has necessary service account" | tee -a "$cluster_report"
+                  kubectl create serviceaccount workload-identity-sa -n default --dry-run=client -o yaml | kubectl apply -f -
+                  
+                  # Annotate service account with Azure client ID
+                  kubectl annotate serviceaccount workload-identity-sa -n default \
+                    azure.workload.identity/client-id="$identity_client_id" --overwrite
+                  
+                  # Deploy Helm chart
+                  echo "Deploying Helm chart to cluster $cluster" | tee -a "$cluster_report"
+                  if helm upgrade --install myapp "$HELM_CHART_URL" \
+                      --set azure.workload.identity.clientId="$identity_client_id" \
+                      --set azure.keyvault.name="$KEYVAULT_NAME" \
+                      --set azure.keyvault.secretName="$KEYVAULT_SECRET_NAME" \
+                      --set serviceAccount.name="workload-identity-sa" \
+                      --set serviceAccount.create=false; then
+                    echo "Helm deployment successful on cluster $cluster" | tee -a "$cluster_report"
+                  else
+                    echo "Helm deployment failed on cluster $cluster" | tee -a "$cluster_report"
+                    failed_deployments+=("$cluster")
+                    continue
+                  fi
+                  
+                  # Verify deployment
+                  echo "Verifying deployment on cluster $cluster" | tee -a "$cluster_report"
+                  sleep 30  # Allow some time for pods to start
+                  if kubectl get pods | grep -q "myapp"; then
+                    echo "Application pods are running on cluster $cluster" | tee -a "$cluster_report"
+                    successful_deployments+=("$cluster")
+                  else
+                    echo "Application pods are not found on cluster $cluster" | tee -a "$cluster_report"
+                    failed_deployments+=("$cluster")
+                  fi
+                done
+                
+                # Generate deployment summary report
+                summary_report="$(Build.ArtifactStagingDirectory)/reports/deployment-summary.md"
+                echo "# Deployment Summary Report" > "$summary_report"
+                echo "Generated at: $(date)" >> "$summary_report"
+                echo "" >> "$summary_report"
+                echo "## Successful Deployments" >> "$summary_report"
+                if [ ${#successful_deployments[@]} -eq 0 ]; then
+                  echo "None" >> "$summary_report"
+                else
+                  for cluster in "${successful_deployments[@]}"; do
+                    echo "- $cluster" >> "$summary_report"
+                  done
+                fi
+                
+                echo "" >> "$summary_report"
+                echo "## Failed Deployments" >> "$summary_report"
+                if [ ${#failed_deployments[@]} -eq 0 ]; then
+                  echo "None" >> "$summary_report"
+                else
+                  for cluster in "${failed_deployments[@]}"; do
+                    echo "- $cluster" >> "$summary_report"
+                  done
+                fi
+                
+                # Print summary to console
+                cat "$summary_report"
+                
+                # Exit with error if any deployments failed
+                if [ ${#failed_deployments[@]} -gt 0 ]; then
+                  echo "Some deployments failed. Check the detailed logs for more information."
+                  exit 1
+                fi
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Deployment Reports'
+            inputs:
+              pathtoPublish: '$(Build.ArtifactStagingDirectory)/reports'
+              artifactName: 'DeploymentReports'
+              publishLocation: 'Container' 

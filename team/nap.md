@@ -55,7 +55,7 @@ Verify that the VM size, image version, and other configuration are valid.
 
 ```bash
 # Check for locks on the node resource group
-az lock list --resource-group MC_AT39473-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope
+az lock list --resource-group MC_-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope
 ```
 
 ### 6. Review the Karpenter controller logs
@@ -72,7 +72,7 @@ Look for detailed error messages about the failed node creation.
 Check Azure Activity Logs for the node resource group to see specific errors during VM creation:
 
 ```bash
-az monitor activity-log list --resource-group MC_AT39473-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope --start-time 2025-05-13T00:00:00Z
+az monitor activity-log list --resource-group MC_-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope --start-time 2025-05-13T00:00:00Z
 ```
 
 ### 8. Verify Network Configuration

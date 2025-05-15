@@ -141,7 +141,7 @@ Node AutoProvisioning (NAP) in AKS works by using Karpenter to dynamically creat
 The error logs you shared earlier explicitly show this failure during VM creation:
 
 ```
-creating instance, creating VM CSE for VM "aks-infra-pool-95ff4", PUT resourceGroups/MC_AT39473-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope/providers/Microsoft.Compute/virtualMachines/aks-infra-pool-95ff4/exte...
+creating instance, creating VM CSE for VM "aks-infra-pool-95ff4", PUT resourceGroups/MC_ATxxx-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope/providers/Microsoft.Compute/virtualMachines/aks-infra-pool-95ff4/exte...
 ```
 
 Here, "CSE" refers to "Custom Script Extension", and AKS is trying to create an extension that doesn't comply with your policy:
@@ -155,7 +155,7 @@ Here, "CSE" refers to "Custom Script Extension", and AKS is trying to create an 
    Create an exemption for the AKS node resource group:
    ```bash
    az policy exemption create --name "Allow-AKS-NAP-Extensions" \
-     --resource-group "MC_AT39473-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope" \
+     --resource-group "MC_ATxxx-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope" \
      --policy-assignment-id "<policy-assignment-id>" \
      --exemption-category "Waiver" \
      --display-name "Allow AKS NAP Custom Script Extensions" \
@@ -175,7 +175,7 @@ The simplest solution is likely creating a policy exemption for the AKS node res
 To find the exact policy assignment ID:
 
 ```bash
-az policy assignment list --scope /subscriptions/<subscription-id>/resourceGroups/MC_AT39473-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope --query "[?policyDefinitionId=='<policy-definition-id>'].id" -o tsv
+az policy assignment list --scope /subscriptions/<subscription-id>/resourceGroups/MC_ATxxx-weu-dev-d04_uk8s-tsshared-weu-gt025-int-d04_westeurope --query "[?policyDefinitionId=='<policy-definition-id>'].id" -o tsv
 ```
 
 Replace `<policy-definition-id>` with the full ID from your policy output.

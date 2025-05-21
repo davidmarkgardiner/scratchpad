@@ -41,10 +41,13 @@ spec:
         - key: "{{ startsWith(request.object.spec.containers[0].image, 'my.registry.com/') }}"
           operator: Equals
           value: true
+        - key: "{{ !exists(jobs.batch/v1) || !exists(jobs.batch/v1[?metadata.labels.image-info == '{{ regex_replace_all_literal('^.*\\.com/', request.object.spec.containers[0].image, '') }}' && metadata.creationTimestamp > '{{ time_add('', '-24h') }}']) }}"
+          operator: Equals
+          value: true
       generate:
         apiVersion: batch/v1
         kind: Job
-        name: "image-push-job-{{ replace('/', '-', replace(':', '-', regex_replace_all_literal('^.*\\.com/', request.object.spec.containers[0].image, ''))) }}"
+        name: "image-push-job-{{ request.object.metadata.uid }}"
         namespace: "{{request.namespace}}"
         synchronize: false
         data:
@@ -146,6 +149,9 @@ spec:
           operator: NotEquals
           value: null
         - key: "{{ startsWith(request.object.spec.initContainers[0].image, 'my.registry.com/') }}"
+          operator: Equals
+          value: true
+        - key: "{{ !exists(jobs.batch/v1) || !exists(jobs.batch/v1[?metadata.labels.image-info == '{{ regex_replace_all_literal('^.*\\.com/', request.object.spec.initContainers[0].image, '') }}' && metadata.creationTimestamp > '{{ time_add('', '-24h') }}']) }}"
           operator: Equals
           value: true
       generate:

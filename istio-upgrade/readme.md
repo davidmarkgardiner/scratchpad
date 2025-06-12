@@ -89,6 +89,7 @@ If you're on an older version (< 1.8), consider upgrading as background processi
 
 **Most likely solution**: Try the UpdateRequest approach first, as it's the cleanest way to force policy re-evaluation on existing resources.
 
-
-git config user.name "David Gardiner"
-git config user.email "davidmarkgardiner@gmail.com"
+# Target namespaces starting with "at" and exclude system namespaces
+kubectl get namespaces -o name | grep -v "kube-\|kyverno" | grep "^namespace/at" | while read ns; do
+  kubectl patch $ns -p '{"metadata":{"annotations":{"kyverno.io/force-update":"'$(date +%s)'"}}}'
+done

@@ -88,8 +88,9 @@ kubectl get deployment kyverno -n kyverno -o jsonpath='{.spec.template.spec.cont
 If you're on an older version (< 1.8), consider upgrading as background processing was significantly improved.
 
 **Most likely solution**: Try the UpdateRequest approach first, as it's the cleanest way to force policy re-evaluation on existing resources.
-
+```
 # Target namespaces starting with "at" and exclude system namespaces
 kubectl get namespaces -o name | grep -v "kube-\|kyverno" | grep "^namespace/at" | while read ns; do
   kubectl patch $ns -p '{"metadata":{"annotations":{"kyverno.io/force-update":"'$(date +%s)'"}}}'
 done
+```

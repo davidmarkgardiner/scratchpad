@@ -129,4 +129,15 @@ kubectl get ns at-prod at-staging at-dev --show-labels 2>/dev/null | grep asm-
 kubectl get ns -o jsonpath='{range .items[?(@.metadata.name =~ "^at.*")]}{.metadata.name}{"\t"}{.metadata.labels}{"\n"}{end}' | grep asm-
 ```
 
-The most straightforward approach is **Option 1** - it will show you all namespaces starting with "at" that have "asm-" somewhere in their labels.
+
+```
+# Capture output and check if it's empty
+result=$(kubectl get ns --show-labels | grep "^at" | grep asm-)
+
+if [ -n "$result" ]; then
+    echo "Found namespaces:"
+    echo "$result"
+else
+    echo "No namespaces found starting with 'at' containing 'asm-'"
+fi
+```

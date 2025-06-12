@@ -1,0 +1,16 @@
+# Create UpdateRequest to force policy evaluation on existing resources
+cat <<EOF | kubectl apply -f -
+apiVersion: kyverno.io/v1beta1
+kind: UpdateRequest
+metadata:
+  name: trigger-istio-mutation
+  namespace: kyverno
+spec:
+  type: mutate
+  policy: mutate-istio-revision-labels
+  resource:
+    group: ""
+    version: v1
+    resource: namespaces
+    namespace: ""
+EOF

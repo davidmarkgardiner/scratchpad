@@ -94,3 +94,39 @@ kubectl get namespaces -o name | grep -v "kube-\|kyverno" | grep "^namespace/at"
   kubectl patch $ns -p '{"metadata":{"annotations":{"kyverno.io/force-update":"'$(date +%s)'"}}}'
 done
 ```
+
+
+It looks like you're trying to filter namespaces that start with "at" and then grep for those that have "asm-" in their labels. Here's the correct command:
+
+```bash
+kubectl get ns -l 'metadata.name~=^at.*' --show-labels | grep asm-
+```
+
+However, kubectl doesn't support regex in label selectors like that. Here are working alternatives:
+
+**Option 1: Get all namespaces starting with "at" then grep for asm-**
+```bash
+kubectl get ns --show-labels | grep "^at" | grep asm-
+```
+
+**Option 2: More targeted approach**
+```bash
+# First see all namespaces starting with "at"
+kubectl get ns | grep "^at"
+
+# Then check their labels for asm-
+kubectl get ns --show-labels | awk '/^at/ && /asm-/ {print}'
+```
+
+**Option 3: Check specific namespaces if you know their names**
+```bash
+# If you know the namespace names starting with "at"
+kubectl get ns at-prod at-staging at-dev --show-labels 2>/dev/null | grep asm-
+```
+
+**Option 4: Use jsonpath for more precise filtering**
+```bash
+kubectl get ns -o jsonpath='{range .items[?(@.metadata.name =~ "^at.*")]}{.metadata.name}{"\t"}{.metadata.labels}{"\n"}{end}' | grep asm-
+```
+
+The most straightforward approach is **Option 1** - it will show you all namespaces starting with "at" that have "asm-" somewhere in their labels.

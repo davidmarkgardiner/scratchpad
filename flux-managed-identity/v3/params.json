@@ -1,0 +1,57 @@
+// flux-dev-parameters.json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "value": "dev"
+    },
+    "sharedManagedIdentityResourceId": {
+      "value": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/shared-identities-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/flux-gitops-dev-shared"
+    },
+    "gitRepositoryUrl": {
+      "value": "https://dev.azure.com/myorg/myproject/_git/k8s-manifests"
+    },
+    "gitBranch": {
+      "value": "dev"
+    },
+    "syncIntervalSeconds": {
+      "value": 300
+    },
+    "kustomizationPaths": {
+      "value": {
+        "infrastructure": "./environments/dev/infrastructure",
+        "applications": "./environments/dev/applications"
+      }
+    }
+  }
+}
+
+// flux-prod-parameters.json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "value": "prod"
+    },
+    "sharedManagedIdentityResourceId": {
+      "value": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/shared-identities-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/flux-gitops-prod-shared"
+    },
+    "gitRepositoryUrl": {
+      "value": "https://dev.azure.com/myorg/myproject/_git/k8s-manifests"
+    },
+    "gitBranch": {
+      "value": "main"
+    },
+    "syncIntervalSeconds": {
+      "value": 600
+    },
+    "kustomizationPaths": {
+      "value": {
+        "infrastructure": "./environments/prod/infrastructure",
+        "applications": "./environments/prod/applications"
+      }
+    }
+  }
+}

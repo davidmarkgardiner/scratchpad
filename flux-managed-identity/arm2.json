@@ -1,0 +1,218 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource group name"
+      }
+    },
+    "clusterName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the AKS cluster"
+      }
+    },
+    "fluxConfigurationName": {
+      "type": "string",
+      "defaultValue": "my-flux-config",
+      "metadata": {
+        "description": "Name of the Flux configuration"
+      }
+    },
+    "gitRepositoryUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure DevOps Git repository URL (e.g., https://dev.azure.com/myorg/myproject/_git/myrepo)"
+      }
+    },
+    "gitBranch": {
+      "type": "string",
+      "defaultValue": "main",
+      "metadata": {
+        "description": "Git branch to sync from"
+      }
+    },
+    "fluxIdentityName": {
+      "type": "string",
+      "defaultValue": "flux-source-controller-identity",
+      "metadata": {
+        "description": "Name of the managed identity for Flux source controller"
+      }
+    },
+    "namespace": {
+      "type": "string",
+      "defaultValue": "flux-system",
+      "metadata": {
+        "description": "Kubernetes namespace for Flux"
+      }
+    },
+    "kustomizationPath": {
+      "type": "string",
+      "defaultValue": "./manifests",
+      "metadata": {
+        "description": "Path to Kubernetes manifests in the repository"
+      }
+    },
+    "useUserAssignedIdentityForCluster": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Whether the AKS cluster uses user-assigned identity (requires additional reader role)"
+      }
+    },
+    "clusterIdentityPrincipalId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Principal ID of the cluster's user-assigned identity (only required if useUserAssignedIdentityForCluster is true)"
+      }
+    }
+  },
+  "variables": {
+    "aksResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
+    "fluxIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fluxIdentityName'))]",
+    "readerRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[parameters('fluxIdentityName')]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "hidden-title": "AKS Flux Source Controller Identity"
+      }
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials",
+      "apiVersion": "2023-01-31",
+      "name": "[format('{0}/fluxSourceController-k8s', parameters('fluxIdentityName'))]",
+      "dependsOn": [
+        "[variables('fluxIdentityResourceId')]"
+      ],
+      "properties": {
+        "issuer": "[reference(variables('aksResourceId'), '2023-10-01').oidcIssuerProfile.issuerURL]",
+        "subject": "system:serviceaccount:flux-system:source-controller",
+        "audiences": [
+          "api://AzureADTokenExchange"
+        ]
+      }
+    },
+    {
+      "condition": "[parameters('useUserAssignedIdentityForCluster')]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('aksResourceId'), parameters('clusterIdentityPrincipalId'), variables('readerRoleDefinitionId'))]",
+      "scope": "[variables('aksResourceId')]",
+      "properties": {
+        "principalId": "[parameters('clusterIdentityPrincipalId')]",
+        "roleDefinitionId": "[variables('readerRoleDefinitionId')]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.KubernetesConfiguration/extensions",
+      "apiVersion": "2023-05-01",
+      "name": "flux",
+      "scope": "[variables('aksResourceId')]",
+      "dependsOn": [
+        "[variables('fluxIdentityResourceId')]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials', parameters('fluxIdentityName'), 'fluxSourceController-k8s')]"
+      ],
+      "properties": {
+        "extensionType": "microsoft.flux",
+        "autoUpgradeMinorVersion": true,
+        "configurationSettings": {
+          "workloadIdentity.enable": "true",
+          "workloadIdentity.azureClientId": "[reference(variables('fluxIdentityResourceId')).clientId]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.KubernetesConfiguration/fluxConfigurations",
+      "apiVersion": "2024-11-01",
+      "name": "[parameters('fluxConfigurationName')]",
+      "scope": "[variables('aksResourceId')]",
+      "dependsOn": [
+        "[extensionResourceId(variables('aksResourceId'), 'Microsoft.KubernetesConfiguration/extensions', 'flux')]"
+      ],
+      "properties": {
+        "scope": "cluster",
+        "namespace": "[parameters('namespace')]",
+        "sourceKind": "GitRepository",
+        "suspend": false,
+        "waitForReconciliation": true,
+        "reconciliationWaitDuration": "PT10M",
+        "gitRepository": {
+          "url": "[parameters('gitRepositoryUrl')]",
+          "provider": "azure",
+          "repositoryRef": {
+            "branch": "[parameters('gitBranch')]"
+          },
+          "syncIntervalInSeconds": 120,
+          "timeoutInSeconds": 600
+        },
+        "kustomizations": {
+          "infrastructure": {
+            "path": "[parameters('kustomizationPath')]",
+            "dependsOn": [],
+            "timeoutInSeconds": 300,
+            "syncIntervalInSeconds": 120,
+            "retryIntervalInSeconds": 120,
+            "prune": true,
+            "force": false,
+            "wait": true,
+            "postBuild": {
+              "substitute": {
+                "CLUSTER_NAME": "[parameters('clusterName')]",
+                "RESOURCE_GROUP": "[parameters('resourceGroupName')]"
+              }
+            }
+          },
+          "applications": {
+            "path": "./apps",
+            "dependsOn": ["infrastructure"],
+            "timeoutInSeconds": 300,
+            "syncIntervalInSeconds": 300,
+            "retryIntervalInSeconds": 120,
+            "prune": true,
+            "force": false,
+            "wait": true,
+            "postBuild": {
+              "substitute": {
+                "ENVIRONMENT": "production"
+              },
+              "substituteFrom": [
+                {
+                  "kind": "ConfigMap",
+                  "name": "cluster-config",
+                  "optional": true
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "fluxConfigurationName": {
+      "type": "string",
+      "value": "[parameters('fluxConfigurationName')]"
+    },
+    "fluxIdentityClientId": {
+      "type": "string",
+      "value": "[reference(variables('fluxIdentityResourceId')).clientId]"
+    },
+    "fluxIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(variables('fluxIdentityResourceId')).principalId]"
+    },
+    "nextSteps": {
+      "type": "string",
+      "value": "Add the managed identity as a user in Azure DevOps with 'Reader' permissions on the project/repository"
+    }
+  }
+}

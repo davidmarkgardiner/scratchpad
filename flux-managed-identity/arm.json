@@ -1,0 +1,162 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "resourceGroupName": {
+        "type": "string",
+        "metadata": {
+          "description": "Resource group name"
+        }
+      },
+      "clusterName": {
+        "type": "string",
+        "metadata": {
+          "description": "Name of the AKS cluster"
+        }
+      },
+      "fluxConfigurationName": {
+        "type": "string",
+        "defaultValue": "my-flux-config",
+        "metadata": {
+          "description": "Name of the Flux configuration"
+        }
+      },
+      "gitRepositoryUrl": {
+        "type": "string",
+        "metadata": {
+          "description": "Azure DevOps Git repository URL (e.g., https://dev.azure.com/myorg/myproject/_git/myrepo)"
+        }
+      },
+      "gitBranch": {
+        "type": "string",
+        "defaultValue": "main",
+        "metadata": {
+          "description": "Git branch to sync from"
+        }
+      },
+      "managedIdentityName": {
+        "type": "string",
+        "defaultValue": "flux-managed-identity",
+        "metadata": {
+          "description": "Name of the managed identity"
+        }
+      },
+      "namespace": {
+        "type": "string",
+        "defaultValue": "flux-system",
+        "metadata": {
+          "description": "Kubernetes namespace for Flux"
+        }
+      },
+      "kustomizationPath": {
+        "type": "string",
+        "defaultValue": "./manifests",
+        "metadata": {
+          "description": "Path to Kubernetes manifests in the repository"
+        }
+      },
+      "adoPatSecretName": {
+        "type": "string",
+        "defaultValue": "ado-pat-secret",
+        "metadata": {
+          "description": "Name of the secret containing ADO PAT"
+        }
+      }
+    },
+    "variables": {
+      "aksResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
+      "managedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
+    },
+    "resources": [
+      {
+        "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+        "apiVersion": "2023-01-31",
+        "name": "[parameters('managedIdentityName')]",
+        "location": "[resourceGroup().location]"
+      },
+      {
+        "type": "Microsoft.KubernetesConfiguration/fluxConfigurations",
+        "apiVersion": "2025-04-01",
+        "name": "[parameters('fluxConfigurationName')]",
+        "scope": "[variables('aksResourceId')]",
+        "dependsOn": [
+          "[variables('managedIdentityResourceId')]"
+        ],
+        "properties": {
+          "scope": "cluster",
+          "namespace": "[parameters('namespace')]",
+          "sourceKind": "GitRepository",
+          "suspend": false,
+          "waitForReconciliation": true,
+          "reconciliationWaitDuration": "PT30M",
+          "gitRepository": {
+            "url": "[parameters('gitRepositoryUrl')]",
+            "timeoutInSeconds": 600,
+            "syncIntervalInSeconds": 300,
+            "repositoryRef": {
+              "branch": "[parameters('gitBranch')]"
+            },
+            "localAuthRef": "[parameters('adoPatSecretName')]",
+            "httpsUser": "[reference(variables('managedIdentityResourceId')).clientId]"
+          },
+          "kustomizations": {
+            "infrastructure": {
+              "path": "[parameters('kustomizationPath')]",
+              "dependsOn": [],
+              "timeoutInSeconds": 600,
+              "syncIntervalInSeconds": 600,
+              "retryIntervalInSeconds": 300,
+              "prune": true,
+              "force": false,
+              "wait": true,
+              "postBuild": {
+                "substitute": {
+                  "CLUSTER_NAME": "[parameters('clusterName')]",
+                  "RESOURCE_GROUP": "[parameters('resourceGroupName')]"
+                }
+              }
+            },
+            "applications": {
+              "path": "./apps",
+              "dependsOn": ["infrastructure"],
+              "timeoutInSeconds": 600,
+              "syncIntervalInSeconds": 600,
+              "retryIntervalInSeconds": 300,
+              "prune": true,
+              "force": false,
+              "wait": true,
+              "postBuild": {
+                "substitute": {
+                  "ENVIRONMENT": "production"
+                },
+                "substituteFrom": [
+                  {
+                    "kind": "ConfigMap",
+                    "name": "cluster-config",
+                    "optional": true
+                  }
+                ]
+              }
+            }
+          },
+          "configurationProtectedSettings": {
+            "gitRepository.httpsUser": "[reference(variables('managedIdentityResourceId')).clientId]"
+          }
+        }
+      }
+    ],
+    "outputs": {
+      "fluxConfigurationName": {
+        "type": "string",
+        "value": "[parameters('fluxConfigurationName')]"
+      },
+      "managedIdentityClientId": {
+        "type": "string",
+        "value": "[reference(variables('managedIdentityResourceId')).clientId]"
+      },
+      "managedIdentityPrincipalId": {
+        "type": "string",
+        "value": "[reference(variables('managedIdentityResourceId')).principalId]"
+      }
+    }
+  }

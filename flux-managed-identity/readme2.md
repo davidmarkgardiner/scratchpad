@@ -1,3 +1,5 @@
+from - https://medium.com/@arnaud.tincelin/gitops-with-flux-on-aks-connect-to-git-repo-with-workload-identity-bc867f01d626
+
 Looking at the document you provided, there's a much cleaner solution using the new **fluxConfigurations API version 2024-11-01** with the `provider: 'azure'` property. This eliminates the need for PAT tokens entirely!
 
 Let me update the ARM template to use this new approach:## Key Updates Based on the Document:

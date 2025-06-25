@@ -1,0 +1,248 @@
+---
+# AKSNodeClass for GPU-enabled nodes
+apiVersion: karpenter.azure.com/v1alpha2
+kind: AKSNodeClass
+metadata:
+  name: gpu-nodeclass
+  annotations:
+    kubernetes.io/description: "GPU-enabled AKSNodeClass for compute-intensive workloads"
+spec:
+  # Use Ubuntu 22.04 as recommended for GPU workloads
+  imageFamily: Ubuntu2204
+  # Optional: Pin to specific image version for consistency
+  # imageVersion: "202311.07.0"
+  
+  # OS disk size - increase for GPU workloads that may need more storage
+  osDiskSizeGB: 256
+  
+  # Optional: Specify custom subnet if needed
+  # subnetID: "/subscriptions/{subscription-id}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}"
+
+---
+# NodePool configuration for GPU workloads
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: gpu-nodepool
+  annotations:
+    kubernetes.io/description: "GPU-enabled node pool for AI/ML and compute-intensive workloads"
+spec:
+  # Node disruption configuration
+  disruption:
+    # Only consolidate when nodes are empty to avoid disrupting GPU workloads
+    consolidationPolicy: WhenEmpty
+    # Never expire GPU nodes automatically due to their specialized nature
+    expireAfter: Never
+    # Wait longer before consolidation to allow for GPU workload completion
+    consolidateAfter: 300s
+
+  # Resource limits to control costs and prevent runaway scaling
+  limits:
+    # Limit total CPU cores across all GPU nodes
+    cpu: "500"
+    # Limit total memory across all GPU nodes (adjust based on needs)
+    memory: 2000Gi
+
+  # Higher priority for GPU workloads
+  weight: 100
+
+  template:
+    metadata:
+      # Labels that will be applied to all nodes in this pool
+      labels:
+        workload-type: "gpu-compute"
+        node-type: "gpu-enabled"
+    spec:
+      # Reference to the AKSNodeClass
+      nodeClassRef:
+        name: gpu-nodeclass
+
+      # Taints to ensure only GPU workloads are scheduled here
+      taints:
+        - key: "nvidia.com/gpu"
+          value: "true"
+          effect: "NoSchedule"
+        - key: "sku"
+          value: "gpu"
+          effect: "NoSchedule"
+
+      # Node requirements for GPU-enabled VMs
+      requirements:
+        # Operating System
+        - key: kubernetes.io/os
+          operator: In
+          values:
+            - linux
+
+        # Architecture
+        - key: kubernetes.io/arch
+          operator: In
+          values:
+            - amd64
+
+        # Capacity type - use on-demand for reliability, or spot for cost savings
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values:
+            - on-demand
+            # - spot  # Uncomment for cost savings (less reliable)
+
+        # GPU-specific requirements
+        - key: karpenter.azure.com/sku-gpu-manufacturer
+          operator: In
+          values:
+            - nvidia
+
+        # Minimum GPU count (adjust based on workload needs)
+        - key: karpenter.azure.com/sku-gpu-count
+          operator: Gt
+          values:
+            - "0"
+
+        # Specific GPU families (adjust based on your needs)
+        - key: karpenter.azure.com/sku-gpu-name
+          operator: In
+          values:
+            - V100    # High-performance AI/ML
+            - T4      # Cost-effective AI inference
+            - A100    # Latest high-performance AI/ML
+            - K80     # Entry-level GPU computing
+
+        # VM SKU family preferences for GPU workloads
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values:
+            - NC      # Standard GPU VMs
+            - NCv2    # High-performance GPU VMs
+            - NCv3    # Latest GPU VMs
+            - ND      # RDMA-enabled GPU VMs
+            - NDv2    # Latest RDMA-enabled GPU VMs
+
+        # Minimum specifications for GPU workloads
+        - key: karpenter.azure.com/sku-cpu
+          operator: Gt
+          values:
+            - "5"     # Minimum 6 CPUs
+
+        - key: karpenter.azure.com/sku-memory
+          operator: Gt
+          values:
+            - "55000" # Minimum ~56GB memory
+
+        # Ensure premium storage capability for better I/O performance
+        - key: karpenter.azure.com/sku-storage-premium-capable
+          operator: In
+          values:
+            - "true"
+
+        # Availability zones (adjust based on your region)
+        - key: topology.kubernetes.io/zone
+          operator: In
+          values:
+            - eastus-1
+            - eastus-2
+            - eastus-3
+
+      # Startup taints that are removed after node initialization
+      startupTaints:
+        - key: "node.kubernetes.io/not-ready"
+          effect: "NoSchedule"
+
+---
+# Example GPU workload to test the configuration
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gpu-test-workload
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        app: gpu-test
+    spec:
+      restartPolicy: OnFailure
+      
+      # Node selection to target GPU nodes
+      nodeSelector:
+        workload-type: "gpu-compute"
+      
+      # Tolerations to run on tainted GPU nodes
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+        - key: "sku"
+          operator: "Equal"
+          value: "gpu"
+          effect: "NoSchedule"
+      
+      containers:
+        - name: tensorflow-gpu-test
+          image: mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu
+          args: ["--max_steps", "500"]
+          
+          # GPU resource request
+          resources:
+            requests:
+              nvidia.com/gpu: 1
+              cpu: "4"
+              memory: "8Gi"
+            limits:
+              nvidia.com/gpu: 1
+              cpu: "8"
+              memory: "16Gi"
+
+---
+# NVIDIA Device Plugin DaemonSet (if not using GPU Operator)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-device-plugin-daemonset
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: nvidia-device-plugin-ds
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: nvidia-device-plugin-ds
+    spec:
+      # Target only GPU nodes
+      nodeSelector:
+        workload-type: "gpu-compute"
+      
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+        - key: "sku"
+          operator: "Equal"
+          value: "gpu"
+          effect: "NoSchedule"
+      
+      priorityClassName: "system-node-critical"
+      
+      containers:
+        - image: nvcr.io/nvidia/k8s-device-plugin:v0.17.2
+          name: nvidia-device-plugin-ctr
+          env:
+            - name: FAIL_ON_INIT_ERROR
+              value: "false"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+      
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins

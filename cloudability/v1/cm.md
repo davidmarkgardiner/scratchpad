@@ -1,3 +1,5 @@
+```
+
 CLIENT_ID=$(az identity show --name <identity-name> --resource-group <rg-name> --query clientId -o tsv)
 
 # Update ConfigMap
@@ -11,3 +13,5 @@ data:
   client-id: "${CLIENT_ID}"
   tenant-id: "$(az account show --query tenantId -o tsv)"
 EOF
+
+```

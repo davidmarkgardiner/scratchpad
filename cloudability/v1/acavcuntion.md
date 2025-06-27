@@ -60,3 +60,39 @@ Here's why:
 - Simpler scaling model for predictable workloads
 
 For your use case with private endpoints and continuous operation, Container Apps provides better cost efficiency and architectural fit. The only scenario where Functions might remain competitive is if you need very specific Azure Functions triggers or have significant investment in Functions-specific tooling.
+
+
+---
+
+Let me calculate the potential savings for 100 function apps running continuously with private endpoints:Let me recalculate with more realistic Container Apps pricing, as my initial calculation seems too low:## **Cost Savings Calculator: 100 Continuously Running Function Apps**
+
+Here's the detailed cost comparison for your scenario:
+
+### **Azure Functions Premium (with Private Endpoints)**
+- **20 Premium plans** needed (5 apps per plan)
+- **Premium plan costs**: $3,360/month
+- **Private endpoint costs**: $146/month  
+- **Total monthly cost**: **$3,506**
+
+### **Azure Container Apps**
+- **100 lightweight container apps**
+- **Resource allocation**: 25 vCPU total, 50GB memory
+- **Total monthly cost**: **$1,314**
+
+### **Estimated Savings**
+- **Monthly savings**: **$2,192** (62.5% reduction)
+- **Annual savings**: **$26,303**
+- **Per-app savings**: **$21.92/month per function**
+
+### **Key Assumptions**
+- Functions are lightweight (0.25 vCPU, 0.5GB each)
+- 5 function apps per Premium plan (conservative estimate)
+- Continuous operation (730 hours/month)
+- Private endpoints required for Functions
+
+### **Additional Considerations**
+- **Functions additional costs** not included: Storage accounts, Application Insights, VNet integration overhead
+- **Container Apps benefits**: Better resource utilization, no cold starts, easier scaling
+- **Migration effort**: Container Apps require containerization but offer more flexibility
+
+**Bottom line**: Switching to Azure Container Apps could save you approximately **$26,000 annually** for 100 continuously running function apps with private networking requirements.

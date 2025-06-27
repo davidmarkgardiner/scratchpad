@@ -1,204 +1,127 @@
-# FluxConfiguration with Protected Settings Example
+# FluxConfiguration Examples
 
-This example shows how to deploy a FluxConfiguration that uses protected settings to authenticate with a private Git repository.
+## Simple Example (Based on Official ASO Pattern)
+
+This shows the minimal FluxConfiguration setup using Azure Service Operator pattern.
 
 ## Prerequisites
 
-1. AKS cluster with Flux extension installed
-2. A GitHub repository (can be public for this example)
-3. GitHub Personal Access Token (for private repos)
-4. kubectl access to your cluster
+1. Azure Service Operator (ASO) installed in your cluster
+2. A ManagedCluster resource created via ASO
+3. kubectl access to your cluster
 
-## Step 1: Install Flux Extension (if not already installed)
-
-```bash
-# Install the Flux extension on your AKS cluster
-az k8s-extension create \
-  --resource-group myResourceGroup \
-  --cluster-name myAKSCluster \
-  --cluster-type managedClusters \
-  --extension-type microsoft.flux \
-  --name flux
-```
-
-## Step 2: Create Kubernetes Secret with Protected Settings
+## Simple Example - Public Repository
 
 ```yaml
-# flux-secret.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: flux-auth-secret
-  namespace: flux-system
-type: Opaque
-data:
-  # Base64 encoded GitHub Personal Access Token
-  # Generate with: echo -n "your_github_token" | base64
-  httpsPassword: Z2hwX3lvdXJfdG9rZW5faGVyZQ==
-stringData:
-  # Or use stringData for plain text (kubectl will encode it)
-  httpsUser: "your-github-username"
-```
-
-## Step 3: Create FluxConfiguration YAML
-
-```yaml
-# flux-configuration.yaml
+# simple-flux-config.yaml
 apiVersion: kubernetesconfiguration.azure.com/v1api20241101
 kind: FluxConfiguration
 metadata:
-  name: my-app-config
+  name: my-simple-flux
   namespace: default
 spec:
-  # Reference to your AKS cluster
-  owner:
-    armId: /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/YOUR_RG/providers/Microsoft.ContainerService/managedClusters/YOUR_CLUSTER_NAME
-  
-  # Scope of the configuration
-  scope: namespace
-  namespace: flux-system
-  
-  # Source configuration
-  sourceKind: GitRepository
   gitRepository:
-    url: https://github.com/your-username/your-repo
+    provider: Generic
     repositoryRef:
       branch: main
-    syncIntervalInSeconds: 300
-    timeoutInSeconds: 180
+    url: https://github.com/your-username/your-k8s-manifests
+  kustomizations:
+    apps: {}
+  namespace: flux-system
+  owner:
+    group: containerservice.azure.com
+    kind: ManagedCluster
+    name: your-cluster-name  # Must match your ASO ManagedCluster resource name
+  sourceKind: GitRepository
+```
+
+Deploy with:
+```bash
+kubectl apply -f simple-flux-config.yaml
+```
+
+## Example with Protected Settings
+
+For private repositories, here's how to add authentication:
+
+### Step 1: Create Secret for Authentication
+
+```yaml
+# flux-auth-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-auth
+  namespace: flux-system
+type: Opaque
+stringData:
+  username: your-github-username
+  password: your-github-token  # Personal Access Token
+```
+
+### Step 2: FluxConfiguration with Protected Settings
+
+```yaml
+# private-flux-config.yaml
+apiVersion: kubernetesconfiguration.azure.com/v1api20241101
+kind: FluxConfiguration
+metadata:
+  name: my-private-flux
+  namespace: default
+spec:
+  gitRepository:
+    provider: Generic
+    repositoryRef:
+      branch: main
+    url: https://github.com/your-username/your-private-repo
     httpsUser: your-github-username
-    localAuthRef: flux-auth-secret
-  
-  # Kustomizations to apply
+    localAuthRef: git-auth  # References the secret above
   kustomizations:
     infrastructure:
       path: "./infrastructure"
-      syncIntervalInSeconds: 600
-      retryIntervalInSeconds: 300
-      prune: true
-      wait: true
     apps:
       path: "./apps"
       dependsOn: ["infrastructure"]
-      syncIntervalInSeconds: 600
-      retryIntervalInSeconds: 300
-      prune: true
-      wait: true
-  
-  # Protected settings reference
+  namespace: flux-system
+  owner:
+    group: containerservice.azure.com
+    kind: ManagedCluster
+    name: your-cluster-name
+  sourceKind: GitRepository
   configurationProtectedSettings:
-    name: flux-auth-secret
-  
-  # Wait for reconciliation
-  waitForReconciliation: true
-  reconciliationWaitDuration: "PT10M"
+    name: git-auth
 ```
 
-## Step 4: Create Sample Repository Structure
-
-Create a GitHub repository with this structure:
-
-```
-your-repo/
-├── infrastructure/
-│   ├── kustomization.yaml
-│   └── namespace.yaml
-└── apps/
-    ├── kustomization.yaml
-    └── sample-app.yaml
-```
-
-### infrastructure/namespace.yaml
-```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: sample-app
-```
-
-### infrastructure/kustomization.yaml
-```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - namespace.yaml
-```
-
-### apps/sample-app.yaml
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-deployment
-  namespace: sample-app
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:1.21
-        ports:
-        - containerPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-service
-  namespace: sample-app
-spec:
-  selector:
-    app: nginx
-  ports:
-  - port: 80
-    targetPort: 80
-  type: ClusterIP
-```
-
-### apps/kustomization.yaml
-```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - sample-app.yaml
-```
-
-## Step 5: Deploy Everything
-
+Deploy with:
 ```bash
-# Apply the secret first
-kubectl apply -f flux-secret.yaml
-
-# Apply the FluxConfiguration
-kubectl apply -f flux-configuration.yaml
+kubectl apply -f flux-auth-secret.yaml
+kubectl apply -f private-flux-config.yaml
 ```
 
-## Step 6: Verify Deployment
+## Verification and Troubleshooting
 
 ```bash
 # Check FluxConfiguration status
 kubectl get fluxconfigurations -A
 
-# Check if the configuration is reconciling
-kubectl describe fluxconfiguration my-app-config
+# Describe the configuration
+kubectl describe fluxconfiguration my-simple-flux
 
-# Check the created resources
-kubectl get all -n sample-app
-
-# Check Flux resources
+# Check Flux resources created
 kubectl get gitrepositories -n flux-system
 kubectl get kustomizations -n flux-system
+
+# Check logs if needed
+kubectl logs -n flux-system deployment/source-controller
+kubectl logs -n flux-system deployment/kustomize-controller
 ```
 
-## Troubleshooting
+## Key Takeaways from Official Example
 
-```bash
-# Check Flux controller logs
-kubectl logs -n flux-system deployment/source-controller
-kubectl logs -n flux-system deployment/kustomize-contr
+1. **ASO Integration**: Uses `group/kind/name` owner reference instead of ARM ID
+2. **Minimal Configuration**: Only essential fields, relying on sensible defaults
+3. **Simple Kustomizations**: Empty kustomization object `{}` uses defaults
+4. **No Authentication**: Perfect for public repositories and testing
+5. **Clean Structure**: Much more readable than complex configurations
+
+The official example shows that FluxConfiguration can be very simple when you don't need advanced features like custom sync intervals, authentication, or complex dependency management.

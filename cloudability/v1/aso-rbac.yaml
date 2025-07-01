@@ -1,0 +1,104 @@
+---
+# ClusterRole for Azure Service Operator Manager
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: azureserviceoperator-manager-role
+rules:
+# Core ASO permissions
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["*"]
+  verbs: ["*"]
+
+# Azure Service Operator CRDs
+- apiGroups: ["azure.microsoft.com"]
+  resources: ["*"]
+  verbs: ["*"]
+
+# Storage resources
+- apiGroups: ["storage.azure.com"]
+  resources: ["*"]
+  verbs: ["*"]
+
+# Kubernetes Configuration Extensions (the specific resource causing the error)
+- apiGroups: ["kubernetesconfiguration.azure.com"]
+  resources: ["extensions"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# Additional Azure service groups that ASO commonly needs
+- apiGroups: ["containerservice.azure.com"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["compute.azure.com"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["network.azure.com"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["resources.azure.com"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["keyvault.azure.com"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["sql.azure.com"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["web.azure.com"]
+  resources: ["*"]
+  verbs: ["*"]
+
+# Coordination for leader election
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# Events
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+
+# Metrics
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+
+---
+# ClusterRoleBinding to bind the service account to the ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: azureserviceoperator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: azureserviceoperator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: azureserviceoperator-default
+  namespace: aso
+
+---
+# Additional ClusterRole for viewing (optional, for monitoring/debugging)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: azureserviceoperator-viewer-role
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+---
+# ServiceAccount (in case it doesn't exist)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: azureserviceoperator-default
+  namespace: aso

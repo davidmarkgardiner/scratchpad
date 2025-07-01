@@ -166,3 +166,93 @@ subjects:
 #   - "update"
 #   - "patch"
 #   - "delete"
+
+
+---
+
+---
+# ClusterRole to grant permissions for alertsmanagement.azure.com resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aso-alertsmanagement-reader
+  labels:
+    app.kubernetes.io/name: azure-service-operator
+    app.kubernetes.io/component: rbac
+rules:
+- apiGroups:
+  - "alertsmanagement.azure.com"
+  resources:
+  - "smartdetectoralertrules"
+  - "prometheusrulegroups"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+- apiGroups:
+  - "kubernetesconfiguration.azure.com"
+  resources:
+  - "extensions"
+  - "extensions/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+---
+# ClusterRoleBinding to bind the role to the ASO service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aso-alertsmanagement-binding
+  labels:
+    app.kubernetes.io/name: azure-service-operator
+    app.kubernetes.io/component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aso-alertsmanagement-reader
+subjects:
+- kind: ServiceAccount
+  name: azureserviceoperator-default
+  namespace: aso
+
+---
+# Alternative: If you want to extend the existing ASO manager role instead
+# Find your existing ClusterRole (usually named something like 'aso-manager-role')
+# and add these rules to it:
+#
+# - apiGroups:
+#   - "alertsmanagement.azure.com"
+#   resources:
+#   - "smartdetectoralertrules"
+#   - "prometheusrulegroups"
+#   verbs:
+#   - "get"
+#   - "list"
+#   - "watch"
+#   - "create"
+#   - "update"
+#   - "patch"
+#   - "delete"
+# - apiGroups:
+#   - "kubernetesconfiguration.azure.com"
+#   resources:
+#   - "extensions"
+#   - "extensions/status"
+#   verbs:
+#   - "get"
+#   - "list"
+#   - "watch"
+#   - "create"
+#   - "update"
+#   - "patch"
+#   - "delete"

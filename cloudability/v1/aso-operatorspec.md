@@ -48,3 +48,66 @@ data:
 - The ConfigMap will be created/updated automatically by ASO when the cluster is ready
 
 This approach is much cleaner than manually extracting the OIDC URL and creating ConfigMaps yourself!
+
+
+---
+
+You can pass the OIDC issuer URL from your ConfigMap to the FederatedIdentityCredential using a **ConfigMapReference**. Here's how:
+
+```yaml
+apiVersion: managedidentity.azure.com/v1api20230131
+kind: FederatedIdentityCredential
+metadata:
+  name: aso-fic
+  namespace: default
+spec:
+  owner:
+    name: sampleuserassignedidentity
+  audiences:
+    - api://AzureADTokenExchange
+  # Reference the OIDC issuer URL from the ConfigMap created by your ManagedCluster
+  issuerFromConfig:
+    name: aks-oidc-config
+    key: issuer-url
+  subject: system:serviceaccount:default:default
+```
+
+**Important notes:**
+
+1. **Check the exact field name**: You'll need to verify the FederatedIdentityCredential CRD documentation to see the exact field name for referencing a ConfigMap. It might be:
+   - `issuerFromConfig`
+   - `issuerReference` 
+   - `issuer` with a ConfigMapReference type
+
+2. **Alternative approach using ConfigMapKeyRef**: If the above doesn't work, some CRDs use Kubernetes-native ConfigMapKeyRef format:
+
+```yaml
+apiVersion: managedidentity.azure.com/v1api20230131
+kind: FederatedIdentityCredential
+metadata:
+  name: aso-fic
+  namespace: default
+spec:
+  owner:
+    name: sampleuserassignedidentity
+  audiences:
+    - api://AzureADTokenExchange
+  issuer:
+    valueFrom:
+      configMapKeyRef:
+        name: aks-oidc-config
+        key: issuer-url
+  subject: system:serviceaccount:default:default
+```
+
+**To find the correct syntax:**
+```bash
+kubectl explain federatedidentitycredential.spec.issuer
+```
+
+This will show you the exact field structure and whether it supports ConfigMap references.
+
+**Deployment order:**
+Make sure your ManagedCluster is created first (and the ConfigMap exists) before creating the FederatedIdentityCredential, or use proper dependencies in your deployment tooling.
+
+Can you check the FederatedIdentityCredential CRD documentation or run the `kubectl explain` command to see the exact field structure?

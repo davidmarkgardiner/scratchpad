@@ -415,3 +415,51 @@ spec:
             - sign
             - veri
 ```
+
+I'll create comprehensive examples for the **AccessPolicyEntry** configuration for Azure Key Vault, showing different scenarios and identity types.I've created comprehensive examples for **AccessPolicyEntry** configurations that demonstrate:
+
+## Key Components of AccessPolicyEntry:
+
+### **Required Fields:**
+- **`objectId`**: Unique identifier for the user, service principal, or security group
+- **`tenantId`**: Must match the Key Vault's tenant ID
+- **`permissions`**: Defines what the identity can do with keys, secrets, and certificates
+
+### **Optional Fields:**
+- **`applicationId`**: For service principals acting on behalf of applications
+- **`*FromConfig`**: References to ConfigMaps for dynamic configuration
+
+## Access Policy Patterns:
+
+**1. Role-Based Access Matrix**
+- DevOps teams get full administrative access
+- Development teams get read/write (no delete)
+- Production apps get minimal required permissions
+- Monitoring services get read-only access
+
+**2. Encryption-Focused Policies**
+- HSM administrators with premium tier features
+- Encryption services with key operations only
+- Signing services for digital signatures
+
+**3. Certificate Management**
+- CA administrators with full certificate lifecycle
+- Web applications with SSL certificate access
+- Certificate renewal services with update permissions
+
+**4. Principle of Least Privilege**
+- Database apps only get connection string secrets
+- API clients only get specific API keys
+- No unnecessary permissions granted
+
+## Important Considerations:
+
+**Tenant Restriction**: All identities in the access policies array must use the same tenant ID as the Key Vault's tenant ID.
+
+**Permission Granularity**: You can specify exactly which operations are allowed for keys, secrets, and certificates independently.
+
+**Premium Features**: Some permissions like `release` and `rotate` are only available with Premium tier Key Vaults.
+
+**ConfigMap Integration**: Use `*FromConfig` properties to reference identities stored in ConfigMaps for better secret management.
+
+The examples show real-world scenarios from basic access patterns to enterprise-grade security configurations with HSM integration and multi-role access matrices.

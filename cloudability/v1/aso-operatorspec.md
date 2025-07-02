@@ -111,3 +111,44 @@ This will show you the exact field structure and whether it supports ConfigMap r
 Make sure your ManagedCluster is created first (and the ConfigMap exists) before creating the FederatedIdentityCredential, or use proper dependencies in your deployment tooling.
 
 Can you check the FederatedIdentityCredential CRD documentation or run the `kubectl explain` command to see the exact field structure?
+
+---
+
+No, that's not correct. The `valueFrom.configMapKeyRef` syntax is Kubernetes-native and not used by Azure Service Operator.
+
+Based on the documentation you provided, the FederatedIdentityCredential supports **`issuerFromConfig`** which is of type `genruntime.ConfigMapReference`.
+
+Here's the correct syntax:
+
+```yaml
+apiVersion: managedidentity.azure.com/v1api20230131
+kind: FederatedIdentityCredential
+metadata:
+  name: aso-fic
+  namespace: default
+spec:
+  owner:
+    name: sampleuserassignedidentity
+  audiences:
+    - api://AzureADTokenExchange
+  # Use issuerFromConfig, not issuer with valueFrom
+  issuerFromConfig:
+    name: aks-oidc-config
+    key: issuer-url
+  subject: system:serviceaccount:default:my-service-account
+```
+
+**Key points:**
+
+1. **Use `issuerFromConfig`** - This is the field that accepts a `genruntime.ConfigMapReference`
+2. **Don't use `issuer.valueFrom`** - That's Kubernetes-native syntax, not ASO syntax
+3. **ASO uses its own reference types** - `genruntime.ConfigMapReference` has just `name` and `key` fields
+
+The `genruntime.ConfigMapReference` structure is:
+```yaml
+issuerFromConfig:
+  name: "configmap-name"    # Required
+  key: "key-name"           # Required
+```
+
+This is the same pattern used throughout ASO for referencing ConfigMaps and Secrets, as you can see in the UserAssignedIdentity example you showed earlier.

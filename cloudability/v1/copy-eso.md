@@ -112,3 +112,53 @@ spec:
 ```
 
 **Recommendation**: For production use, **Reflector** or **Kubernetes Replicator** are the most robust solutions as they handle updates automatically and have proper RBAC controls.
+
+
+---
+
+To copy a secret from one namespace to another using kubectl, you have a few options:
+
+## Method 1: Export and Import (Recommended)
+
+```bash
+# Export the secret from source namespace and apply to target namespace
+kubectl get secret <secret-name> -n <source-namespace> -o yaml | \
+sed 's/namespace: <source-namespace>/namespace: <target-namespace>/' | \
+kubectl apply -f -
+```
+
+## Method 2: Using kubectl get with output redirection
+
+```bash
+# Get the secret and pipe it to create in new namespace
+kubectl get secret <secret-name> -n <source-namespace> -o yaml | \
+kubectl apply -n <target-namespace> -f -
+```
+
+## Method 3: Clean export (removes metadata)
+
+```bash
+# Export without metadata that might cause conflicts
+kubectl get secret <secret-name> -n <source-namespace> -o yaml | \
+grep -v '^\s*namespace:\|^\s*resourceVersion:\|^\s*uid:\|^\s*creationTimestamp:' | \
+kubectl apply -n <target-namespace> -f -
+```
+
+## Method 4: One-liner with jq (if you have jq installed)
+
+```bash
+kubectl get secret <secret-name> -n <source-namespace> -o json | \
+jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp)' | \
+kubectl apply -n <target-namespace> -f -
+```
+
+## Example
+
+```bash
+# Copy secret "my-secret" from "default" namespace to "production" namespace
+kubectl get secret my-secret -n default -o yaml | \
+sed 's/namespace: default/namespace: production/' | \
+kubectl apply -f -
+```
+
+The first method is usually the most reliable as it explicitly handles the namespace change. Make sure both namespaces exist before running the command.

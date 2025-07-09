@@ -62,3 +62,28 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-reports-controller
   namespace: kyverno
+
+---
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-gateway-labels
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+  - name: require-app-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - Gateway
+          apiVersions:
+          - "gateway.networking.k8s.io/v1beta1"
+    validate:
+      message: "Gateway must have an 'app' label"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"

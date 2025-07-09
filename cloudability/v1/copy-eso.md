@@ -162,3 +162,56 @@ kubectl apply -f -
 ```
 
 The first method is usually the most reliable as it explicitly handles the namespace change. Make sure both namespaces exist before running the command.
+
+
+---
+
+Based on my search, I found several alternative methods that might work better for copying secrets between namespaces. Here are the most reliable approaches:
+
+## Method 1: Using yq to clean metadata (Most Reliable)
+
+This method uses yq to remove the uid, namespace, creationTimestamp, and resourceVersion elements from the metadata stanza so it can be applied into a new namespace.
+
+```bash
+kubectl -n <source-namespace> get secret <secret-name> -o yaml | \
+yq 'del(.metadata.creationTimestamp, .metadata.uid, .metadata.resourceVersion, .metadata.namespace)' | \
+kubectl apply --namespace <target-namespace> -f -
+```
+
+## Method 2: Using grep to remove namespace line
+
+To be precise, you need to remove the source namespace from the intermediate YAML:
+
+```bash
+kubectl get secret <secret-name> --namespace=<source-namespace> -o yaml | \
+grep -v '^\s*namespace:\s' | \
+kubectl apply --namespace=<target-namespace> -f -
+```
+
+## Method 3: Using jq for JSON processing
+
+The one-liner above uses the kubectl get command to get the details of app-secret as a JSON string. Then, we remove all the unnecessary metadata from the output using the jq del command.
+
+```bash
+kubectl get secret <secret-name> -n <source-namespace> -o json | \
+jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp)' | \
+kubectl apply -n <target-namespace> -f -
+```
+
+## Method 4: Copy all secrets of a specific type
+
+I wanted to copy all secrets from namespace marvel-dev to dc-dev namespace.
+
+```bash
+kubectl get secrets --field-selector type=Opaque -o yaml -n <source-namespace> | \
+sed "s/namespace: .*/namespace: <target-namespace>/" | \
+kubectl apply --force -f -
+```
+
+## Method 5: Using automated tools
+
+For more complex scenarios, you can use tools like:
+- **kubernetes-reflector** - automatically synchronizes the different applications of the Secret
+- **kubed** - mentioned as an option for secret synchronization
+
+The **yq method (Method 1)** is likely your best bet as it properly removes all the problematic metadata fields that cause conflicts during secret copying. Make sure you have `yq` installed on your system first.

@@ -66,6 +66,11 @@ data:
     systemctl restart containerd
     
     echo "Certificate installed and containerd restarted successfully"
+    
+    # Keep the container running by sleeping indefinitely
+    while true; do
+      sleep 3600
+    done
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -90,7 +95,7 @@ spec:
         effect: NoSchedule
       - operator: Exists
         effect: NoExecute
-      initContainers:
+      containers:
       - name: setup-node
         image: mcr.microsoft.com/cbl-mariner/base/core:2.0
         command: ["nsenter"]
@@ -115,13 +120,3 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "200m"
-      containers:
-      - name: pause
-        image: mcr.microsoft.com/oss/kubernetes/pause:3.6
-        resources:
-          requests:
-            memory: "8Mi"
-            cpu: "10m"
-          limits:
-            memory: "16Mi"
-            cpu: "50m"

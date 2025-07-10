@@ -1,0 +1,88 @@
+# DaemonSet to install trusted CA certificates on Azure Linux AKS nodes
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trusted-ca
+  namespace: kube-system
+data:
+  ca.crt: |+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: setup-script
+  namespace: kube-system
+data:
+  setup.sh: |    
+    #!/bin/bash
+    set -e
+    
+    # Azure Linux (CBL-Mariner) uses this path for custom CA certificates
+    trusted_certs_folder="/etc/pki/ca-trust/source/anchors"
+    cert_file="$trusted_certs_folder/prod4.crt"
+    
+    # Create the directory if it doesn't exist
+    mkdir -p "$trusted_certs_folder"
+    
+    # Write the certificate
+    echo "$TRUSTED_CERT" > "$cert_file"
+    
+    # Update the CA trust store
+    update-ca-trust extract
+    
+    # Restart containerd to pick up the new certificate
+    systemctl restart containerd
+    
+    echo "Certificate installed and containerd restarted successfully"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: kube-system
+  name: node-custom-setup
+  labels:
+    k8s-app: node-custom-setup
+spec:
+  selector:
+    matchLabels:
+      k8s-app: node-custom-setup
+  template:
+    metadata:
+      labels:
+        k8s-app: node-custom-setup
+    spec:
+      hostPID: true
+      hostNetwork: true
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      - operator: Exists
+        effect: NoExecute
+      containers:
+      - name: setup-node
+        image: mcr.microsoft.com/cbl-mariner/base/core:2.0
+        command: ["nsenter"]
+        args: ["--mount=/proc/1/ns/mnt", "--", "bash", "-c", "$(SETUP_SCRIPT)"]
+        env:
+        - name: TRUSTED_CERT
+          valueFrom:
+            configMapKeyRef:
+              name: trusted-ca
+              key: ca.crt
+        - name: SETUP_SCRIPT
+          valueFrom:
+            configMapKeyRef:
+              name: setup-script
+              key: setup.sh
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        # Container will exit after running the setup script
+        restartPolicy: Never

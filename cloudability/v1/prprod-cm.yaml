@@ -1,0 +1,56 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: replace-op-environment-value
+  annotations:
+    policies.kyverno.io/title: Replace OP Environment Value
+    policies.kyverno.io/category: ConfigMap Mutation
+    policies.kyverno.io/subject: ConfigMap
+    policies.kyverno.io/description: "Replaces PREPROD with PRPROD in ConfigMap OP environment values"
+spec:
+  background: true
+  rules:
+  - name: replace-op-value
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    mutate:
+      patchStrategicMerge:
+        data:
+          OP: "PRPROD"
+      conditions:
+      - key: "{{ request.object.data.OP || '' }}"
+        operator: Equals
+        value: "PREPROD"
+---
+# Alternative approach using patchesJson6902 for more precise control
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: replace-op-environment-value-json-patch
+  annotations:
+    policies.kyverno.io/title: Replace OP Environment Value (JSON Patch)
+    policies.kyverno.io/category: ConfigMap Mutation
+    policies.kyverno.io/subject: ConfigMap
+    policies.kyverno.io/description: "Replaces PREPROD with PRPROD using JSON patch"
+spec:
+  background: true
+  rules:
+  - name: replace-op-value-json-patch
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    preconditions:
+      any:
+      - key: "{{ request.object.data.OP || '' }}"
+        operator: Equals
+        value: "PREPROD"
+    mutate:
+      patchesJson6902: |-
+        - op: replace
+          path: /data/OP
+          value: "PRPROD"

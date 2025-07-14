@@ -6,7 +6,7 @@ metadata:
     policies.kyverno.io/title: Replace OP Environment Value
     policies.kyverno.io/category: ConfigMap Mutation
     policies.kyverno.io/subject: ConfigMap
-    policies.kyverno.io/description: "Replaces PREPROD with PRPROD in ConfigMap OP environment values"
+    policies.kyverno.io/description: "Replaces PREPROD with PRPROD in ConfigMap opEnvironment values"
 spec:
   background: true
   rules:
@@ -19,9 +19,9 @@ spec:
     mutate:
       patchStrategicMerge:
         data:
-          OP: "PRPROD"
+          opEnvironment: "PRPROD"
       conditions:
-      - key: "{{ request.object.data.OP || '' }}"
+      - key: "{{ request.object.data.opEnvironment || '' }}"
         operator: Equals
         value: "PREPROD"
 ---
@@ -34,7 +34,7 @@ metadata:
     policies.kyverno.io/title: Replace OP Environment Value (JSON Patch)
     policies.kyverno.io/category: ConfigMap Mutation
     policies.kyverno.io/subject: ConfigMap
-    policies.kyverno.io/description: "Replaces PREPROD with PRPROD using JSON patch"
+    policies.kyverno.io/description: "Replaces PREPROD with PRPROD in opEnvironment using JSON patch"
 spec:
   background: true
   rules:
@@ -46,11 +46,11 @@ spec:
           - ConfigMap
     preconditions:
       any:
-      - key: "{{ request.object.data.OP || '' }}"
+      - key: "{{ request.object.data.opEnvironment || '' }}"
         operator: Equals
         value: "PREPROD"
     mutate:
       patchesJson6902: |-
         - op: replace
-          path: /data/OP
+          path: /data/opEnvironment
           value: "PRPROD"

@@ -1,0 +1,130 @@
+# Method 1: Direct kubectl patch (immediate solution)
+kubectl patch configmap <configmap-name> -n <namespace> --type='merge' -p='{"data":{"opEnvironment":"PRPROD"}}'
+
+# Method 2: Using kubectl with JSON patch
+kubectl patch configmap <configmap-name> -n <namespace> --type='json' -p='[{"op": "replace", "path": "/data/opEnvironment", "value": "PRPROD"}]'
+
+# Method 3: Kyverno policy with different approach
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-configmap-openv
+spec:
+  background: true
+  rules:
+  - name: replace-preprod-value
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    mutate:
+      foreach:
+      - list: "request.object.data"
+        patchStrategicMerge:
+          data:
+            "{{element.key}}": "{{ element.value == 'PREPROD' && element.key == 'opEnvironment' && 'PRPROD' || element.value }}"
+
+---
+# Method 4: Simpler Kyverno approach targeting specific ConfigMap
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: update-configmap-openv
+  namespace: <your-namespace>
+spec:
+  background: true
+  rules:
+  - name: update-openv-value
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - <your-configmap-name>  # Replace with actual ConfigMap name
+    mutate:
+      patchStrategicMerge:
+        data:
+          opEnvironment: "PRPROD"
+
+---
+# Method 5: Using a Job to update ConfigMap
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: update-configmap-job
+spec:
+  template:
+    spec:
+      serviceAccountName: configmap-updater  # Needs appropriate RBAC
+      containers:
+      - name: updater
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Update all ConfigMaps with opEnvironment=PREPROD
+          kubectl get configmap -o json | \
+          jq '.items[] | select(.data.opEnvironment == "PREPROD") | .metadata.name' -r | \
+          while read cm; do
+            kubectl patch configmap "$cm" --type='merge' -p='{"data":{"opEnvironment":"PRPROD"}}'
+          done
+      restartPolicy: Never
+  backoffLimit: 3
+
+---
+# Required RBAC for the Job
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: configmap-updater
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: configmap-updater
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: configmap-updater
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: configmap-updater
+subjects:
+- kind: ServiceAccount
+  name: configmap-updater
+  namespace: default  # Change to your namespace
+
+---
+# Method 6: Using Helm post-upgrade hook (if using Helm)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: configmap-migration
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      serviceAccountName: configmap-updater
+      containers:
+      - name: migrate
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          kubectl patch configmap <configmap-name> -n <namespace> \
+            --type='merge' -p='{"data":{"opEnvironment":"PRPROD"}}'
+      restartPolicy: Never

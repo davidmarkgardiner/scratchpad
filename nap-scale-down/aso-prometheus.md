@@ -123,3 +123,85 @@ spec:
 #   }
 # }
 ```
+
+
+```
+
+# Azure Service Operator (ASO) Configuration
+apiVersion: containerservice.azure.com/v1api20240901
+kind: ManagedCluster
+metadata:
+  name: my-aks-cluster
+  namespace: default
+spec:
+  location: eastus
+  owner:
+    name: my-resource-group
+  dnsPrefix: myakscluster
+  kubernetesVersion: "1.28"
+  
+  # Azure Monitor Profile Configuration (Prometheus Metrics Only)
+  azureMonitorProfile:
+    metrics:
+      enabled: true
+      kubeStateMetrics:
+        metricLabelsAllowlist: "namespaces=[k8s-label-1,k8s-label-n]"
+        metricAnnotationsAllowList: "pods=[k8s-annotation-1,k8s-annotation-n]"
+  
+  # Container Insights must be configured via addonProfiles
+  addonProfiles:
+    omsagent:
+      enabled: true
+      config:
+        logAnalyticsWorkspaceResourceID: "/subscriptions/{subscription-id}/resourceGroups/{rg}/providers/Microsoft.OperationalInsights/workspaces/{workspace-name}"
+  
+  # Agent Pool Configuration
+  agentPoolProfiles:
+    - name: nodepool1
+      count: 3
+      vmSize: Standard_DS2_v2
+      mode: System
+      osType: Linux
+      osSKU: Ubuntu
+
+  # Identity Configuration
+  identity:
+    type: SystemAssigned
+
+---
+# ARM Template Equivalent (for comparison)
+# {
+#   "type": "Microsoft.ContainerService/managedClusters",
+#   "apiVersion": "2025-05-02-preview",
+#   "name": "[parameters('clusterName')]",
+#   "location": "[parameters('location')]",
+#   "properties": {
+#     "dnsPrefix": "[parameters('dnsPrefix')]",
+#     "kubernetesVersion": "[parameters('kubernetesVersion')]",
+#     "agentPoolProfiles": [
+#       {
+#         "name": "nodepool1",
+#         "count": 3,
+#         "vmSize": "Standard_DS2_v2",
+#         "mode": "System"
+#       }
+#     ],
+#     "azureMonitorProfile": {
+#       "metrics": {
+#         "enabled": true,
+#         "kubeStateMetrics": {
+#           "metricLabelsAllowlist": "namespaces=[k8s-label-1,k8s-label-n]",
+#           "metricAnnotationsAllowList": "pods=[k8s-annotation-1,k8s-annotation-n]"
+#         }
+#       },
+#       "containerInsights": {
+#         "enabled": true,
+#         "logAnalyticsWorkspaceResourceId": "[parameters('logAnalyticsWorkspaceResourceId')]",
+#         "disableCustomMetrics": false,
+#         "disablePrometheusMetricsScraping": false,
+#         "syslogPort": 28330
+#       }
+#     }
+#   }
+# }
+```

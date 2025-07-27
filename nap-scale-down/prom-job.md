@@ -352,3 +352,99 @@ spec:
 # resources:
 # - grafana-job.yaml
 ```
+
+---
+
+Yes! You can definitely set up Azure Monitor Data Collection Rules (DCRs) using the Azure CLI. DCRs are used to configure data collection for Azure Monitor, including metrics, logs, and performance counters.## **Azure Monitor Data Collection Rules (DCRs) - Key Concepts:**
+
+### **What DCRs Control:**
+- **Data Sources**: What data to collect (logs, metrics, events)
+- **Data Streams**: How data flows through the system
+- **Destinations**: Where to send the data (Log Analytics, Azure Monitor Workspace)
+- **Transformations**: KQL queries to filter/transform data
+- **Collection Frequency**: How often to collect data
+
+### **Common DCR Types for AKS:**
+
+1. **Container Insights DCR**
+   - Collects container logs, performance metrics, inventory data
+   - Sends to Log Analytics Workspace
+
+2. **Prometheus Metrics DCR**
+   - Collects Kubernetes metrics in Prometheus format
+   - Sends to Azure Monitor Workspace
+
+3. **Custom Application DCR**
+   - Collects custom application logs
+   - Can include transformations and filtering
+
+### **Integration with Your Flux Setup:**
+
+You can add DCR creation to your existing Grafana integration job:
+
+```yaml
+# Add to your existing job script
+command:
+- /bin/bash
+- -c
+- |
+  # ... existing Grafana configuration ...
+  
+  echo "Creating Data Collection Rules..."
+  
+  # Create Container Insights DCR
+  az monitor data-collection rule create \
+    --name "${CLUSTER_NAME}-container-insights-dcr" \
+    --resource-group "$RESOURCE_GROUP" \
+    --location "$LOCATION" \
+    --data-flows '[{
+      "streams": ["Microsoft-ContainerInsights-Group-Default"],
+      "destinations": ["law-destination"]
+    }]' \
+    --data-sources '{
+      "extensions": [{
+        "name": "ContainerInsightsExtension",
+        "streams": ["Microsoft-ContainerInsights-Group-Default"],
+        "extensionName": "ContainerInsights",
+        "extensionSettings": {
+          "dataCollectionSettings": {
+            "interval": "1m",
+            "namespaceFilteringMode": "Include",
+            "includedNamespaces": ["default", "kube-system", "flux-system"]
+          }
+        }
+      }]
+    }' \
+    --destinations '{
+      "logAnalytics": [{
+        "name": "law-destination",
+        "workspaceResourceId": "'$LOG_ANALYTICS_WORKSPACE_ID'"
+      }]
+    }'
+  
+  # Associate DCR with AKS cluster
+  az monitor data-collection rule association create \
+    --name "${CLUSTER_NAME}-dcra" \
+    --resource "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.ContainerService/managedClusters/$CLUSTER_NAME" \
+    --rule-id "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Insights/dataCollectionRules/${CLUSTER_NAME}-container-insights-dcr"
+```
+
+### **Benefits of Using DCRs:**
+- ✅ **Cost Control**: Filter out unnecessary data
+- ✅ **Performance**: Reduce data ingestion overhead
+- ✅ **Compliance**: Control what data is collected
+- ✅ **Flexibility**: Custom transformations and routing
+- ✅ **Standardization**: Consistent data collection across clusters
+
+### **Monitoring DCRs:**
+```bash
+# Check DCR status
+az monitor data-collection rule list --resource-group "my-rg" --output table
+
+# Validate data flow
+az monitor log-analytics query \
+  --workspace "$LOG_ANALYTICS_WORKSPACE_ID" \
+  --analytics-query "ContainerLog | take 10"
+```
+
+DCRs give you fine-grained control over your monitoring data collection and can significantly help with cost optimization and compliance requirements!

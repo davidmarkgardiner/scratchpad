@@ -284,6 +284,7 @@
                     <li>🔐 Security & Access Model</li>
                     <li>🛠 Development & Deployment</li>
                     <li>📊 Monitoring & Support</li>
+                    <li>🌐 Network Stack & Service Mesh</li>
                     <li>💾 Storage & Secrets</li>
                     <li>🚀 Onboarding Process</li>
                 </ul>
@@ -443,31 +444,86 @@ kubectl apply -f deployment.yaml
                 <li><strong>Real-time monitoring:</strong> Resource usage and health</li>
             </ul>
             
-            <h3>Azure Integration Options</h3>
+            <h3>🔄 Prometheus-Powered Monitoring Stack</h3>
+            <div class="highlight-box">
+                <h4>Core Monitoring Architecture</h4>
+                <ul class="feature-list">
+                    <li><strong>Prometheus:</strong> Metrics collection and alerting engine</li>
+                    <li><strong>Grafana:</strong> Rich graphical interface and dashboards</li>
+                    <li><strong>Alert Manager:</strong> Intelligent alert routing and management</li>
+                </ul>
+            </div>
+            
+            <h3>Integration Options</h3>
             <div class="architecture-diagram">
                 <div class="arch-component">
-                    <h4>Dynamics</h4>
-                    <p>Business data integration</p>
+                    <h4>AppDynamics</h4>
+                    <p>APM & Business monitoring</p>
                 </div>
                 <div class="arch-component">
-                    <h4>Log Analytics</h4>
-                    <p>Centralized logging</p>
+                    <h4>Splunk / Log Analytics</h4>
+                    <p>Log Analytics Workspace</p>
                 </div>
                 <div class="arch-component">
                     <h4>Azure Monitor</h4>
-                    <p>Full stack monitoring</p>
+                    <p>Native Azure integration</p>
                 </div>
             </div>
             
             <div class="highlight-box">
-                <h4>Flexible Logging Strategy</h4>
-                <p>Adapt your existing logging tools like <strong>Blunk</strong> or integrate with Azure's native solutions - your choice!</p>
+                <h4>📊 What You Get Out of the Box</h4>
+                <ul class="feature-list">
+                    <li><strong>Prometheus scraping:</strong> Automatic metrics collection from your workloads</li>
+                    <li><strong>Custom alerts:</strong> Create alerts based on your application metrics</li>
+                    <li><strong>Pre-built dashboards:</strong> Grafana dashboards for common scenarios</li>
+                    <li><strong>Flexible integration:</strong> Hook into your existing tools (AppDynamics, Splunk, etc.)</li>
+                </ul>
             </div>
         </div>
 
-        <!-- Slide 7: Storage & Secrets -->
+        <!-- Slide 7: Network & Service Mesh -->
         <div class="slide">
-            <div class="slide-counter">7 / 8</div>
+            <div class="slide-counter">7 / 9</div>
+            <h2>🌐 Network Stack & Service Mesh</h2>
+            
+            <h3>🔒 Built-in mTLS with Istio Service Mesh</h3>
+            <div class="highlight-box">
+                <h4>Native Sidecar Architecture</h4>
+                <ul class="feature-list">
+                    <li><strong>Automatic mTLS:</strong> Secure service-to-service communication out of the box</li>
+                    <li><strong>Istio ASM 1.25:</strong> Latest Azure Service Mesh integration</li>
+                    <li><strong>Zero-config security:</strong> mTLS enabled by default between services</li>
+                    <li><strong>Istio Ingress Gateway:</strong> Secure internal load balancing</li>
+                </ul>
+            </div>
+            
+            <div class="architecture-diagram">
+                <div class="arch-component">
+                    <h4>Service Mesh</h4>
+                    <p>Istio ASM 1.25<br/>Native sidecars</p>
+                </div>
+                <div class="arch-component">
+                    <h4>Network Plugin</h4>
+                    <p>Azure CNI Overlay<br/>IPv4 + Cilium</p>
+                </div>
+                <div class="arch-component">
+                    <h4>Load Balancer</h4>
+                    <p>Standard SKU<br/>Internal Gateway</p>
+                </div>
+            </div>
+            
+            <h3>🛡️ Network Security Stack</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0;">
+                <span class="security-badge">Automatic mTLS</span>
+                <span class="security-badge">Cilium Network Policies</span>
+                <span class="security-badge">Internal Gateways</span>
+                <span class="security-badge">Zero Trust Architecture</span>
+            </div>
+        </div>
+
+        <!-- Slide 8: Storage & Secrets -->
+        <div class="slide">
+            <div class="slide-counter">8 / 9</div>
             <h2>💾 Storage & Secrets Management</h2>
             
             <div class="comparison-grid">
@@ -497,22 +553,28 @@ kubectl apply -f deployment.yaml
                     <li>Native Kubernetes secret management</li>
                     <li>Integration with Azure Key Vault (Eva)</li>
                     <li>Automated secret synchronization</li>
-                    <li><em>Documentation in progress</em></li>
+                    <li>Full documentation available on platform docs</li>
                 </ul>
             </div>
             
-            <h3>🏭 Node Management</h3>
+            <h3>🏭 Node Management & Workload Placement</h3>
             <ul class="feature-list">
                 <li><strong>Current:</strong> Manual node pools</li>
                 <li><strong>Coming Soon:</strong> Node Audit Provisioner for dynamic allocation</li>
-                <li><strong>Benefits:</strong> Cost optimization, right-sized resources (high-performance, spot instances)</li>
-                <li><strong>Billing:</strong> Pay for what you use</li>
+                <li><strong>Kyverno Policies:</strong> Automatic workload herding onto desired nodes using cluster policies</li>
+                <li><strong>Smart Placement:</strong> Right-sized resources (high-performance, spot instances) based on workload requirements</li>
+                <li><strong>Cost Optimization:</strong> Pay for what you use with intelligent node selection</li>
             </ul>
+            
+            <div class="highlight-box">
+                <h4>🔄 Kyverno-Powered Workload Management</h4>
+                <p>Cluster policies automatically place your workloads on the most appropriate nodes based on resource requirements, cost preferences, and performance needs.</p>
+            </div>
         </div>
 
-        <!-- Slide 8: Onboarding Process -->
+        <!-- Slide 9: Onboarding Process -->
         <div class="slide">
-            <div class="slide-counter">8 / 8</div>
+            <div class="slide-counter">9 / 9</div>
             <h2>🚀 Onboarding Process</h2>
             
             <div class="workflow-diagram">
@@ -539,7 +601,6 @@ kubectl apply -f deployment.yaml
                 <li><strong>RBAC:</strong> Role-based access control setup</li>
                 <li><strong>Namespace:</strong> Dedicated namespace creation</li>
                 <li><strong>Network Policies:</strong> Security boundaries established</li>
-                <li><strong>Service Accounts:</strong> Authentication configured</li>
             </ul>
             
             <div class="highlight-box">

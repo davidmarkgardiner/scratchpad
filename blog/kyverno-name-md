@@ -1,0 +1,179 @@
+#!/bin/bash
+
+# Multi-Pod Deployment Script
+# Usage: ./deploy-pods.sh [number_of_pods] [base_image_name]
+
+set -e
+
+# Configuration
+NUM_PODS=${1:-10}  # Default to 10 pods if not specified
+BASE_IMAGE=${2:-"nginx"}  # Default base image
+BASE_NAME="app"
+NAMESPACE="default"
+
+# Validate input
+if [[ $NUM_PODS -lt 10 || $NUM_PODS -gt 50 ]]; then
+    echo "Error: Number of pods must be between 10 and 50"
+    exit 1
+fi
+
+echo "Deploying $NUM_PODS pods using base image: $BASE_IMAGE"
+
+# Create deployment template function
+create_deployment_manifest() {
+    local pod_number=$1
+    local unique_tag="v1.0.${pod_number}-$(date +%s)"
+    local deployment_name="${BASE_NAME}-${pod_number}"
+    
+    cat <<EOF > "deployment-${pod_number}.yaml"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${deployment_name}
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${BASE_NAME}
+    instance: "${BASE_NAME}-${pod_number}"
+    version: "${unique_tag}"
+    deployment-batch: "$(date +%Y%m%d-%H%M%S)"
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    created-by: "multi-pod-deploy-script"
+    created-at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${BASE_NAME}
+      instance: "${BASE_NAME}-${pod_number}"
+  template:
+    metadata:
+      labels:
+        app: ${BASE_NAME}
+        instance: "${BASE_NAME}-${pod_number}"
+        version: "${unique_tag}"
+      annotations:
+        pod-id: "${pod_number}"
+        image-tag: "${unique_tag}"
+    spec:
+      containers:
+      - name: ${BASE_NAME}-container
+        image: ${BASE_IMAGE}:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_ID
+          value: "${BASE_NAME}-${pod_number}"
+        - name: UNIQUE_TAG
+          value: "${unique_tag}"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${deployment_name}-service
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${BASE_NAME}
+    instance: "${BASE_NAME}-${pod_number}"
+spec:
+  selector:
+    app: ${BASE_NAME}
+    instance: "${BASE_NAME}-${pod_number}"
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+EOF
+}
+
+# Create manifests directory
+mkdir -p manifests
+cd manifests
+
+echo "Generating deployment manifests..."
+
+# Generate all deployment manifests
+for i in $(seq 1 $NUM_PODS); do
+    echo "Creating manifest for pod $i..."
+    create_deployment_manifest $i
+done
+
+echo "All manifests generated successfully!"
+
+# Deploy all manifests
+echo "Starting deployment..."
+
+# Apply all deployments
+for i in $(seq 1 $NUM_PODS); do
+    echo "Deploying pod $i..."
+    kubectl apply -f "deployment-${i}.yaml"
+    
+    # Small delay to avoid overwhelming the API server
+    sleep 0.5
+done
+
+echo "All deployments submitted!"
+
+# Wait and check status
+echo "Waiting for deployments to be ready..."
+sleep 10
+
+# Check deployment status
+echo "Checking deployment status..."
+for i in $(seq 1 $NUM_PODS); do
+    deployment_name="${BASE_NAME}-${i}"
+    kubectl rollout status deployment/$deployment_name -n $NAMESPACE --timeout=60s
+done
+
+# Summary
+echo ""
+echo "=== Deployment Summary ==="
+echo "Number of pods deployed: $NUM_PODS"
+echo "Base image used: $BASE_IMAGE"
+echo "Namespace: $NAMESPACE"
+echo ""
+
+# Show all deployments
+echo "=== Deployed Applications ==="
+kubectl get deployments -n $NAMESPACE -l app=$BASE_NAME
+
+echo ""
+echo "=== Running Pods ==="
+kubectl get pods -n $NAMESPACE -l app=$BASE_NAME
+
+echo ""
+echo "=== Services Created ==="
+kubectl get services -n $NAMESPACE -l app=$BASE_NAME
+
+echo ""
+echo "Deployment completed successfully!"
+echo "To clean up all deployments, run:"
+echo "kubectl delete deployments,services -n $NAMESPACE -l app=$BASE_NAME"

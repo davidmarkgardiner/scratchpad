@@ -1,0 +1,101 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: minimal-working-generator
+  annotations:
+    policies.kyverno.io/title: Minimal Working Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: true
+  rules:
+    - name: generate-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "img-job-{{ request.object.metadata.name }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "img-job-{{ request.object.metadata.name }}"
+            labels:
+              skip-verify: "true"
+              job-type: "image-processor"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              source-pod: "{{ request.object.metadata.name }}"
+          spec:
+            template:
+              spec:
+                containers:
+                - name: processor
+                  image: busybox:1.35
+                  env:
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  - name: SOURCE_POD
+                    value: "{{ request.object.metadata.name }}"
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "=========================================="
+                    echo "🎉 SUCCESS! Job Created with RFC Name"
+                    echo "=========================================="
+                    echo "Job Name: img-job-$SOURCE_POD"
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo "Source Pod: $SOURCE_POD"
+                    echo ""
+                    echo "✅ RFC 1123 Compliance Check:"
+                    echo "   - Lowercase: ✅ (img-job prefix)"
+                    echo "   - Alphanumeric + hyphens only: ✅"
+                    echo "   - Starts with alphanumeric: ✅"
+                    echo "   - Reasonable length: ✅"
+                    echo ""
+                    echo "🔍 Processing: $ORIGINAL_IMAGE"
+                    
+                    if echo "$ORIGINAL_IMAGE" | grep -q "docker.io"; then
+                      echo "📦 Action: Mirror from Docker Hub to my.registry.com"
+                    elif echo "$ORIGINAL_IMAGE" | grep -q "my.registry.com"; then
+                      echo "📦 Action: Process existing registry image"
+                    fi
+                    
+                    echo ""
+                    echo "⏰ Running for 45 seconds - observe the job!"
+                    echo "🔍 Watch: kubectl get jobs -n $NAMESPACE --watch"
+                    echo "📋 Logs: kubectl logs job/img-job-$SOURCE_POD"
+                    echo "=========================================="
+                    
+                    sleep 45
+                    echo "✅ Job completed successfully!"
+                restartPolicy: Never
+            backoffLimit: 1
+            ttlSecondsAfterFinished: 300

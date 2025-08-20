@@ -1,0 +1,89 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-unique-job-per-image
+  annotations:
+    policies.kyverno.io/title: Generate Unique Job Per Container Image
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Job
+    policies.kyverno.io/minversion: 1.8.0
+    policies.kyverno.io/description: >-
+      This policy demonstrates how to generate truly unique jobs per container image
+      using Kyverno's hashing capabilities. Each unique container image will result
+      in only one job being created, regardless of how many pods use that image.
+spec:
+  rules:
+  - name: generate-image-unique-job
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          operations:
+          - CREATE
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.containers[0].image }}"
+        operator: AnyIn
+        value: ["*"]
+      - key: "{{ request.object.metadata.namespace }}"
+        operator: NotEquals
+        value: "kyverno"
+      - key: "{{ request.object.metadata.namespace }}"
+        operator: NotEquals
+        value: "kube-system"
+      - key: "{{ request.object.metadata.ownerReferences || '' }}"
+        operator: Equals
+        value: ""
+    generate:
+      synchronize: false
+      apiVersion: batch/v1
+      kind: Job
+      name: "img-{{ hash(request.object.spec.containers[0].image) | truncate(@, `8`) }}"
+      namespace: "{{ request.object.metadata.namespace }}"
+      data:
+        metadata:
+          labels:
+            app: image-processor
+            generated-by: kyverno
+            source-image-hash: "{{ hash(request.object.spec.containers[0].image) | truncate(@, `8`) }}"
+            source-image: "{{ replace_all(request.object.spec.containers[0].image, '/', '-') | replace_all(@, ':', '-') | truncate(@, `63`) }}"
+          annotations:
+            kyverno.io/generated-by-policy: generate-unique-job-per-image
+            kyverno.io/source-image: "{{ request.object.spec.containers[0].image }}"
+            kyverno.io/source-pod: "{{ request.object.metadata.name }}"
+            kyverno.io/source-namespace: "{{ request.object.metadata.namespace }}"
+        spec:
+          ttlSecondsAfterFinished: 300
+          backoffLimit: 1
+          template:
+            metadata:
+              labels:
+                app: image-processor
+                job-type: image-analysis
+            spec:
+              restartPolicy: Never
+              containers:
+              - name: image-analyzer
+                image: busybox:latest
+                command:
+                - /bin/sh
+                - -c
+                args:
+                - |
+                  echo "Processing image: {{ request.object.spec.containers[0].image }}"
+                  echo "Image hash: {{ hash(request.object.spec.containers[0].image) | truncate(@, `8`) }}"
+                  echo "Source pod: {{ request.object.metadata.name }}"
+                  echo "Source namespace: {{ request.object.metadata.namespace }}"
+                  echo "Job name: img-{{ hash(request.object.spec.containers[0].image) | truncate(@, `8`) }}"
+                  echo "Starting image analysis..."
+                  sleep 30
+                  echo "Image analysis completed successfully"
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+                  limits:
+                    cpu: 200m
+                    memory: 256Mi

@@ -1,0 +1,97 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: basic-image-job-generator
+  annotations:
+    policies.kyverno.io/title: Basic Working Image Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+    - name: create-image-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io/') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "job-{{ request.object.metadata.name }}-img"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "job-{{ request.object.metadata.name }}-img"
+            labels:
+              skip-verify: "true"
+              job-type: "image-processor"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              source-pod: "{{ request.object.metadata.name }}"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+              spec:
+                containers:
+                - name: image-processor
+                  image: busybox:1.35
+                  env:
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  - name: SOURCE_POD
+                    value: "{{ request.object.metadata.name }}"
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "===========================================" 
+                    echo "RFC-Compliant Job Processing Image"
+                    echo "==========================================="
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo "Source Pod: $SOURCE_POD"
+                    echo ""
+                    
+                    echo "Processing image: $ORIGINAL_IMAGE"
+                    
+                    if echo "$ORIGINAL_IMAGE" | grep -q "docker.io"; then
+                      echo "✓ Would mirror from docker.io to my.registry.com"
+                    elif echo "$ORIGINAL_IMAGE" | grep -q "my.registry.com"; then
+                      echo "✓ Image already in target registry"
+                    fi
+                    
+                    echo ""
+                    echo "Job is running for 60 seconds - you can observe it!"
+                    echo "==========================================="
+                    
+                    # Keep running for observation
+                    sleep 60
+                    echo "Job completed successfully"
+                restartPolicy: Never
+            backoffLimit: 1
+            ttlSecondsAfterFinished: 300

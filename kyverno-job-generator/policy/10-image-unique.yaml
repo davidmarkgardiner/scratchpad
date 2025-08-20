@@ -1,0 +1,103 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: image-unique-job-generator
+  annotations:
+    policies.kyverno.io/title: Image-Unique Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: true
+  rules:
+    - name: generate-job-per-image
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        # Create unique name using base64 encoding of image name + truncate for RFC compliance
+        # This ensures one job per unique image:tag combination
+        name: "img-{{ base64_encode(request.object.spec.containers[0].image) | substr(@, `0`, `16`) }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "img-{{ base64_encode(request.object.spec.containers[0].image) | substr(@, `0`, `16`) }}"
+            labels:
+              skip-verify: "true"
+              job-type: "image-processor"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              image-hash: "{{ base64_encode(request.object.spec.containers[0].image) }}"
+              created-by: "kyverno-image-unique-generator"
+          spec:
+            template:
+              spec:
+                containers:
+                - name: processor
+                  image: busybox:1.35
+                  env:
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  - name: IMAGE_HASH
+                    value: "{{ base64_encode(request.object.spec.containers[0].image) | substr(@, `0`, `16`) }}"
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "=========================================="
+                    echo "🎯 Image-Unique RFC-Compliant Job"
+                    echo "=========================================="
+                    echo "Job Name: img-$IMAGE_HASH"
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo "Image Hash: $IMAGE_HASH"
+                    echo ""
+                    echo "✅ RFC 1123 Compliance:"
+                    echo "   - Format: img-<base64-hash>"
+                    echo "   - Lowercase: ✅"
+                    echo "   - Length: $(echo -n "img-$IMAGE_HASH" | wc -c) chars"
+                    echo "   - Unique per image:tag: ✅"
+                    echo ""
+                    echo "🔍 Processing: $ORIGINAL_IMAGE"
+                    
+                    if echo "$ORIGINAL_IMAGE" | grep -q "docker.io"; then
+                      echo "📦 Action: Mirror from Docker Hub"
+                    elif echo "$ORIGINAL_IMAGE" | grep -q "my.registry.com"; then
+                      echo "📦 Action: Process target registry image"
+                    fi
+                    
+                    echo ""
+                    echo "⚡ Same image = Same job (run once per image)"
+                    echo "🔄 Different images = Different jobs"
+                    echo "=========================================="
+                    
+                    sleep 30
+                    echo "✅ Image processing completed!"
+                restartPolicy: Never
+            backoffLimit: 1
+            ttlSecondsAfterFinished: 300

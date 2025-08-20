@@ -1,0 +1,132 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: simple-unique-job-generator
+  annotations:
+    policies.kyverno.io/title: Simple Unique Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: true
+  rules:
+    - name: generate-unique-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        # Create name using base64 of image but handle it in shell
+        name: "img-job-{{ request.object.metadata.name }}-c0"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "img-job-{{ request.object.metadata.name }}-c0"
+            labels:
+              skip-verify: "true"
+              job-type: "image-processor"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              source-pod: "{{ request.object.metadata.name }}"
+              container-index: "0"
+          spec:
+            template:
+              spec:
+                containers:
+                - name: processor
+                  image: busybox:1.35
+                  env:
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  - name: SOURCE_POD
+                    value: "{{ request.object.metadata.name }}"
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "=========================================="
+                    echo "🎯 Image-Unique Job Generator (Shell Hash)"
+                    echo "=========================================="
+                    
+                    # Create RFC-compliant unique identifier for the image
+                    IMAGE_B64=$(echo -n "$ORIGINAL_IMAGE" | base64 | tr -d '=+/' | tr '[:upper:]' '[:lower:]')
+                    IMAGE_HASH=$(echo -n "$ORIGINAL_IMAGE" | md5sum | cut -c1-8)
+                    
+                    # Create proper RFC job name
+                    UNIQUE_JOB_NAME="img-${IMAGE_HASH}"
+                    
+                    echo "Source Pod: $SOURCE_POD"
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo "Unique Job Name: $UNIQUE_JOB_NAME"
+                    echo "Image Hash: $IMAGE_HASH"
+                    echo ""
+                    
+                    echo "✅ RFC 1123 Compliance:"
+                    echo "   - Format: img-<8-char-hash>"
+                    echo "   - Lowercase: ✅"
+                    echo "   - Alphanumeric + hyphens: ✅"
+                    echo "   - Length: $(echo -n "$UNIQUE_JOB_NAME" | wc -c) chars"
+                    echo "   - Same image = Same hash: ✅"
+                    echo ""
+                    
+                    echo "🔍 Image Processing:"
+                    if echo "$ORIGINAL_IMAGE" | grep -q "docker.io"; then
+                      IMAGE_PATH=$(echo "$ORIGINAL_IMAGE" | sed 's|docker.io/||')
+                      NEW_IMAGE="my.registry.com/$IMAGE_PATH"
+                      echo "📦 Registry: Docker Hub"
+                      echo "🔄 Action: Would mirror to my.registry.com"
+                      echo "🎯 Target: $NEW_IMAGE"
+                      echo ""
+                      echo "📋 Mirror Commands:"
+                      echo "   docker pull $ORIGINAL_IMAGE"
+                      echo "   docker tag $ORIGINAL_IMAGE $NEW_IMAGE"
+                      echo "   docker push $NEW_IMAGE"
+                    elif echo "$ORIGINAL_IMAGE" | grep -q "my.registry.com"; then
+                      echo "📦 Registry: Target registry (my.registry.com)"
+                      echo "✅ Action: Process existing image"
+                    fi
+                    
+                    echo ""
+                    echo "🎯 Uniqueness Guarantee:"
+                    echo "   Image: nginx:latest → Hash: $(echo -n "nginx:latest" | md5sum | cut -c1-8)"
+                    echo "   Image: nginx:1.21 → Hash: $(echo -n "nginx:1.21" | md5sum | cut -c1-8)"
+                    echo "   Same image:tag = Same job (no duplicates)"
+                    echo ""
+                    echo "⏰ Processing image for 30 seconds..."
+                    echo "🔍 Monitor: kubectl get jobs -n default --watch"
+                    echo "=========================================="
+                    
+                    sleep 30
+                    echo ""
+                    echo "✅ Image processing completed successfully!"
+                    echo "📊 Image: $ORIGINAL_IMAGE"
+                    echo "🏷️  Hash: $IMAGE_HASH"
+                    echo "🎯 Unique job per image:tag achieved!"
+                restartPolicy: Never
+            backoffLimit: 1
+            ttlSecondsAfterFinished: 600

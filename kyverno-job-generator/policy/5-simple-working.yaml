@@ -1,0 +1,94 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: simple-image-job-generator
+  annotations:
+    policies.kyverno.io/title: Simple Working Image Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+    - name: generate-image-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io/') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        # Simple RFC-compliant name using base64 encoding for uniqueness
+        name: "img-job-{{ base64_encode(request.object.spec.containers[0].image) | truncate(@, `16`) | to_string(@) }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "img-job-{{ base64_encode(request.object.spec.containers[0].image) | truncate(@, `16`) | to_string(@) }}"
+            labels:
+              skip-verify: "true"
+              job-type: "image-processor"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              source-pod: "{{ request.object.metadata.name }}"
+              source-namespace: "{{ request.namespace }}"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+                  job-type: "image-processor"
+              spec:
+                containers:
+                - name: process-image
+                  image: busybox:latest
+                  env:
+                  - name: POD_NAME
+                    value: "{{ request.object.metadata.name }}"
+                  - name: POD_NAMESPACE
+                    value: "{{ request.namespace }}"
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "========================================="
+                    echo "Image Processing Job"
+                    echo "========================================="
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo "Source Pod: $POD_NAME"
+                    echo "Source Namespace: $POD_NAMESPACE"
+                    echo ""
+                    echo "Processing image: $ORIGINAL_IMAGE"
+                    echo "Job running successfully!"
+                    echo "========================================="
+                    
+                    # Keep job running for 30 seconds for observation
+                    sleep 30
+                    echo "Job completed"
+                restartPolicy: Never
+            backoffLimit: 3
+            ttlSecondsAfterFinished: 300

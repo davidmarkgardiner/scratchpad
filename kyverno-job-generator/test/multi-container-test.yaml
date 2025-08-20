@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multi-container-test
+  namespace: default
+spec:
+  containers:
+  - name: nginx
+    image: docker.io/nginx:1.21
+    ports:
+    - containerPort: 80
+  - name: redis
+    image: docker.io/redis:7.0
+    ports:
+    - containerPort: 6379
+  - name: sidecar
+    image: my.registry.com/tools/busybox:latest
+    command: ["sleep", "3600"]

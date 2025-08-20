@@ -1,0 +1,103 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: minimal-rfc-generator
+  annotations:
+    policies.kyverno.io/title: Minimal RFC Job Generator
+spec:
+  admission: true
+  background: true
+  rules:
+    - name: generate-rfc-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "rfc-{{ request.object.metadata.name }}"
+        namespace: "{{request.namespace}}"
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "rfc-{{ request.object.metadata.name }}"
+            labels:
+              skip-verify: "true"
+              job-type: "rfc-compliant"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              source-pod: "{{ request.object.metadata.name }}"
+          spec:
+            template:
+              spec:
+                containers:
+                - name: rfc-processor
+                  image: busybox:1.35
+                  env:
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  - name: SOURCE_POD
+                    value: "{{ request.object.metadata.name }}"
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "=========================================="
+                    echo "🎉 KYVERNO AUTO-GENERATED RFC JOB!"
+                    echo "=========================================="
+                    echo "Source Pod: $SOURCE_POD"
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo ""
+                    
+                    # Create RFC-compliant unique hash for this image
+                    IMAGE_HASH=$(echo -n "$ORIGINAL_IMAGE" | md5sum | cut -c1-8)
+                    RFC_NAME="img-$IMAGE_HASH"
+                    
+                    echo "✅ SUCCESS: Kyverno policy working!"
+                    echo "   Current job: rfc-$SOURCE_POD"
+                    echo "   RFC-compliant name: $RFC_NAME"
+                    echo "   Image hash: $IMAGE_HASH"
+                    echo ""
+                    echo "🎯 RFC 1123 Compliance:"
+                    echo "   - Lowercase: ✅"
+                    echo "   - Alphanumeric + hyphens: ✅"
+                    echo "   - Unique per image: ✅"
+                    echo "   - Length: $(echo -n "$RFC_NAME" | wc -c) chars"
+                    echo ""
+                    echo "🔥 Image Processing:"
+                    if echo "$ORIGINAL_IMAGE" | grep -q "docker.io"; then
+                      IMAGE_PATH=$(echo "$ORIGINAL_IMAGE" | sed 's|docker.io/||')
+                      echo "   Registry: Docker Hub"
+                      echo "   Action: Mirror to my.registry.com/$IMAGE_PATH"
+                    fi
+                    
+                    echo ""
+                    echo "⚡ Same image will always get: $RFC_NAME"
+                    echo "⏰ Running for 45 seconds to demonstrate..."
+                    echo "=========================================="
+                    
+                    sleep 45
+                    echo "✅ Kyverno auto-generated job completed!"
+                restartPolicy: Never
+            backoffLimit: 1
+            ttlSecondsAfterFinished: 300

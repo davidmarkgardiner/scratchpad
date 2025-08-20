@@ -1,0 +1,164 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rfc-test
+---
+# Test 1: Standard image with uppercase letters
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-uppercase
+  namespace: rfc-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-uppercase
+  template:
+    metadata:
+      labels:
+        app: test-uppercase
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com/MyApp/WebServer:v1.2.3
+---
+# Test 2: Image with underscores and dots
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-special-chars
+  namespace: rfc-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-special-chars
+  template:
+    metadata:
+      labels:
+        app: test-special-chars
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com/app_name/service.backend:2.1.0_beta
+---
+# Test 3: Very long image name
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-long-name
+  namespace: rfc-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-long-name
+  template:
+    metadata:
+      labels:
+        app: test-long-name
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com/very/long/path/to/application/microservice/component:version-1.2.3-build-12345
+---
+# Test 4: Image with SHA digest
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-sha-digest
+  namespace: rfc-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-sha-digest
+  template:
+    metadata:
+      labels:
+        app: test-sha-digest
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com/app/service@sha256:abc123def456789012345678901234567890123456789012345678901234567890
+---
+# Test 5: Image with port number
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-port
+  namespace: rfc-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-port
+  template:
+    metadata:
+      labels:
+        app: test-port
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com:5000/app/service:v1.0.0
+---
+# Test 6: Docker Hub library image
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-dockerhub
+  namespace: rfc-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-dockerhub
+  template:
+    metadata:
+      labels:
+        app: test-dockerhub
+    spec:
+      containers:
+      - name: test
+        image: docker.io/library/Redis:7.0-Alpine
+---
+# Test 7: Image with plus signs and tildes
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-plus-tilde
+  namespace: rfc-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-plus-tilde
+  template:
+    metadata:
+      labels:
+        app: test-plus-tilde
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com/app+feature/service~test:v1.0+build.123
+---
+# Test 8: Numeric-only components
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-numeric
+  namespace: rfc-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-numeric
+  template:
+    metadata:
+      labels:
+        app: test-numeric
+    spec:
+      containers:
+      - name: test
+        image: my.registry.com/123/456:7.8.9

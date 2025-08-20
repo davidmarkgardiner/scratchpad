@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+    spec:
+      containers:
+      - name: test-container
+        image: my.registry.com/test/nginx:1.21
+        ports:
+        - containerPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app-docker-io
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app-docker-io
+  template:
+    metadata:
+      labels:
+        app: test-app-docker-io
+    spec:
+      containers:
+      - name: test-container
+        image: docker.io/library/nginx:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app-custom-image
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app-custom
+  template:
+    metadata:
+      labels:
+        app: test-app-custom
+    spec:
+      containers:
+      - name: test-container
+        image: my.registry.com/custom/app:v2.1.0
+        ports:
+        - containerPort: 8080

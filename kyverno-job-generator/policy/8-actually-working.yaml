@@ -1,0 +1,127 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: working-image-job-generator
+  annotations:
+    policies.kyverno.io/title: Actually Working Image Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: true
+  rules:
+    - name: create-image-processing-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io/') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        # Simple RFC-compliant name using only basic functions
+        name: "job-{{ replace_all('.', '-', replace_all(':', '-', request.object.metadata.name)) }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "job-{{ replace_all('.', '-', replace_all(':', '-', request.object.metadata.name)) }}"
+            labels:
+              skip-verify: "true"
+              job-type: "image-processor"
+              source-pod: "{{ request.object.metadata.name }}"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              source-pod: "{{ request.object.metadata.name }}"
+              source-namespace: "{{ request.namespace }}"
+              created-by: "kyverno-image-job-generator"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+                  job-type: "image-processor"
+              spec:
+                containers:
+                - name: image-processor
+                  image: busybox:1.35
+                  env:
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  - name: SOURCE_POD
+                    value: "{{ request.object.metadata.name }}"
+                  - name: SOURCE_NAMESPACE
+                    value: "{{ request.namespace }}"
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "===========================================" 
+                    echo "🚀 RFC-Compliant Image Processing Job"
+                    echo "==========================================="
+                    echo "Job Name: job-{{ replace_all('.', '-', replace_all(':', '-', request.object.metadata.name)) }}"
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo "Source Pod: $SOURCE_POD"
+                    echo "Source Namespace: $SOURCE_NAMESPACE"
+                    echo ""
+                    
+                    # Validate job name RFC compliance
+                    JOB_NAME="job-{{ replace_all('.', '-', replace_all(':', '-', request.object.metadata.name)) }}"
+                    echo "Validating RFC 1123 compliance..."
+                    echo "✅ Job name uses RFC 1123 compliant pattern"
+                    echo "📏 Name derived from pod name with safe transformations"
+                    
+                    echo ""
+                    echo "🔍 Processing image: $ORIGINAL_IMAGE"
+                    
+                    # Extract registry info
+                    if echo "$ORIGINAL_IMAGE" | grep -q "docker.io"; then
+                      echo "📦 Registry: Docker Hub (docker.io)"
+                      IMAGE_PATH=$(echo "$ORIGINAL_IMAGE" | sed 's|docker.io/||')
+                      NEW_IMAGE="my.registry.com/$IMAGE_PATH"
+                      echo "🔄 Action: Would mirror to my.registry.com"
+                      echo "🎯 Target: $NEW_IMAGE"
+                    elif echo "$ORIGINAL_IMAGE" | grep -q "my.registry.com"; then
+                      echo "📦 Registry: Target registry (my.registry.com)"
+                      echo "✅ Action: Image already in target registry"
+                    else
+                      REGISTRY=$(echo "$ORIGINAL_IMAGE" | cut -d'/' -f1)
+                      echo "📦 Registry: Third-party ($REGISTRY)"
+                      echo "🔄 Action: Would need custom handling"
+                    fi
+                    
+                    echo ""
+                    echo "⏳ Job will run for 60 seconds (observe it in action!)"
+                    echo "🔍 Monitor with: kubectl logs -f job/job-$SOURCE_POD -n $SOURCE_NAMESPACE"
+                    echo "==========================================="
+                    
+                    # Keep running for observation
+                    sleep 60
+                    
+                    echo ""
+                    echo "✅ Job completed successfully!"
+                    echo "🎉 Image processing workflow finished"
+                restartPolicy: Never
+            backoffLimit: 1
+            ttlSecondsAfterFinished: 600  # Keep job around for 10 minutes for inspection

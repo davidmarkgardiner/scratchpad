@@ -1,0 +1,112 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: final-image-job-generator
+  annotations:
+    policies.kyverno.io/title: Final Working Image Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+    - name: generate-job-for-images
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io/') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        name: "rfc-job-{{ random('[0-9a-z]{8}') }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "rfc-job-{{ random('[0-9a-z]{8}') }}"
+            labels:
+              skip-verify: "true"
+              job-type: "image-processor"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              source-pod: "{{ request.object.metadata.name }}"
+              source-namespace: "{{ request.namespace }}"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+              spec:
+                containers:
+                - name: image-processor
+                  image: busybox:1.35
+                  env:
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  - name: SOURCE_POD
+                    value: "{{ request.object.metadata.name }}"
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "===========================================" 
+                    echo "RFC-Compliant Job Processing Image"
+                    echo "==========================================="
+                    echo "Job Name: $(hostname)"
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo "Source Pod: $SOURCE_POD"
+                    echo ""
+                    
+                    # Validate job name is RFC compliant
+                    JOB_NAME=$(hostname)
+                    if echo "$JOB_NAME" | grep -qE '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'; then
+                      echo "✓ Job name '$JOB_NAME' is RFC 1123 compliant"
+                    else
+                      echo "⚠ Job name '$JOB_NAME' may not be RFC compliant"
+                    fi
+                    
+                    echo "Name length: $(echo -n "$JOB_NAME" | wc -c) chars (max 63)"
+                    echo ""
+                    
+                    # Process the image
+                    echo "Processing image: $ORIGINAL_IMAGE"
+                    
+                    if echo "$ORIGINAL_IMAGE" | grep -q "docker.io"; then
+                      echo "Action: Would mirror from docker.io to my.registry.com"
+                    elif echo "$ORIGINAL_IMAGE" | grep -q "my.registry.com"; then
+                      echo "Action: Image already in target registry"
+                    fi
+                    
+                    echo ""
+                    echo "Job is running and will complete in 60 seconds..."
+                    echo "You can observe this job while it runs!"
+                    echo "==========================================="
+                    
+                    # Keep running for observation
+                    sleep 60
+                    echo "Job completed successfully"
+                restartPolicy: Never
+            backoffLimit: 1
+            ttlSecondsAfterFinished: 300

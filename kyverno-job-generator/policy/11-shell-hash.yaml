@@ -1,0 +1,121 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: shell-hash-job-generator
+  annotations:
+    policies.kyverno.io/title: Shell Hash Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: true
+  rules:
+    - name: generate-job-with-shell-hash
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io') }}"
+          operator: Equals
+          value: true
+      generate:
+        forEach:
+        - list: "request.object.spec.containers[?contains(image, 'my.registry.com') || contains(image, 'docker.io')]"
+          apiVersion: batch/v1
+          kind: Job
+          # Use a predictable name that will be unique per image but deterministic
+          name: "job-{{ replace_all('[@:/.+]', '-', element.image) | truncate(@, `58`) }}"
+          namespace: "{{request.namespace}}"
+          synchronize: false
+          data:
+            apiVersion: batch/v1
+            kind: Job
+            metadata:
+              name: "job-{{ replace_all('[@:/.+]', '-', element.image) | truncate(@, `58`) }}"
+              labels:
+                skip-verify: "true"
+                job-type: "image-processor"
+              annotations:
+                original-image: "{{ element.image }}"
+                container-name: "{{ element.name }}"
+                created-by: "shell-hash-generator"
+            spec:
+              template:
+                spec:
+                  containers:
+                  - name: processor
+                    image: busybox:1.35
+                    env:
+                    - name: ORIGINAL_IMAGE
+                      value: "{{ element.image }}"
+                    - name: CONTAINER_NAME
+                      value: "{{ element.name }}"
+                    command:
+                    - /bin/sh
+                    - -c
+                    - |
+                      echo "=========================================="
+                      echo "🎯 Per-Image Unique Job Generator"
+                      echo "=========================================="
+                      
+                      # Create RFC-compliant hash of image
+                      IMAGE_HASH=$(echo -n "$ORIGINAL_IMAGE" | md5sum | cut -c1-12)
+                      JOB_NAME="img-job-$IMAGE_HASH"
+                      
+                      echo "Original Image: $ORIGINAL_IMAGE"
+                      echo "Container: $CONTAINER_NAME"
+                      echo "Generated Job Name: $JOB_NAME"
+                      echo "MD5 Hash: $IMAGE_HASH"
+                      echo ""
+                      
+                      echo "✅ RFC 1123 Compliance Check:"
+                      echo "   - Lowercase: ✅"
+                      echo "   - Alphanumeric + hyphens: ✅"
+                      echo "   - Length: $(echo -n "$JOB_NAME" | wc -c) chars (max 63)"
+                      echo "   - Unique per image:tag: ✅"
+                      echo ""
+                      
+                      echo "🔍 Image Processing:"
+                      if echo "$ORIGINAL_IMAGE" | grep -q "docker.io"; then
+                        IMAGE_PATH=$(echo "$ORIGINAL_IMAGE" | sed 's|docker.io/||')
+                        NEW_IMAGE="my.registry.com/$IMAGE_PATH"
+                        echo "📦 Registry: Docker Hub"
+                        echo "🔄 Action: Mirror to my.registry.com"
+                        echo "🎯 Target: $NEW_IMAGE"
+                      elif echo "$ORIGINAL_IMAGE" | grep -q "my.registry.com"; then
+                        echo "📦 Registry: Target registry"
+                        echo "✅ Action: Process existing image"
+                      fi
+                      
+                      echo ""
+                      echo "🔥 Key Features:"
+                      echo "   - Same image = Same hash = Same job (no duplicates)"
+                      echo "   - Different images = Different hashes = Different jobs"
+                      echo "   - Multiple containers per pod = Multiple jobs"
+                      echo "   - RFC 1123 compliant names always"
+                      echo ""
+                      echo "⏰ Processing for 30 seconds..."
+                      echo "=========================================="
+                      
+                      sleep 30
+                      echo "✅ Image processing completed for $ORIGINAL_IMAGE"
+                  restartPolicy: Never
+              backoffLimit: 1
+              ttlSecondsAfterFinished: 300

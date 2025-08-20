@@ -1,0 +1,143 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: image-job-generator-working
+  annotations:
+    policies.kyverno.io/title: Working RFC-Compliant Image Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: 1.7.2
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kubernetes-version: "1.23"
+    policies.kyverno.io/description: >-
+      Generates jobs with RFC-compliant names based on container images.
+      Uses sanitized image names to ensure RFC 1123 compliance.
+spec:
+  background: false
+  rules:
+    - name: generate-image-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+            - a*
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io/') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        # Create RFC-compliant name by:
+        # 1. Removing registry prefix 
+        # 2. Converting to lowercase
+        # 3. Replacing special chars with hyphens
+        # 4. Truncating to ensure max 63 chars
+        name: "job-{{ truncate(lower(replace_all('[@:/._+~]', '-', replace_all('^[^/]+/', '', request.object.spec.containers[0].image))), `58`) }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "job-{{ truncate(lower(replace_all('[@:/._+~]', '-', replace_all('^[^/]+/', '', request.object.spec.containers[0].image))), `58`) }}"
+            labels:
+              skip-verify: "true"
+              job-type: "image-processor"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              source-pod: "{{ request.object.metadata.name }}"
+              source-namespace: "{{ request.namespace }}"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+                  job-type: "image-processor"
+              spec:
+                containers:
+                - name: process-image
+                  image: busybox:latest
+                  env:
+                  - name: POD_NAME
+                    value: "{{ request.object.metadata.name }}"
+                  - name: POD_NAMESPACE
+                    value: "{{ request.namespace }}"
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  - name: JOB_NAME
+                    value: "job-{{ truncate(lower(replace_all('[@:/._+~]', '-', replace_all('^[^/]+/', '', request.object.spec.containers[0].image))), `58`) }}"
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "========================================="
+                    echo "Image Processing Job"
+                    echo "========================================="
+                    echo "Job Name: $JOB_NAME"
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo "Source Pod: $POD_NAME"
+                    echo "Source Namespace: $POD_NAMESPACE"
+                    echo ""
+                    
+                    # Validate RFC compliance
+                    echo "Checking RFC 1123 compliance..."
+                    if echo "$JOB_NAME" | grep -E '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$' > /dev/null; then
+                      echo "✓ Job name is RFC 1123 compliant"
+                    else
+                      echo "⚠ Warning: Job name may not be RFC 1123 compliant"
+                    fi
+                    
+                    LENGTH=$(echo -n "$JOB_NAME" | wc -c)
+                    echo "Name length: $LENGTH characters (max 63)"
+                    
+                    echo ""
+                    echo "Processing image: $ORIGINAL_IMAGE"
+                    
+                    # Extract registry
+                    if echo "$ORIGINAL_IMAGE" | grep "/" > /dev/null; then
+                      REGISTRY=$(echo "$ORIGINAL_IMAGE" | cut -d'/' -f1)
+                      echo "Registry: $REGISTRY"
+                    fi
+                    
+                    # Check if transformation needed
+                    if echo "$ORIGINAL_IMAGE" | grep "^docker.io/" > /dev/null; then
+                      IMAGE_PATH=$(echo "$ORIGINAL_IMAGE" | sed 's|^docker.io/||')
+                      NEW_IMAGE="my.registry.com/$IMAGE_PATH"
+                      echo ""
+                      echo "Transform: docker.io → my.registry.com"
+                      echo "Target: $NEW_IMAGE"
+                    elif echo "$ORIGINAL_IMAGE" | grep "my.registry.com" > /dev/null; then
+                      echo "Image already in target registry"
+                    fi
+                    
+                    echo ""
+                    echo "Job running successfully"
+                    echo "========================================="
+                    
+                    # Keep job running for observation
+                    sleep 30
+                    echo "Job completed"
+                restartPolicy: Never
+            backoffLimit: 3
+            ttlSecondsAfterFinished: 600  # Clean up after 10 minutes

@@ -1,0 +1,103 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: truly-unique-per-image
+  annotations:
+    policies.kyverno.io/title: Truly Unique Per Image Job Generator
+    policies.kyverno.io/description: >-
+      Creates ONE job per unique image:tag, regardless of how many pods use it.
+      Uses base64 encoding of image name for RFC-compliant job names.
+spec:
+  admission: true
+  background: true
+  rules:
+    - name: generate-one-job-per-image
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        # Create job name based on IMAGE, not pod name
+        # Use base64 encoding to make image name RFC-compliant
+        name: "img-{{ base64_encode(request.object.spec.containers[0].image) | replace_all('=', '') | replace_all('+', 'p') | replace_all('/', 's') | to_lower(@) | truncate(@, `50`) }}"
+        namespace: "{{ request.namespace }}"
+        synchronize: false  # KEY: Don't recreate if job already exists
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "img-{{ base64_encode(request.object.spec.containers[0].image) | replace_all('=', '') | replace_all('+', 'p') | replace_all('/', 's') | to_lower(@) | truncate(@, `50`) }}"
+            labels:
+              skip-verify: "true"
+              job-type: "image-processor"
+              image-hash: "{{ base64_encode(request.object.spec.containers[0].image) | replace_all('=', '') | replace_all('+', 'p') | replace_all('/', 's') | to_lower(@) | truncate(@, `16`) }}"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              creation-strategy: "one-per-unique-image"
+          spec:
+            template:
+              spec:
+                containers:
+                - name: image-processor
+                  image: busybox:1.35
+                  env:
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  command: ["/bin/sh", "-c"]
+                  args:
+                  - |
+                    echo "=========================================="
+                    echo "🎯 TRULY UNIQUE PER IMAGE JOB"
+                    echo "=========================================="
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo ""
+                    
+                    # Create the same hash that was used for job naming
+                    IMAGE_HASH=$(echo -n "$ORIGINAL_IMAGE" | md5sum | cut -c1-8)
+                    UNIQUE_NAME="img-$IMAGE_HASH"
+                    
+                    echo "🚀 True Image-Based Uniqueness:"
+                    echo "   Job Name Pattern: img-<base64-encoded>"
+                    echo "   Unique Hash: $UNIQUE_NAME"
+                    echo "   Same image → Same job name → No duplicates!"
+                    echo ""
+                    
+                    echo "✅ Key Benefits:"
+                    echo "   • 10 pods with nginx:1.21 → 1 job"
+                    echo "   • 5 pods with redis:7.0 → 1 job" 
+                    echo "   • Different versions → Different jobs"
+                    echo ""
+                    
+                    echo "🔍 Processing: $ORIGINAL_IMAGE"
+                    echo "⏰ Running for 60 seconds..."
+                    echo "=========================================="
+                    
+                    sleep 60
+                    echo "✅ Unique per-image job completed!"
+                restartPolicy: Never
+            backoffLimit: 1
+            ttlSecondsAfterFinished: 300

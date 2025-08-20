@@ -1,0 +1,139 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: image-job-generator-rfc
+  annotations:
+    policies.kyverno.io/title: RFC-Compliant Image Push Job Generator
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: 1.7.2
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kubernetes-version: "1.23"
+    policies.kyverno.io/description: >-
+      This policy generates RFC 1123 compliant job names based on container images.
+      It ensures names are lowercase, alphanumeric with hyphens, and max 63 chars.
+spec:
+  background: false
+  rules:
+    - name: generate-push-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+            - a*
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io/') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        # Generate RFC-compliant name:
+        # 1. Extract image path after registry
+        # 2. Convert to lowercase
+        # 3. Replace invalid chars with hyphens
+        # 4. Truncate to 63 chars max (with 'job-' prefix = 59 chars for image part)
+        name: "job-{{ truncate(base64_decode(base64_encode(lower(replace_all('[^a-z0-9-]+', '-', replace_all('@sha256', '-sha-', replace_all(':', '-', replace_all('/', '-', regex_replace_all('^[^/]+/', request.object.spec.containers[0].image, '')))))))), `59`) }}"
+        namespace: "{{request.namespace}}"
+        synchronize: false
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "job-{{ truncate(base64_decode(base64_encode(lower(replace_all('[^a-z0-9-]+', '-', replace_all('@sha256', '-sha-', replace_all(':', '-', replace_all('/', '-', regex_replace_all('^[^/]+/', request.object.spec.containers[0].image, '')))))))), `59`) }}"
+            labels:
+              skip-verify: "true"
+              # Store original image info in label (also RFC compliant but allows 63 chars)
+              image-hash: "{{ truncate(base64_decode(base64_encode(lower(replace_all('[^a-z0-9-]+', '-', replace_all('@sha256', '-sha-', replace_all(':', '-', replace_all('/', '-', regex_replace_all('^[^/]+/', request.object.spec.containers[0].image, '')))))))), `63`) }}"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              source-pod: "{{ request.object.metadata.name }}"
+              source-namespace: "{{ request.namespace }}"
+          spec:
+            template:
+              metadata:
+                labels:
+                  skip-verify: "true"
+              spec:
+                containers:
+                - name: push-image
+                  image: mcr.microsoft.com/azure-cli
+                  env:
+                  - name: POD_NAME
+                    value: "{{ request.object.metadata.name }}"
+                  - name: POD_NAMESPACE
+                    value: "{{ request.namespace }}"
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  - name: JOB_NAME
+                    value: "job-{{ truncate(base64_decode(base64_encode(lower(replace_all('[^a-z0-9-]+', '-', replace_all('@sha256', '-sha-', replace_all(':', '-', replace_all('/', '-', regex_replace_all('^[^/]+/', request.object.spec.containers[0].image, '')))))))), `59`) }}"
+                  command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    echo "================================"
+                    echo "RFC-Compliant Job Execution"
+                    echo "================================"
+                    echo "Job Name: $JOB_NAME"
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    echo "Source Pod: $POD_NAME"
+                    echo "Source Namespace: $POD_NAMESPACE"
+                    echo ""
+                    
+                    # Validate job name is RFC 1123 compliant
+                    if [[ "$JOB_NAME" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] && [ ${#JOB_NAME} -le 63 ]; then
+                      echo "✓ Job name is RFC 1123 compliant"
+                    else
+                      echo "⚠ Warning: Job name may not be fully RFC 1123 compliant"
+                      echo "  Pattern check: $([[ "$JOB_NAME" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] && echo "PASS" || echo "FAIL")"
+                      echo "  Length: ${#JOB_NAME} (max 63)"
+                    fi
+                    
+                    echo ""
+                    echo "Processing image..."
+                    
+                    # Extract registry and path
+                    if [[ $ORIGINAL_IMAGE == *"/"* ]]; then
+                      REGISTRY=$(echo "$ORIGINAL_IMAGE" | cut -d'/' -f1)
+                      IMAGE_PATH="${ORIGINAL_IMAGE#*/}"
+                    else
+                      REGISTRY=""
+                      IMAGE_PATH="$ORIGINAL_IMAGE"
+                    fi
+                    
+                    echo "Registry: ${REGISTRY:-none}"
+                    echo "Image Path: $IMAGE_PATH"
+                    
+                    # Check if transformation needed
+                    if [[ $ORIGINAL_IMAGE == docker.io/* ]]; then
+                      NEW_IMAGE="my.registry.com/${IMAGE_PATH}"
+                      echo ""
+                      echo "Transform: docker.io → my.registry.com"
+                      echo "New Image: $NEW_IMAGE"
+                    fi
+                    
+                    echo ""
+                    echo "Job completed successfully"
+                    sleep 10
+                restartPolicy: Never
+            backoffLimit: 3

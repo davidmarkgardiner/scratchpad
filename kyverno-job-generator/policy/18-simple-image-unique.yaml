@@ -1,0 +1,99 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: simple-image-unique
+  annotations:
+    policies.kyverno.io/title: Simple Image-Unique Job Generator
+    policies.kyverno.io/description: >-
+      Creates job names based on sanitized image names for true uniqueness per image.
+spec:
+  admission: true
+  background: true
+  rules:
+    - name: generate-image-unique-job
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - default
+            - rfc-test
+      exclude:
+        any:
+        - resources:
+            selector:
+              matchLabels:
+                skip-verify: "true"
+        - resources:
+            namespaces:
+              - kube-system
+              - kyverno
+      preconditions:
+        any:
+        - key: "{{ contains(request.object.spec.containers[0].image, 'docker.io') }}"
+          operator: Equals
+          value: true
+        - key: "{{ contains(request.object.spec.containers[0].image, 'my.registry.com') }}"
+          operator: Equals
+          value: true
+      generate:
+        apiVersion: batch/v1
+        kind: Job
+        # Create job name by sanitizing the image name directly
+        name: "img-{{ replace_all('[@:/.+]', '-', request.object.spec.containers[0].image) | replace_all('--+', '-') | to_lower(@) | truncate(@, `58`) }}-job"
+        namespace: "{{ request.namespace }}"
+        synchronize: false  # Don't recreate if exists
+        data:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: "img-{{ replace_all('[@:/.+]', '-', request.object.spec.containers[0].image) | replace_all('--+', '-') | to_lower(@) | truncate(@, `58`) }}-job"
+            labels:
+              skip-verify: "true"
+              job-type: "image-unique-processor"
+            annotations:
+              original-image: "{{ request.object.spec.containers[0].image }}"
+              naming-strategy: "sanitized-image-name"
+          spec:
+            template:
+              spec:
+                containers:
+                - name: processor
+                  image: busybox:1.35
+                  env:
+                  - name: ORIGINAL_IMAGE
+                    value: "{{ request.object.spec.containers[0].image }}"
+                  command: ["/bin/sh", "-c"]
+                  args:
+                  - |
+                    echo "=========================================="
+                    echo "🎯 IMAGE-UNIQUE JOB (Sanitized Name)"
+                    echo "=========================================="
+                    echo "Original Image: $ORIGINAL_IMAGE"
+                    
+                    # Show what the hash-based approach would be
+                    IMAGE_HASH=$(echo -n "$ORIGINAL_IMAGE" | md5sum | cut -c1-8)
+                    HASH_NAME="img-$IMAGE_HASH"
+                    
+                    echo ""
+                    echo "📝 Job Naming Comparison:"
+                    echo "   Current job: $(hostname)"
+                    echo "   Hash-based would be: $HASH_NAME"
+                    echo ""
+                    
+                    echo "✅ True Per-Image Uniqueness:"
+                    echo "   Same image → Same job name"
+                    echo "   Multiple pods, same image → Single job"
+                    echo "   Different image versions → Different jobs"
+                    echo ""
+                    
+                    echo "🔍 Image Processing Logic Here..."
+                    echo "⏰ Running for 45 seconds..."
+                    echo "=========================================="
+                    
+                    sleep 45
+                    echo "✅ Image-unique processing completed!"
+                restartPolicy: Never
+            backoffLimit: 1
+            ttlSecondsAfterFinished: 300

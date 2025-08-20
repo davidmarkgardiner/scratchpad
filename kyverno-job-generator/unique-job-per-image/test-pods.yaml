@@ -1,0 +1,179 @@
+---
+# Test Case 1: Multiple pods with the same image (nginx:1.21)
+# Should generate only ONE job for this image
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-nginx-1
+  namespace: default
+  labels:
+    test-case: same-image-multiple-pods
+    image-type: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-nginx-2
+  namespace: default
+  labels:
+    test-case: same-image-multiple-pods
+    image-type: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-nginx-3
+  namespace: default
+  labels:
+    test-case: same-image-multiple-pods
+    image-type: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+
+---
+# Test Case 2: Different nginx versions
+# Should generate separate jobs for each version
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-nginx-latest
+  namespace: default
+  labels:
+    test-case: different-image-versions
+    image-type: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-nginx-alpine
+  namespace: default
+  labels:
+    test-case: different-image-versions
+    image-type: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+
+---
+# Test Case 3: Completely different images
+# Should generate separate jobs for each
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-redis
+  namespace: default
+  labels:
+    test-case: different-images
+    image-type: redis
+spec:
+  containers:
+  - name: redis
+    image: redis:6.2
+    ports:
+    - containerPort: 6379
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-postgres
+  namespace: default
+  labels:
+    test-case: different-images
+    image-type: postgres
+spec:
+  containers:
+  - name: postgres
+    image: postgres:13
+    env:
+    - name: POSTGRES_PASSWORD
+      value: "testpassword"
+    ports:
+    - containerPort: 5432
+
+---
+# Test Case 4: Same image as Case 1 but in different namespace
+# Should generate a separate job in the test-namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-namespace
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-nginx-different-ns
+  namespace: test-namespace
+  labels:
+    test-case: same-image-different-namespace
+    image-type: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+
+---
+# Test Case 5: Complex image names with registry and tags
+# Should handle complex image names properly
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-complex-image
+  namespace: default
+  labels:
+    test-case: complex-image-names
+spec:
+  containers:
+  - name: app
+    image: gcr.io/google-containers/busybox:1.27.2
+    command:
+    - sleep
+    - "3600"
+
+---
+# Test Case 6: Image with digest instead of tag
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-digest-image
+  namespace: default
+  labels:
+    test-case: digest-image
+spec:
+  containers:
+  - name: app
+    image: busybox@sha256:5acba83a746c7608ed544dc1533b87c737a0b0fb730301639a0179f9344b1678
+    command:
+    - sleep
+    - "3600"

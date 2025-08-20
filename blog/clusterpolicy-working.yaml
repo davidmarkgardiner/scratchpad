@@ -1,0 +1,92 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-unique-job-per-image-v3
+  annotations:
+    policies.kyverno.io/title: Generate Unique Job Per Image V3
+    policies.kyverno.io/description: >-
+      Creates exactly one Kubernetes Job per unique container image using
+      deterministic name generation from the image string itself.
+spec:
+  admission: true
+  background: true
+  rules:
+  - name: generate-image-unique-job
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - default
+          - test-namespace
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kyverno
+          - kube-system
+      - resources:
+          selector:
+            matchLabels:
+              generated-by: unique-job-per-image-policy
+    preconditions:
+      all:
+      - key: "{{ request.object.metadata.ownerReferences[] || `[]` | length(@) }}"
+        operator: Equals
+        value: 0
+    generate:
+      synchronize: false
+      apiVersion: batch/v1
+      kind: Job
+      # Create a deterministic name from the image string
+      # Replace all non-alphanumeric characters to ensure RFC compliance
+      name: "img-{{ replace_all(replace_all(replace_all(replace_all(replace_all(request.object.spec.containers[0].image, '/', '-'), ':', '-'), '.', '-'), '@', '-'), '_', '-') | truncate(@, `50`) }}"
+      namespace: "{{ request.namespace }}"
+      data:
+        metadata:
+          labels:
+            generated-by: unique-job-per-image-policy
+            source-pod: "{{ request.object.metadata.name }}"
+            image-processed: "true"
+          annotations:
+            original-image: "{{ request.object.spec.containers[0].image }}"
+            source-pod: "{{ request.object.metadata.name }}"
+            source-namespace: "{{ request.namespace }}"
+            created-at: "{{ time_now() }}"
+        spec:
+          backoffLimit: 3
+          ttlSecondsAfterFinished: 300
+          template:
+            metadata:
+              labels:
+                generated-by: unique-job-per-image-policy
+            spec:
+              restartPolicy: Never
+              containers:
+              - name: image-processor
+                image: busybox:1.35
+                command: ["/bin/sh"]
+                args:
+                - -c
+                - |
+                  echo "==================================="
+                  echo "Unique Job Per Image Processor"
+                  echo "==================================="
+                  echo "Processing image: {{ request.object.spec.containers[0].image }}"
+                  echo "Source pod: {{ request.object.metadata.name }}"
+                  echo "Namespace: {{ request.namespace }}"
+                  echo ""
+                  echo "This job name is deterministic:"
+                  echo "Job name: img-{{ replace_all(replace_all(replace_all(replace_all(replace_all(request.object.spec.containers[0].image, '/', '-'), ':', '-'), '.', '-'), '@', '-'), '_', '-') | truncate(@, `50`) }}"
+                  echo ""
+                  echo "Multiple pods with the SAME image will NOT create duplicate jobs!"
+                  echo "The 'synchronize: false' setting prevents recreation."
+                  echo "==================================="
+                env:
+                - name: ORIGINAL_IMAGE
+                  value: "{{ request.object.spec.containers[0].image }}"
+                - name: SOURCE_POD
+                  value: "{{ request.object.metadata.name }}"
+                - name: SOURCE_NAMESPACE
+                  value: "{{ request.namespace }}"

@@ -41,7 +41,7 @@ spec:
       kind: Job
       # Create a deterministic name from the image string
       # Replace all non-alphanumeric characters to ensure RFC compliance
-      name: "img-{{ replace_all(replace_all(replace_all(replace_all(replace_all(regex_replace_all('^[^/]+/', request.object.spec.containers[0].image, ''), '/', '-'), ':', '-'), '.', '-'), '@', '-'), '_', '-') | truncate(@, `50`) }}"
+      name: "job-{{ request.object.spec.containers[0].image | replace_all(@, '/', '') | replace_all(@, ':', '') | replace_all(@, '.', '') | replace_all(@, '@', '') | replace_all(@, '_', '') | replace_all(@, '-', '') | to_lower(@) | truncate(@, `50`) }}"
       namespace: "{{ request.namespace }}"
       data:
         metadata:
@@ -78,7 +78,7 @@ spec:
                   echo "Namespace: {{ request.namespace }}"
                   echo ""
                   echo "This job name is deterministic:"
-                  echo "Job name: img-{{ replace_all(replace_all(replace_all(replace_all(replace_all(request.object.spec.containers[0].image, '/', '-'), ':', '-'), '.', '-'), '@', '-'), '_', '-') | truncate(@, `50`) }}"
+                  echo "Job name: job-{{ request.object.spec.containers[0].image | replace_all(@, '/', '') | replace_all(@, ':', '') | replace_all(@, '.', '') | replace_all(@, '@', '') | replace_all(@, '_', '') | replace_all(@, '-', '') | to_lower(@) | truncate(@, `50`) }}"
                   echo ""
                   echo "Multiple pods with the SAME image will NOT create duplicate jobs!"
                   echo "The 'synchronize: false' setting prevents recreation."

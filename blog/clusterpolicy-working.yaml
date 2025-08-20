@@ -41,7 +41,7 @@ spec:
       kind: Job
       # Create a deterministic name from the image string
       # Replace all non-alphanumeric characters to ensure RFC compliance
-      name: "img-{{ replace_all(replace_all(replace_all(replace_all(replace_all(request.object.spec.containers[0].image, '/', '-'), ':', '-'), '.', '-'), '@', '-'), '_', '-') | truncate(@, `50`) }}"
+      name: "img-{{ replace_all(replace_all(replace_all(replace_all(replace_all(regex_replace_all('^[^/]+/', request.object.spec.containers[0].image, ''), '/', '-'), ':', '-'), '.', '-'), '@', '-'), '_', '-') | truncate(@, `50`) }}"
       namespace: "{{ request.namespace }}"
       data:
         metadata:

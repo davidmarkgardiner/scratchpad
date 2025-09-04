@@ -1,0 +1,90 @@
+---
+# ResourceGraphDefinition for AuthorizationPolicyConfig
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: authorizationpolicyconfig.kro.run
+spec:
+  # Define the schema for the custom resource
+  schema:
+    apiVersion: v1alpha1
+    kind: AuthorizationPolicyConfig
+    spec:
+      # User-configurable fields
+      name: string | required=true description="Name of the authorization policy"
+      namespace: string | default="aks-istio-ingress" description="Namespace for the policy"
+      targetKind: string | default="Gateway" description="Target resource kind"
+      targetGroup: string | default="gateway.networking.k8s.io" description="Target API group"
+      targetName: string | required=true description="Target resource name"
+      action: string | default="ALLOW" description="Policy action (ALLOW or DENY)"
+      rules:
+        from:
+          - source:
+              ipBlocks: '[]string' | description="List of allowed IP CIDR blocks"
+    status:
+      # Status fields to expose from the created resources
+      policyReady: ${authPolicy.status.conditions[?(@.type=="Ready")].status}
+      policyName: ${authPolicy.metadata.name}
+      targetSelector: ${authPolicy.spec.targetRefs}
+
+  # Resources that will be created
+  resources:
+    # The actual Istio AuthorizationPolicy resource
+    - id: authPolicy
+      template:
+        apiVersion: security.istio.io/v1
+        kind: AuthorizationPolicy
+        metadata:
+          name: ${schema.spec.name}
+          namespace: ${schema.spec.namespace}
+          labels:
+            managed-by: kro
+            policy-type: cidr-based
+        spec:
+          # Target selection using the new Gateway API style
+          targetRefs:
+            - group: ${schema.spec.targetGroup}
+              kind: ${schema.spec.targetKind}
+              name: ${schema.spec.targetName}
+          action: ${schema.spec.action}
+          rules: ${schema.spec.rules}
+
+    # Optional: ConfigMap to document the policy configuration
+    - id: policyConfig
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${schema.spec.name}-config
+          namespace: ${schema.spec.namespace}
+          labels:
+            managed-by: kro
+            policy-name: ${schema.spec.name}
+        data:
+          policy-action: ${schema.spec.action}
+          target-kind: ${schema.spec.targetKind}
+          target-group: ${schema.spec.targetGroup}
+          target-name: ${schema.spec.targetName}
+          ip-blocks: |
+            ${schema.spec.rules.from[0].source.ipBlocks}
+
+---
+# Instance of the AuthorizationPolicyConfig custom resource
+apiVersion: kro.run/v1alpha1
+kind: AuthorizationPolicyConfig
+metadata:
+  name: deny-all-except-cidr
+  namespace: default  # The instance can be in any namespace
+spec:
+  name: deny-all-except-cidr
+  namespace: aks-istio-ingress
+  targetKind: Gateway
+  targetGroup: gateway.networking.k8s.io
+  targetName: at39473-dev-app-gateway
+  action: ALLOW
+  rules:
+    from:
+    - source:
+        ipBlocks: 
+        - "10.10.10.10/24"
+        - "192.168.1.0/24"  # You can add multiple CIDR blocks

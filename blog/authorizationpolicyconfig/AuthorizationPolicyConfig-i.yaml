@@ -1,0 +1,19 @@
+# Instance of the AuthorizationPolicyConfig custom resource
+apiVersion: kro.run/v1alpha1
+kind: AuthorizationPolicyConfig
+metadata:
+  name: deny-all-except-cidr
+  namespace: default  # The instance can be in any namespace
+spec:
+  name: deny-all-except-cidr
+  namespace: aks-istio-ingress
+  targetKind: Gateway
+  targetGroup: gateway.networking.k8s.io
+  targetName: at39473-dev-app-gateway
+  action: ALLOW
+  rules:
+    from:
+    - source:
+        ipBlocks: 
+        - "10.10.10.10/24"
+        - "192.168.1.0/24"  # You can add multiple CIDR blocks

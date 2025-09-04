@@ -1,4 +1,3 @@
----
 # ResourceGraphDefinition for AuthorizationPolicyConfig
 apiVersion: kro.run/v1alpha1
 kind: ResourceGraphDefinition
@@ -17,10 +16,7 @@ spec:
       targetGroup: string | default="gateway.networking.k8s.io" description="Target API group"
       targetName: string | required=true description="Target resource name"
       action: string | default="ALLOW" description="Policy action (ALLOW or DENY)"
-      rules:
-        from:
-          - source:
-              ipBlocks: '[]string' | description="List of allowed IP CIDR blocks"
+      rules: object | description="Authorization rules configuration"
     status:
       # Status fields to expose from the created resources
       policyReady: ${authPolicy.status.conditions[?(@.type=="Ready")].status}
@@ -67,24 +63,3 @@ spec:
           target-name: ${schema.spec.targetName}
           ip-blocks: |
             ${schema.spec.rules.from[0].source.ipBlocks}
-
----
-# Instance of the AuthorizationPolicyConfig custom resource
-apiVersion: kro.run/v1alpha1
-kind: AuthorizationPolicyConfig
-metadata:
-  name: deny-all-except-cidr
-  namespace: default  # The instance can be in any namespace
-spec:
-  name: deny-all-except-cidr
-  namespace: aks-istio-ingress
-  targetKind: Gateway
-  targetGroup: gateway.networking.k8s.io
-  targetName: at39473-dev-app-gateway
-  action: ALLOW
-  rules:
-    from:
-    - source:
-        ipBlocks: 
-        - "10.10.10.10/24"
-        - "192.168.1.0/24"  # You can add multiple CIDR blocks

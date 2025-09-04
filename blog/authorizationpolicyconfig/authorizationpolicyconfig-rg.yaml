@@ -46,8 +46,7 @@ spec:
           rules:
             - from:
               - source:
-                  ipBlocks: 
-                    - ${schema.spec.ipBlocks}
+                  ipBlocks: ${schema.spec.ipBlocks.split(',')}
 
     # Optional: ConfigMap to document the policy configuration
     - id: policyConfig

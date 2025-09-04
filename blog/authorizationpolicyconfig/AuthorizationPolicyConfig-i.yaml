@@ -11,9 +11,4 @@ spec:
   targetGroup: gateway.networking.k8s.io
   targetName: at39473-dev-app-gateway
   action: ALLOW
-  rules:
-    from:
-    - source:
-        ipBlocks: 
-        - "10.10.10.10/24"
-        - "192.168.1.0/24"  # You can add multiple CIDR blocks
+  ipBlocks: "10.10.10.10/24,192.168.1.0/24"  # Comma-separated CIDR blocks

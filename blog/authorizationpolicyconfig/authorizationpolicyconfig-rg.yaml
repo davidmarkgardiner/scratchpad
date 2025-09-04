@@ -16,7 +16,7 @@ spec:
       targetGroup: string | default="gateway.networking.k8s.io" description="Target API group"
       targetName: string | required=true description="Target resource name"
       action: string | default="ALLOW" description="Policy action (ALLOW or DENY)"
-      rules: object | description="Authorization rules configuration"
+      ipBlocks: string | description="Comma-separated list of allowed IP CIDR blocks"
     status:
       # Status fields to expose from the created resources
       policyReady: ${authPolicy.status.conditions[?(@.type=="Ready")].status}
@@ -43,7 +43,11 @@ spec:
               kind: ${schema.spec.targetKind}
               name: ${schema.spec.targetName}
           action: ${schema.spec.action}
-          rules: ${schema.spec.rules}
+          rules:
+            - from:
+              - source:
+                  ipBlocks: 
+                    - ${schema.spec.ipBlocks}
 
     # Optional: ConfigMap to document the policy configuration
     - id: policyConfig
@@ -62,4 +66,4 @@ spec:
           target-group: ${schema.spec.targetGroup}
           target-name: ${schema.spec.targetName}
           ip-blocks: |
-            ${schema.spec.rules.from[0].source.ipBlocks}
+            ${schema.spec.ipBlocks}

@@ -53,3 +53,44 @@ Your queries look good for calculating utilization ratios. You might want to add
 The `> 0` filter helps avoid division by zero errors when pods don't have resource requests set.
 
 Which method are you planning to use to query these metrics?
+
+
+---
+
+Almost correct, but there's a subtle issue with the filtering approach. The `> 0` filter works on the metric values but doesn't ensure proper pairing between numerator and denominator. Here are the corrected versions:
+
+## Better approach - Filter entire expression:
+
+```promql
+# CPU utilization with proper filtering
+(
+  sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[5m])) 
+  / 
+  sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu"})
+) and on(namespace, pod) (sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu"}) > 0)
+
+# Memory utilization as percentage with proper filtering  
+(
+  100 * sum by (namespace, pod) (container_memory_working_set_bytes)
+  /
+  sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"})
+) and on(namespace, pod) (sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"}) > 0)
+```
+
+## Even cleaner approach using `or`:
+
+```promql
+# CPU utilization - returns NaN for pods without requests instead of error
+sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[5m])) 
+/ 
+(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu"}) or vector(0))
+
+# Memory utilization as percentage
+100 * sum by (namespace, pod) (container_memory_working_set_bytes)
+/
+(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"}) or vector(0))
+```
+
+The issue with your original approach is that `kube_pod_container_resource_requests{resource="cpu"} > 0` filters the metric before the `sum by`, but the numerator might still have values for pods that don't appear in the filtered denominator, leading to incomplete results.
+
+The corrected versions ensure you only get ratios for pods that actually have resource requests configured.

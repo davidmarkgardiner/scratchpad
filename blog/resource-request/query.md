@@ -94,3 +94,34 @@ sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[5m]))
 The issue with your original approach is that `kube_pod_container_resource_requests{resource="cpu"} > 0` filters the metric before the `sum by`, but the numerator might still have values for pods that don't appear in the filtered denominator, leading to incomplete results.
 
 The corrected versions ensure you only get ratios for pods that actually have resource requests configured.
+
+---
+
+The parse error is likely due to the multi-line formatting. Prometheus queries need to be on single lines or properly formatted. Here are the corrected single-line versions:
+
+## Single-line versions:
+
+```promql
+# CPU utilization
+(sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[5m]))) / (sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu"}))
+
+# Memory utilization as percentage
+100 * (sum by (namespace, pod) (container_memory_working_set_bytes)) / (sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"}))
+```
+
+## With filtering to avoid division by zero:
+
+```promql
+# CPU utilization with filtering
+sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[5m])) / (sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu"}) or vector(0))
+
+# Memory utilization as percentage with filtering
+100 * sum by (namespace, pod) (container_memory_working_set_bytes) / (sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"}) or vector(0))
+```
+
+The key changes:
+1. **Single line**: No line breaks in the query
+2. **Proper parentheses**: Each `sum by` expression is wrapped in parentheses
+3. **Simplified filtering**: Using `or vector(0)` instead of complex `and on()` expressions
+
+Try copying and pasting these single-line versions directly into your Prometheus query interface.

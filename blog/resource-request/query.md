@@ -212,3 +212,51 @@ sum by (namespace, pod) (container_memory_working_set_bytes) / sum by (namespace
 - Memory ratios > 1.0 risk out-of-memory kills (OOMKilled pods)
 
 The queries help you optimize your Kubernetes resource allocation by showing the gap between what you've allocated and what you're actually using.
+
+
+---
+
+Looking at your queries, here are the time durations involved:
+
+## CPU Query Duration
+```promql
+sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[5m]))
+```
+- **Duration**: `[5m]` = **5 minutes**
+- **What it measures**: Average CPU usage over the last 5 minutes
+- **How it works**: Takes CPU usage samples over 5 minutes and calculates the rate per second
+
+## Memory Query Duration
+```promql
+sum by (namespace, pod) (container_memory_working_set_bytes)
+```
+- **Duration**: **Instantaneous** (current moment)
+- **What it measures**: Current memory usage right now
+- **How it works**: Latest memory usage value, not averaged over time
+
+## Summary
+- **CPU utilization**: Averaged over the **last 5 minutes**
+- **Memory utilization**: **Current snapshot** (no time window)
+
+## Why This Matters
+
+**CPU (5-minute average):**
+- Smooths out short CPU spikes
+- Good for understanding sustained CPU usage patterns
+- Won't show brief bursts that last seconds
+
+**Memory (instantaneous):**
+- Shows current memory pressure
+- Memory usage typically doesn't fluctuate as rapidly as CPU
+- More relevant for immediate resource decisions
+
+## You Can Adjust the Duration
+```promql
+# 1-minute CPU average (more sensitive to recent changes)
+sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[1m]))
+
+# 15-minute CPU average (smoother, longer-term view)
+sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[15m]))
+```
+
+The 5-minute window is a common default that balances responsiveness with stability.

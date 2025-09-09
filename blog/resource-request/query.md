@@ -160,3 +160,55 @@ sum by (namespace, pod) (container_memory_working_set_bytes) / sum by (namespace
 ```
 
 Try the simpler versions first - sometimes Prometheus can be picky about operator precedence and spacing.
+
+---
+
+These queries show **resource utilization ratios** - how much of the requested resources your Kubernetes pods are actually using. Here's what each one tells you:
+
+## CPU Utilization Query
+```promql
+sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[5m])) / sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu"})
+```
+
+**What it shows:**
+- **Numerator**: Average CPU cores used per pod over the last 5 minutes
+- **Denominator**: CPU cores requested by each pod
+- **Result**: Ratio of actual CPU usage vs requested CPU
+
+**Example interpretations:**
+- `0.5` = Pod is using 50% of its requested CPU
+- `1.0` = Pod is using exactly its requested CPU  
+- `2.0` = Pod is using 200% of its requested CPU (overutilized)
+- `0.1` = Pod is using only 10% of its requested CPU (overprovisioned)
+
+## Memory Utilization Query  
+```promql
+sum by (namespace, pod) (container_memory_working_set_bytes) / sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"}) * 100
+```
+
+**What it shows:**
+- **Numerator**: Current memory usage (working set) per pod in bytes
+- **Denominator**: Memory requested by each pod in bytes  
+- **Result**: Percentage of actual memory usage vs requested memory
+
+**Example interpretations:**
+- `75%` = Pod is using 75% of its requested memory
+- `100%` = Pod is using exactly its requested memory
+- `150%` = Pod is using 50% more memory than requested (potential OOMKill risk)
+- `25%` = Pod is using only 25% of requested memory (overprovisioned)
+
+## Why This Matters
+
+**For Right-sizing Resources:**
+- Values consistently below 50% suggest you can reduce requests (save money)
+- Values consistently above 90% suggest you should increase requests (avoid performance issues)
+
+**For Capacity Planning:**
+- High utilization ratios indicate pods that might need more resources
+- Low ratios indicate wasted cluster capacity
+
+**For Monitoring:**
+- CPU ratios > 1.0 indicate CPU throttling may occur
+- Memory ratios > 1.0 risk out-of-memory kills (OOMKilled pods)
+
+The queries help you optimize your Kubernetes resource allocation by showing the gap between what you've allocated and what you're actually using.

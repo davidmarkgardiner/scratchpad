@@ -125,3 +125,38 @@ The key changes:
 3. **Simplified filtering**: Using `or vector(0)` instead of complex `and on()` expressions
 
 Try copying and pasting these single-line versions directly into your Prometheus query interface.
+
+
+---
+
+The error "unexpected number 100" suggests Prometheus is having trouble parsing the `100 *` at the beginning. Try these alternatives:
+
+## Option 1: Multiply at the end
+```promql
+(sum by (namespace, pod) (container_memory_working_set_bytes)) / (sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"})) * 100
+```
+
+## Option 2: Use parentheses around the multiplication
+```promql
+(100) * (sum by (namespace, pod) (container_memory_working_set_bytes)) / (sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"}))
+```
+
+## Option 3: Skip the percentage conversion
+```promql
+(sum by (namespace, pod) (container_memory_working_set_bytes)) / (sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"}))
+```
+*This gives you a ratio (0.0 to 1.0) instead of percentage*
+
+## Complete working queries:
+
+**CPU utilization (as ratio):**
+```promql
+sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[5m])) / sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu"})
+```
+
+**Memory utilization (as percentage):**
+```promql
+sum by (namespace, pod) (container_memory_working_set_bytes) / sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory"}) * 100
+```
+
+Try the simpler versions first - sometimes Prometheus can be picky about operator precedence and spacing.

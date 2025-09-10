@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: simple-vpa-policy
+spec:
+  background: true
+  rules:
+  - name: generate-simple-vpa
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    generate:
+      generateExisting: true
+      synchronize: true
+      apiVersion: autoscaling.k8s.io/v1
+      kind: VerticalPodAutoscaler
+      name: "{{request.object.metadata.name}}-simple-vpa"
+      namespace: "{{request.object.metadata.namespace}}"
+      data:
+        spec:
+          targetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: "{{request.object.metadata.name}}"
+          updatePolicy:
+            updateMode: "Off"

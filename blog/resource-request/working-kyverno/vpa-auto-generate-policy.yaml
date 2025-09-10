@@ -1,0 +1,238 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: auto-generate-vpa-all-workloads
+  annotations:
+    policies.kyverno.io/title: Auto-Generate VPA for All Workloads
+    policies.kyverno.io/description: Creates VPA for every Deployment, StatefulSet, DaemonSet, and ReplicaSet
+    policies.kyverno.io/subject: Deployment,StatefulSet,DaemonSet,ReplicaSet
+    policies.kyverno.io/category: Resource Management
+spec:
+  background: true
+  rules:
+    # Rule 1: Generate VPA for Deployments
+    - name: generate-vpa-deployment
+      match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - kube-system
+            - kube-public
+            - kube-node-lease
+            - kyverno
+            - cert-manager
+        - resources:
+            selector:
+              matchLabels:
+                vpa.io/skip: "true"
+      generate:
+        generateExisting: true
+        synchronize: true
+        apiVersion: autoscaling.k8s.io/v1
+        kind: VerticalPodAutoscaler
+        name: "{{request.object.metadata.name}}-vpa"
+        namespace: "{{request.object.metadata.namespace}}"
+        data:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: kyverno
+              vpa.io/generation: auto
+              vpa.io/target-kind: deployment
+              vpa.io/target-name: "{{request.object.metadata.name}}"
+            annotations:
+              vpa.io/created-by: "kyverno-policy"
+              vpa.io/created-at: "{{request.object.metadata.creationTimestamp}}"
+          spec:
+            targetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: "{{request.object.metadata.name}}"
+            updatePolicy:
+              updateMode: "Off"
+            resourcePolicy:
+              containerPolicies:
+              - containerName: '*'
+                minAllowed:
+                  cpu: 10m
+                  memory: 32Mi
+                maxAllowed:
+                  cpu: 4
+                  memory: 8Gi
+                controlledResources: ["cpu", "memory"]
+
+    # Rule 2: Generate VPA for StatefulSets
+    - name: generate-vpa-statefulset
+      match:
+        any:
+        - resources:
+            kinds:
+            - StatefulSet
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - kube-system
+            - kube-public
+            - kube-node-lease
+            - kyverno
+            - cert-manager
+        - resources:
+            selector:
+              matchLabels:
+                vpa.io/skip: "true"
+      generate:
+        generateExisting: true
+        synchronize: true
+        apiVersion: autoscaling.k8s.io/v1
+        kind: VerticalPodAutoscaler
+        name: "{{request.object.metadata.name}}-vpa"
+        namespace: "{{request.object.metadata.namespace}}"
+        data:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: kyverno
+              vpa.io/generation: auto
+              vpa.io/target-kind: statefulset
+              vpa.io/target-name: "{{request.object.metadata.name}}"
+            annotations:
+              vpa.io/created-by: "kyverno-policy"
+              vpa.io/created-at: "{{request.object.metadata.creationTimestamp}}"
+          spec:
+            targetRef:
+              apiVersion: apps/v1
+              kind: StatefulSet
+              name: "{{request.object.metadata.name}}"
+            updatePolicy:
+              updateMode: "Off"
+            resourcePolicy:
+              containerPolicies:
+              - containerName: '*'
+                minAllowed:
+                  cpu: 10m
+                  memory: 32Mi
+                maxAllowed:
+                  cpu: 4
+                  memory: 8Gi
+                controlledResources: ["cpu", "memory"]
+
+    # Rule 3: Generate VPA for DaemonSets
+    - name: generate-vpa-daemonset
+      match:
+        any:
+        - resources:
+            kinds:
+            - DaemonSet
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - kube-system
+            - kube-public
+            - kube-node-lease
+            - kyverno
+            - cert-manager
+        - resources:
+            selector:
+              matchLabels:
+                vpa.io/skip: "true"
+      generate:
+        generateExisting: true
+        synchronize: true
+        apiVersion: autoscaling.k8s.io/v1
+        kind: VerticalPodAutoscaler
+        name: "{{request.object.metadata.name}}-vpa"
+        namespace: "{{request.object.metadata.namespace}}"
+        data:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: kyverno
+              vpa.io/generation: auto
+              vpa.io/target-kind: daemonset
+              vpa.io/target-name: "{{request.object.metadata.name}}"
+            annotations:
+              vpa.io/created-by: "kyverno-policy"
+              vpa.io/created-at: "{{request.object.metadata.creationTimestamp}}"
+          spec:
+            targetRef:
+              apiVersion: apps/v1
+              kind: DaemonSet
+              name: "{{request.object.metadata.name}}"
+            updatePolicy:
+              updateMode: "Off"
+            resourcePolicy:
+              containerPolicies:
+              - containerName: '*'
+                minAllowed:
+                  cpu: 10m
+                  memory: 32Mi
+                maxAllowed:
+                  cpu: 4
+                  memory: 8Gi
+                controlledResources: ["cpu", "memory"]
+
+    # Rule 4: Generate VPA for ReplicaSets (standalone, not managed by Deployments)
+    - name: generate-vpa-replicaset
+      match:
+        any:
+        - resources:
+            kinds:
+            - ReplicaSet
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - kube-system
+            - kube-public
+            - kube-node-lease
+            - kyverno
+            - cert-manager
+        - resources:
+            selector:
+              matchLabels:
+                vpa.io/skip: "true"
+        # Exclude ReplicaSets managed by Deployments to avoid duplicates
+        - resources:
+            selector:
+              matchExpressions:
+              - key: "app.kubernetes.io/managed-by"
+                operator: In
+                values: ["kustomize", "deployment"]
+      generate:
+        generateExisting: true
+        synchronize: true
+        apiVersion: autoscaling.k8s.io/v1
+        kind: VerticalPodAutoscaler
+        name: "{{request.object.metadata.name}}-vpa"
+        namespace: "{{request.object.metadata.namespace}}"
+        data:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: kyverno
+              vpa.io/generation: auto
+              vpa.io/target-kind: replicaset
+              vpa.io/target-name: "{{request.object.metadata.name}}"
+            annotations:
+              vpa.io/created-by: "kyverno-policy"
+              vpa.io/created-at: "{{request.object.metadata.creationTimestamp}}"
+          spec:
+            targetRef:
+              apiVersion: apps/v1
+              kind: ReplicaSet
+              name: "{{request.object.metadata.name}}"
+            updatePolicy:
+              updateMode: "Off"
+            resourcePolicy:
+              containerPolicies:
+              - containerName: '*'
+                minAllowed:
+                  cpu: 10m
+                  memory: 32Mi
+                maxAllowed:
+                  cpu: 4
+                  memory: 8Gi
+                controlledResources: ["cpu", "memory"]

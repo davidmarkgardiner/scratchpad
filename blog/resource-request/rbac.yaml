@@ -1,0 +1,240 @@
+# Additional ClusterRole for Kyverno to manage VPA resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-vpa-manager
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: admission-controller
+rules:
+# VPA Custom Resource Definitions - Full access needed for generate policies
+- apiGroups: ["autoscaling.k8s.io"]
+  resources: ["verticalpodautoscalers"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# VPA Status access
+- apiGroups: ["autoscaling.k8s.io"]
+  resources: ["verticalpodautoscalers/status"]
+  verbs: ["get", "update", "patch"]
+
+---
+# ClusterRoleBinding to grant VPA permissions to Kyverno admission controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno-vpa-manager-binding
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: admission-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-vpa-manager
+subjects:
+- kind: ServiceAccount
+  name: kyverno-admission-controller
+  namespace: kyverno
+
+---
+# Alternative: Patch existing Kyverno ClusterRole (if you prefer to modify existing)
+# You can apply this patch instead of creating new ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admission-controller
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: admission-controller
+rules:
+# ... existing Kyverno rules ...
+# Add these VPA rules to the existing ClusterRole
+- apiGroups: ["autoscaling.k8s.io"]
+  resources: ["verticalpodautoscalers"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["autoscaling.k8s.io"]
+  resources: ["verticalpodautoscalers/status"]
+  verbs: ["get", "update", "patch"]
+
+---
+# Improved Kyverno Policy with better error handling
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: auto-generate-vpa-all-workloads
+  annotations:
+    policies.kyverno.io/title: Auto-Generate VPA for All Workloads
+    policies.kyverno.io/description: Creates VPA for every Deployment, StatefulSet, DaemonSet, and ReplicaSet
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/category: Resource Management
+spec:
+  background: true
+  generateExisting: true  # Also generate for existing resources
+  rules:
+    # Rule 1: Generate VPA for Deployments
+    - name: generate-vpa-deployment
+      match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+            namespaces:
+            - "at*"  # Your namespace pattern
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - kube-system
+            - kyverno
+            - cert-manager
+            - kube-public
+            - kube-node-lease
+        - resources:
+            selector:
+              matchLabels:
+                vpa.io/skip: "true"
+        # Exclude if VPA already exists
+        - resources:
+            name: "*-vpa"
+      generate:
+        synchronize: true
+        orphanDownstreamOnPolicyDelete: false  # Keep VPAs when policy is deleted
+        apiVersion: autoscaling.k8s.io/v1
+        kind: VerticalPodAutoscaler
+        name: "{{request.object.metadata.name}}-vpa"
+        namespace: "{{request.object.metadata.namespace}}"
+        data:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: kyverno
+              vpa.io/generation: auto
+              vpa.io/target-kind: deployment
+              vpa.io/target-name: "{{request.object.metadata.name}}"
+            annotations:
+              vpa.io/created-by: "kyverno-policy"
+              vpa.io/policy-name: "auto-generate-vpa-all-workloads"
+            ownerReferences:
+            - apiVersion: apps/v1
+              kind: Deployment
+              name: "{{request.object.metadata.name}}"
+              uid: "{{request.object.metadata.uid}}"
+              controller: false  # Don't make VPA owned by deployment
+          spec:
+            targetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: "{{request.object.metadata.name}}"
+            updatePolicy:
+              updateMode: "Off"  # Safe default
+            resourcePolicy:
+              containerPolicies:
+              - containerName: '*'
+                minAllowed:
+                  cpu: 10m
+                  memory: 32Mi
+                maxAllowed:
+                  cpu: 8
+                  memory: 16Gi
+                controlledResources: ["cpu", "memory"]
+                controlledValues: "RequestsOnly"  # Only manage requests
+
+    # Rule 2: Generate VPA for StatefulSets
+    - name: generate-vpa-statefulset
+      match:
+        any:
+        - resources:
+            kinds:
+            - StatefulSet
+            namespaces:
+            - "at*"
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - kube-system
+            - kyverno
+            - cert-manager
+        - resources:
+            selector:
+              matchLabels:
+                vpa.io/skip: "true"
+      generate:
+        synchronize: true
+        apiVersion: autoscaling.k8s.io/v1
+        kind: VerticalPodAutoscaler
+        name: "{{request.object.metadata.name}}-vpa"
+        namespace: "{{request.object.metadata.namespace}}"
+        data:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: kyverno
+              vpa.io/generation: auto
+              vpa.io/target-kind: statefulset
+              vpa.io/target-name: "{{request.object.metadata.name}}"
+          spec:
+            targetRef:
+              apiVersion: apps/v1
+              kind: StatefulSet
+              name: "{{request.object.metadata.name}}"
+            updatePolicy:
+              updateMode: "Off"
+            resourcePolicy:
+              containerPolicies:
+              - containerName: '*'
+                minAllowed:
+                  cpu: 10m
+                  memory: 32Mi
+                maxAllowed:
+                  cpu: 8
+                  memory: 16Gi
+                controlledResources: ["cpu", "memory"]
+
+    # Rule 3: Generate VPA for DaemonSets
+    - name: generate-vpa-daemonset
+      match:
+        any:
+        - resources:
+            kinds:
+            - DaemonSet
+            namespaces:
+            - "at*"
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - kube-system
+            - kyverno
+            - cert-manager
+        - resources:
+            selector:
+              matchLabels:
+                vpa.io/skip: "true"
+      generate:
+        synchronize: true
+        apiVersion: autoscaling.k8s.io/v1
+        kind: VerticalPodAutoscaler
+        name: "{{request.object.metadata.name}}-vpa"
+        namespace: "{{request.object.metadata.namespace}}"
+        data:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: kyverno
+              vpa.io/generation: auto
+              vpa.io/target-kind: daemonset
+              vpa.io/target-name: "{{request.object.metadata.name}}"
+          spec:
+            targetRef:
+              apiVersion: apps/v1
+              kind: DaemonSet
+              name: "{{request.object.metadata.name}}"
+            updatePolicy:
+              updateMode: "Off"
+            resourcePolicy:
+              containerPolicies:
+              - containerName: '*'
+                minAllowed:
+                  cpu: 10m
+                  memory: 32Mi
+                maxAllowed:
+                  cpu: 4  # Lower for DaemonSets
+                  memory: 8Gi
+                controlledResources: ["cpu", "memory"]

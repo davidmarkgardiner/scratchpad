@@ -1,4 +1,4 @@
-# VPA Auto-Generation with Kyverno - Deployment Summary
+x# VPA Auto-Generation with Kyverno - Deployment Summary
 
 ## Successfully Deployed Components
 

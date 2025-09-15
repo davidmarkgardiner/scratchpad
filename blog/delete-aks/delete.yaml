@@ -1,0 +1,118 @@
+# Delete AKS Development Clusters to Reduce Costs
+
+## Summary
+Implement a strategy to delete AKS development clusters during non-use periods to reduce cloud infrastructure costs. Since these clusters use Node Auto-Provisioning (NAP), they cannot be simply started/stopped and must be deleted and recreated as needed.
+
+## Business Value
+- **Significant cost savings** for the company by eliminating idle AKS cluster compute costs
+- Promotes efficient resource utilization and cloud cost optimization
+- Aligns with FinOps best practices for non-production environments
+
+## Background
+- Development AKS clusters are running 24/7, incurring costs even when not actively used
+- Clusters utilize NAP (Node Auto-Provisioning), preventing traditional start/stop operations
+- Deletion and recreation is the only viable approach for cost optimization
+
+## Requirements
+
+### Stakeholder Alignment
+- [ ] Obtain agreement from Business stakeholders on cluster deletion strategy
+- [ ] Align with Process team on deletion/deployment procedures
+- [ ] Communicate impact and benefits to all affected development teams
+
+### Automation & Tooling
+- [ ] Develop GitOps patterns for cluster recreation and workload deployment
+- [ ] Create workflow automation for:
+  - Cluster deletion (scheduled or on-demand)
+  - Cluster recreation with consistent configuration
+  - Automatic workload redeployment
+- [ ] Provide self-service mechanisms for developers to trigger cluster recreation
+
+### Testing & Validation
+- [ ] Establish comprehensive testing procedures for deletion/recreation process
+- [ ] Validate workload recovery and data persistence strategies
+- [ ] Ensure compatibility with ongoing 1.6.1 release work
+- [ ] Document recovery time objectives (RTO) for cluster recreation
+
+## Implementation Plan
+
+### Phase 1: Pilot (Select Dev Clusters)
+- Identify 2-3 non-critical development clusters for initial rollout
+- Implement automation patterns
+- Gather metrics on cost savings and operational impact
+- Refine processes based on pilot feedback
+
+### Phase 2: All Development Clusters
+- Roll out to all development environment clusters
+- Monitor adoption and address any issues
+- Document lessons learned
+
+### Phase 3: Pre-Production Environments
+- Extend strategy to pre-production clusters
+- Implement more sophisticated scheduling based on usage patterns
+- Ensure robust testing procedures are in place
+
+### Phase 4: Production (Out of Scope)
+- Production clusters will remain always-on
+- No changes to production infrastructure
+
+## Success Criteria
+- [ ] Minimum 40% cost reduction in development AKS infrastructure spend
+- [ ] Cluster recreation time < 15 minutes
+- [ ] Zero data loss during deletion/recreation cycles
+- [ ] 95% developer satisfaction with new workflow
+
+## Communication Plan
+- [ ] Create documentation for new deployment patterns
+- [ ] Conduct training sessions for development teams
+- [ ] Establish clear communication channels for scheduled deletions
+- [ ] Provide mindset adjustment guidance for teams
+
+## Technical Considerations
+- **State Management**: Ensure persistent volumes and configurations are backed up
+- **Secrets Management**: Automate secret recreation or use external secret stores
+- **Network Configuration**: Maintain consistent networking setup across recreations
+- **CI/CD Integration**: Update pipelines to handle dynamic cluster availability
+
+## Dependencies
+- GitOps tooling (e.g., ArgoCD, Flux)
+- Infrastructure as Code templates (Terraform/Bicep)
+- Current 1.6.1 release work completion
+- Business and Process team approvals
+
+## Risks & Mitigations
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Developer workflow disruption | High | Provide comprehensive automation and self-service tools |
+| Data loss during deletion | High | Implement robust backup strategies for persistent data |
+| Increased complexity | Medium | Clear documentation and training |
+| Resistance to change | Medium | Demonstrate cost savings and provide adjustment period |
+
+## Acceptance Criteria
+- [ ] Business and Process teams have signed off on the approach
+- [ ] Automation patterns are implemented and tested
+- [ ] Documentation is complete and accessible
+- [ ] Pilot phase shows measurable cost savings
+- [ ] Recovery procedures are validated and meet RTO requirements
+
+## Labels
+`cost-optimization` `infrastructure` `aks` `automation` `gitops`
+
+## Priority
+**High** - Significant cost savings opportunity
+
+## Estimated Effort
+- Planning & Alignment: 1 week
+- Automation Development: 2-3 weeks
+- Pilot Phase: 2 weeks
+- Full Rollout: 4-6 weeks
+
+## Team Members
+- Infrastructure Team Lead
+- DevOps Engineers
+- Business Stakeholder Representative
+- Process Team Representative
+- Development Team Leads (for feedback)
+
+---
+*Note: This initiative requires strong organizational buy-in and clear communication to ensure successful adoption. The emphasis should be on making the process as seamless as possible for developers while achieving significant cost savings.*

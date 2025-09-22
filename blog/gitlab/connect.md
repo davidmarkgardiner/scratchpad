@@ -96,7 +96,7 @@ try:
     epics = group.epics.list()
     print(f"Found {len(epics)} epics")
     
-except gitlab.exceptions.GitlabAuthenticationError:
+except gitlab.exceptions.GitlabAuthenticationError: 
     print("Authentication failed - check your token")
 except gitlab.exceptions.GitlabGetError as e:
     print(f"Access error: {e}")

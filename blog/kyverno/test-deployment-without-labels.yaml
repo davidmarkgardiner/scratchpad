@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app-no-labels
+  labels:
+    app: test-app-no-labels
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app-no-labels
+  template:
+    metadata:
+      labels:
+        app: test-app-no-labels
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80

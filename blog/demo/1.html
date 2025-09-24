@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SemVer Release Strategy for Kubernetes (Interactive Demo)</title>
+  <style>
+    :root{
+      --bg:#0f1220; /* deep slate */
+      --panel:#161a2a;
+      --panel-2:#1d2236;
+      --ink:#e8ecff;
+      --muted:#9aa3c7;
+      --accent:#7aa2ff;
+      --accent-2:#22d3ee;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --code:#0b1022;
+      --chip:#252b45;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial;
+      color:var(--ink); background:radial-gradient(1200px 800px at 100% -10%, #1b2242 0, rgba(27,34,66,.2) 50%, transparent 70%),
+                         radial-gradient(800px 600px at -10% 100%, #112034 0, rgba(17,32,52,.2) 60%, transparent 70%), var(--bg);
+      line-height:1.5;
+    }
+    header{
+      position:sticky; top:0; z-index:10; backdrop-filter:saturate(140%) blur(8px);
+      background:linear-gradient(180deg, rgba(15,18,32,.9), rgba(15,18,32,.6));
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .wrap{max-width:1200px; margin:0 auto; padding:20px}
+    .title{display:flex; gap:14px; align-items:center}
+    .logo{width:44px; height:44px; border-radius:12px; display:grid; place-items:center; background:linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow:var(--shadow)}
+    h1{font-size:clamp(20px,2.6vw,32px); margin:0}
+    h2{font-size:22px; margin:18px 0 8px}
+    p{color:var(--muted)}
+    .grid{display:grid; gap:16px}
+    @media(min-width:960px){
+      .grid.cols-3{grid-template-columns:1fr 1fr 1fr}
+      .grid.cols-2{grid-template-columns:1.2fr .8fr}
+    }
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel-2)); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .card .pad{padding:18px}
+    .subtle{color:var(--muted); font-size:14px}
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background:var(--chip); border:1px solid rgba(255,255,255,.06); font-size:12px}
+    .env-header{display:flex; align-items:center; justify-content:space-between; gap:10px}
+    .env-name{font-weight:700; letter-spacing:.3px}
+    .env-dev .env-name{color:#93c5fd}
+    .env-stg .env-name{color:#fde68a}
+    .env-prd .env-name{color:#fda4af}
+    .kvs{display:grid; grid-template-columns:auto 1fr; gap:6px 10px; font-size:13px}
+    .kvs div:nth-child(odd){color:var(--muted)}
+    .btns{display:flex; flex-wrap:wrap; gap:10px}
+    button, select{
+      background:var(--chip); color:var(--ink); border:1px solid rgba(255,255,255,.08); padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600;
+    }
+    button:hover{filter:brightness(1.15)}
+    .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#0b1022; border:none}
+    .btn-good{background:linear-gradient(135deg,#34d399,#10b981); color:#062b20; border:none}
+    .btn-warn{background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#2a1900; border:none}
+    .btn-bad{background:linear-gradient(135deg,#fb7185,#ef4444); color:#2a0005; border:none}
+    code, pre{background:var(--code); border:1px solid rgba(255,255,255,.06); border-radius:12px}
+    code{padding:.2em .4em}
+    pre{padding:14px; overflow:auto}
+    table{width:100%; border-collapse:separate; border-spacing:0 8px}
+    th, td{text-align:left; padding:10px 12px}
+    tbody tr{background:var(--panel-2); border:1px solid rgba(255,255,255,.06)}
+    tbody tr td:first-child, thead tr th:first-child{border-top-left-radius:10px; border-bottom-left-radius:10px}
+    tbody tr td:last-child, thead tr th:last-child{border-top-right-radius:10px; border-bottom-right-radius:10px}
+    .repo-chip{display:inline-block; padding:6px 10px; border-radius:999px; border:1px dashed rgba(255,255,255,.18); background:transparent; color:var(--muted); font-size:12px; margin-right:6px}
+    .log{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12.5px; max-height:220px; overflow:auto; white-space:pre-wrap}
+    .flow{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+    .flow .node{padding:8px 12px; border-radius:10px; background:var(--chip); border:1px solid rgba(255,255,255,.08)}
+    .arrow{opacity:.5}
+    /* --- Progressive Rollout Visualizer styles --- */
+    .rollout{margin-top:18px}
+    .cluster-grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px}
+    .cluster{background:var(--panel); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:6px}
+    .cluster h4{margin:0; font-size:14px}
+    .status{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:4px 8px; border-radius:999px; background:var(--chip); border:1px solid rgba(255,255,255,.08)}
+    .dot{width:8px; height:8px; border-radius:50%}
+    .s-pending .dot{background:#9aa3c7}
+    .s-deploying .dot{background:#f59e0b}
+    .s-healthy .dot{background:#22c55e}
+    .s-failed .dot{background:#ef4444}
+    .s-paused .dot{background:#7aa2ff}
+    .cluster code{font-size:12px}
+    .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0 6px}
+    .toolbar .spacer{flex:1}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap title">
+      <div class="logo" aria-hidden="true">⚙️</div>
+      <div>
+        <h1>Semantic Versioning Release Strategy for Kubernetes — <span style="opacity:.85">Interactive</span></h1>
+        <div class="subtle">Showcase how a single SemVer tag flows through Dev → Staging → Production with FluxCD.</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" id="app">
+
+    <div class="grid cols-2">
+      <section class="card">
+        <div class="pad">
+          <h2>Release Playground</h2>
+          <p class="subtle">Create versions and watch environments pick them up automatically based on their SemVer ranges. Promote or rollback production with exact pinning.</p>
+
+          <div class="btns" style="margin:10px 0 6px">
+            <button class="btn-primary" id="btn-major">New <b>major</b> (x+1.0.0)</button>
+            <button class="btn-warn" id="btn-minor">New <b>minor</b> (x.y+1.0)</button>
+            <button class="btn-good" id="btn-patch">New <b>patch</b> (x.y.z+1)</button>
+            <button id="btn-tag-all" title="Tag all repos with latest version">Tag 3 repos</button>
+          </div>
+
+          <div style="margin:12px 0">
+            <span class="repo-chip">infrastructure</span>
+            <span class="repo-chip">helm-charts</span>
+            <span class="repo-chip">config</span>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <div class="pad log" id="log"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card">
+        <div class="pad">
+          <h2>Available Tags</h2>
+          <p class="subtle">Highest compatible tag wins per environment.</p>
+          <div id="tagList" class="flow" style="margin:6px 0 14px"></div>
+          <div class="flow"><span class="node">latest: <b id="latestTag">–</b></span></div>
+          <h2 style="margin-top:18px">Manual Actions</h2>
+          <div class="btns">
+            <select id="rollbackSelect" title="Pick a tag to pin production to"></select>
+            <button id="btn-rollback" class="btn-bad">Rollback / Pin Prod</button>
+            <button id="btn-promote" class="btn-primary">Promote Staging → Prod</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="grid cols-3" style="margin-top:18px">
+      <!-- Dev -->
+      <div class="card env-dev">
+        <div class="pad">
+          <div class="env-header"><div class="env-name">Development</div><span class="pill">Range: <code id="devRange">^1.0.0</code></span></div>
+          <div class="kvs" style="margin-top:12px">
+            <div>Update policy</div><div>Minor + Patch</div>
+            <div>Selected tag</div><div><b id="devSelected">–</b></div>
+            <div>Status</div><div id="devStatus">waiting…</div>
+          </div>
+        </div>
+      </div>
+      <!-- Staging -->
+      <div class="card env-stg">
+        <div class="pad">
+          <div class="env-header"><div class="env-name">Staging</div><span class="pill">Range: <code id="stgRange">~1.2.0</code></span></div>
+          <div class="kvs" style="margin-top:12px">
+            <div>Update policy</div><div>Patch only</div>
+            <div>Selected tag</div><div><b id="stgSelected">–</b></div>
+            <div>Status</div><div id="stgStatus">waiting…</div>
+          </div>
+        </div>
+      </div>
+      <!-- Production -->
+      <div class="card env-prd">
+        <div class="pad">
+          <div class="env-header"><div class="env-name">Production</div><span class="pill">Pinned: <code id="prdRange">1.2.3</code></span></div>
+          <div class="kvs" style="margin-top:12px">
+            <div>Update policy</div><div>Exact version</div>
+            <div>Selected tag</div><div><b id="prdSelected">–</b></div>
+            <div>Status</div><div id="prdStatus">waiting…</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:18px">
+      <div class="pad">
+        <h2>How It Maps to FluxCD & Pipelines</h2>
+        <div class="flow" style="margin:10px 0 14px">
+          <span class="node">Dev: <code>^1.0.0</code></span><span class="arrow">→</span>
+          <span class="node">Stg: <code>~1.2.0</code></span><span class="arrow">→</span>
+          <span class="node">Prod: <code>1.2.3</code></span>
+        </div>
+        <p class="subtle">Flux GitRepository <code>repositoryRef.semver</code> controls what tag each environment pulls. Production pins an exact tag for safe, auditable rollouts.</p>
+        <pre><code>{
+  "gitRepository": {
+    "repositoryRef": {
+      "semver": "~1.2.3" // set per environment
+    }
+  }
+}</code></pre>
+
+        <div class="grid cols-3" style="margin-top:10px">
+          <div>
+            <h3>Azure DevOps variables</h3>
+            <pre><code># Production
+RELEASE_VERSION: 1.2.3
+SEMVER_RANGE: exact
+
+# Staging
+RELEASE_VERSION: 1.2.3
+SEMVER_RANGE: patch
+
+# Development
+RELEASE_VERSION: 1.2.3
+SEMVER_RANGE: minor</code></pre>
+          </div>
+          <div>
+            <h3>Release flow</h3>
+            <pre><code># When ready to release
+VERSION=1.2.3
+# 1) Tag all repos
+git tag v$VERSION && git push --tags
+# 2) Update Flux semver per env
+# 3) Deploy via pipeline</code></pre>
+          </div>
+          <div>
+            <h3>Quick checks</h3>
+            <pre><code># Flux: what is deployed?
+kubectl get gitrepository -n flux-system -o wide
+flux get sources git --all-namespaces
+
+# Git: available versions
+git tag -l "v*" --sort=-version:refname</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:18px">
+      <div class="pad">
+        <h2>Scenarios</h2>
+        <table>
+          <thead><tr><th>Scenario</th><th>What happens</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>Hotfix</td><td>Create <code>v1.2.4</code></td><td>Staging auto-picks; Prod pins when approved</td></tr>
+            <tr><td>Feature release</td><td>Create <code>v1.3.0</code></td><td>Dev auto-picks; Stg/Prod after testing</td></tr>
+            <tr><td>Emergency rollback</td><td>Pin Prod to <code>v1.2.3</code></td><td>Prod instantly reverts</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="wrap" style="margin:28px auto 40px; text-align:center; color:var(--muted)">
+      Built for showcasing <b>SemVer in action</b> with FluxCD & ADO. – Demo only; no external libraries.
+    </footer>
+
+      <!-- Progressive Rollout Visualizer -->
+      <section class="card rollout">
+        <div class="pad">
+          <h2>Progressive Rollout Visualizer (per-environment clusters)</h2>
+          <p class="subtle">Simulate GitOps rollouts in waves so code isn’t pushed to every cluster at once. Choose wave size and start a rollout. Clusters update only if the selected SemVer is compatible with that environment’s range.</p>
+
+          <!-- Dev Controls -->
+          <div class="card env-dev" style="margin-top:12px">
+            <div class="pad">
+              <div class="env-header">
+                <div class="env-name">Development Clusters</div>
+                <span class="pill">Wave size
+                  <select id="devWave">
+                    <option value="1">1</option>
+                    <option value="2" selected>2</option>
+                    <option value="3">3</option>
+                  </select>
+                </span>
+              </div>
+              <div class="toolbar">
+                <button class="btn-primary" id="devStart">Start rollout</button>
+                <button id="devPause">Pause</button>
+                <button id="devReset">Reset</button>
+                <span class="spacer"></span>
+                <button id="devFail" class="btn-bad">Simulate failure</button>
+              </div>
+              <div id="devGrid" class="cluster-grid"></div>
+            </div>
+          </div>
+
+          <!-- Staging Controls -->
+          <div class="card env-stg" style="margin-top:12px">
+            <div class="pad">
+              <div class="env-header">
+                <div class="env-name">Staging Clusters</div>
+                <span class="pill">Wave size
+                  <select id="stgWave">
+                    <option value="1">1</option>
+                    <option value="2" selected>2</option>
+                    <option value="3">3</option>
+                  </select>
+                </span>
+              </div>
+              <div class="toolbar">
+                <button class="btn-primary" id="stgStart">Start rollout</button>
+                <button id="stgPause">Pause</button>
+                <button id="stgReset">Reset</button>
+                <span class="spacer"></span>
+                <button id="stgFail" class="btn-bad">Simulate failure</button>
+              </div>
+              <div id="stgGrid" class="cluster-grid"></div>
+            </div>
+          </div>
+
+          <!-- Production Controls -->
+          <div class="card env-prd" style="margin-top:12px">
+            <div class="pad">
+              <div class="env-header">
+                <div class="env-name">Production Clusters</div>
+                <span class="pill">Wave size
+                  <select id="prdWave">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3" selected>3</option>
+                  </select>
+                </span>
+              </div>
+              <div class="toolbar">
+                <button class="btn-primary" id="prdStart">Start rollout</button>
+                <button id="prdPause">Pause</button>
+                <button id="prdReset">Reset</button>
+                <span class="spacer"></span>
+                <button id="prdFail" class="btn-bad">Simulate failure</button>
+              </div>
+              <div id="prdGrid" class="cluster-grid"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+  <script>
+    // --- Minimal SemVer helpers (supports x.y.z, ^, ~, exact) ---
+    function parse(v){
+      const m=(v+"").trim().replace(/^v/,'').match(/^(\d+)\.(\d+)\.(\d+)$/);
+      if(!m) return null; return {maj:+m[1], min:+m[2], pat:+m[3], raw:`${+m[1]}.${+m[2]}.${+m[3]}`};
+    }
+    function cmp(a,b){ if(a.maj!==b.maj) return a.maj-b.maj; if(a.min!==b.min) return a.min-b.min; return a.pat-b.pat; }
+    function lt(a,b){return cmp(a,b)<0} function gt(a,b){return cmp(a,b)>0} function eq(a,b){return cmp(a,b)===0}
+    function satisfies(version, range){
+      const v=parse(version); if(!v||!range) return false;
+      range=range.trim();
+      // exact
+      if(/^\d+\.\d+\.\d+$/.test(range)) return eq(v, parse(range));
+      // caret ^x.y.z  -> >= x.y.z and < (x+1).0.0
+      if(range.startsWith('^')){
+        const b=parse(range.slice(1)); if(!b) return false;
+        const upper={maj:b.maj+1, min:0, pat:0};
+        return (cmp(v,b)>=0) && (cmp(v,upper)<0);
+      }
+      // tilde ~x.y.z -> >= x.y.z and < x.(y+1).0
+      if(range.startsWith('~')){
+        const b=parse(range.slice(1)); if(!b) return false;
+        const upper={maj:b.maj, min:b.min+1, pat:0};
+        return (cmp(v,b)>=0) && (cmp(v,upper)<0);
+      }
+      // fallback: star major e.g. 1.x.x (not used here)
+      return false;
+    }
+
+    // --- Demo state ---
+    const state={
+      tags:["1.2.0","1.2.1","1.2.2","1.2.3"],
+      envs:{
+        dev:{range:"^1.0.0", selected:null},
+        stg:{range:"~1.2.0", selected:null},
+        prd:{range:"1.2.3", selected:"1.2.3"}
+      },
+      repos:["infrastructure","helm-charts","config"],
+      lastTagged:null
+    };
+
+    // --- Rendering helpers ---
+    const $=sel=>document.querySelector(sel);
+    function formatTag(t){return 'v'+t}
+    function latestTag(){
+      return state.tags.map(parse).sort(cmp).pop()?.raw || null;
+    }
+    function pick(range){
+      const options=state.tags.filter(t=>satisfies(t,range)).map(parse).sort(cmp);
+      return options.length? options.pop().raw : null;
+    }
+    function renderTags(){
+      const list=$('#tagList'); list.innerHTML='';
+      state.tags.slice().sort((a,b)=>cmp(parse(a),parse(b))).forEach(t=>{
+        const span=document.createElement('span');
+        span.className='node'; span.textContent=formatTag(t); list.appendChild(span);
+      });
+      $('#latestTag').textContent= state.tags.length? 'v'+latestTag(): '–';
+      const roll=$('#rollbackSelect'); roll.innerHTML='';
+      state.tags.slice().reverse().forEach(t=>{
+        const opt=document.createElement('option'); opt.value=t; opt.textContent='Pin Prod → v'+t; roll.appendChild(opt);
+      });
+    }
+    function renderEnvs(){
+      // recalc selections
+      state.envs.dev.selected= pick(state.envs.dev.range);
+      state.envs.stg.selected= pick(state.envs.stg.range);
+      // prod is exact
+      $('#devSelected').textContent= state.envs.dev.selected? 'v'+state.envs.dev.selected : '–';
+      $('#stgSelected').textContent= state.envs.stg.selected? 'v'+state.envs.stg.selected : '–';
+      $('#prdSelected').textContent= state.envs.prd.selected? 'v'+state.envs.prd.selected : '–';
+      $('#devRange').textContent= state.envs.dev.range;
+      $('#stgRange').textContent= state.envs.stg.range;
+      $('#prdRange').textContent= state.envs.prd.range;
+      $('#devStatus').textContent= state.envs.dev.selected? 'deployed' : 'no compatible tag';
+      $('#stgStatus').textContent= state.envs.stg.selected? 'deployed' : 'no compatible tag';
+      $('#prdStatus').textContent= state.envs.prd.selected? 'deployed' : 'not pinned';
+    }
+    function log(line){
+      const el=$('#log'); const ts=new Date().toLocaleTimeString();
+      el.textContent+=`[${ts}] ${line}\n`; el.scrollTop=el.scrollHeight;
+    }
+
+    // --- Actions ---
+    function bump(kind){
+      const cur=latestTag() || '1.2.3';
+      let {maj,min,pat}=parse(cur);
+      if(kind==='major'){maj+=1; min=0; pat=0}
+      if(kind==='minor'){min+=1; pat=0}
+      if(kind==='patch'){pat+=1}
+      const next=`${maj}.${min}.${pat}`;
+      state.tags.push(next);
+      log(`Created release tag ${formatTag(next)} across repos`);
+      state.lastTagged=next;
+      render();
+    }
+    function tagAllRepos(){
+      const t=state.lastTagged||latestTag(); if(!t){log('No tag to apply');return}
+      state.repos.forEach(r=>log(`• ${r}: tagged ${formatTag(t)}`));
+    }
+    function promote(){
+      const cand=state.envs.stg.selected;
+      if(!cand){log('Staging has no compatible tag to promote.'); return}
+      state.envs.prd.range=cand; state.envs.prd.selected=cand;
+      log(`Promoted Staging → Production at ${formatTag(cand)} (exact pin).`);
+      render();
+    }
+    function rollback(toTag){
+      if(!toTag) return;
+      state.envs.prd.range=toTag; state.envs.prd.selected=toTag;
+      log(`Production pinned to ${formatTag(toTag)} (rollback).`);
+      render();
+    }
+
+    // wire up
+    $('#btn-major').addEventListener('click',()=>bump('major'));
+    $('#btn-minor').addEventListener('click',()=>bump('minor'));
+    $('#btn-patch').addEventListener('click',()=>bump('patch'));
+    $('#btn-tag-all').addEventListener('click',tagAllRepos);
+    $('#btn-promote').addEventListener('click',promote);
+    $('#btn-rollback').addEventListener('click',()=>rollback($('#rollbackSelect').value));
+
+    // init
+    function render(){ renderTags(); renderEnvs(); }
+    render();
+    // initial log
+    log('Initialized with Dev:^1.0.0, Stg:~1.2.0, Prod:1.2.3');
+    log('Click patch/minor/major to simulate new releases.');
+  </script>
+  <script>
+    // --- Progressive Rollout logic ---
+    const rollout = {
+      dev:{ clusters:[], wave:2, timer:null, paused:false },
+      stg:{ clusters:[], wave:2, timer:null, paused:false },
+      prd:{ clusters:[], wave:3, timer:null, paused:false },
+    };
+
+    function initClusters(){
+      // Initialize clusters with different base versions per environment
+      rollout.dev.clusters = [1,2,3].map(i=>({
+        name:`dev-${i}`,
+        version: `1.${i}.0`,
+        status:'Healthy'
+      }));
+      rollout.stg.clusters = [1,2,3].map(i=>({
+        name:`stg-${i}`,
+        version: `1.${i+2}.0`,
+        status:'Healthy'
+      }));
+      rollout.prd.clusters = [1,2,3].map(i=>({
+        name:`prd-${i}`,
+        version: `${i+1}.0.0`,
+        status:'Healthy'
+      }));
+      renderClusterGrids();
+    }
+
+    function clusterCard(c){
+      const statusClass = {
+        'Pending':'s-pending',
+        'Deploying':'s-deploying',
+        'Healthy':'s-healthy',
+        'Failed':'s-failed',
+        'Paused':'s-paused'
+      }[c.status] || 's-pending';
+      return `<div class="cluster ${statusClass}">
+        <h4>${c.name}</h4>
+        <div class="status"><span class="dot"></span><span>${c.status}</span></div>
+        <div>Version: <code>v${c.version}</code></div>
+      </div>`;
+    }
+
+    function renderClusterGrids(){
+      const renderEnv=(env, gridId)=>{
+        const grid=document.getElementById(gridId);
+        grid.innerHTML = rollout[env].clusters.map(clusterCard).join('');
+      };
+      renderEnv('dev','devGrid');
+      renderEnv('stg','stgGrid');
+      renderEnv('prd','prdGrid');
+    }
+
+    function startRollout(env){
+      const cfg = rollout[env];
+      const target = env==='prd' ? state.envs.prd.selected : state.envs[env].selected; // selected per env
+      if(!target){ log(`[${env}] No compatible tag selected; nothing to roll out.`); return; }
+      cfg.paused=false;
+
+      // Mark clusters needing update as Pending
+      cfg.clusters.forEach(c=>{
+        if(c.version !== target) c.status='Pending'; else c.status='Healthy';
+      });
+      renderClusterGrids();
+
+      function wave(){
+        if(cfg.paused) return;
+        const pending = cfg.clusters.filter(c=>c.status==='Pending');
+        if(pending.length===0){ log(`[${env}] Rollout complete at v${target}.`); renderClusterGrids(); return; }
+        const batch = pending.slice(0, cfg.wave);
+        batch.forEach(c=> c.status='Deploying');
+        renderClusterGrids();
+        setTimeout(()=>{
+          batch.forEach(c=>{ if(c.status==='Deploying'){ c.version=target; c.status='Healthy'; }});
+          renderClusterGrids();
+          setTimeout(wave, 700);
+        }, 900);
+      }
+      wave();
+      log(`[${env}] Started progressive rollout in waves of ${cfg.wave} to v${target}.`);
+    }
+
+    function pauseRollout(env){ rollout[env].paused=true; rollout[env].clusters.forEach(c=>{ if(c.status==='Deploying') c.status='Paused'; }); renderClusterGrids(); log(`[${env}] Rollout paused.`); }
+    function resetEnv(env){
+      const sel = env==='prd' ? (state.envs.prd.selected||'1.2.3') : (state.envs[env].selected||state.envs.prd.selected||'1.2.3');
+      rollout[env].clusters.forEach(c=>{ c.version=sel; c.status='Healthy'; });
+      renderClusterGrids(); log(`[${env}] Reset clusters to v${sel}.`);
+    }
+    function failRandom(env){
+      const candidates = rollout[env].clusters.filter(c=>c.status==='Pending' || c.status==='Deploying' || c.status==='Healthy');
+      if(!candidates.length){ log(`[${env}] No cluster to fail.`); return; }
+      const idx = Math.floor(Math.random()*candidates.length);
+      candidates[idx].status='Failed';
+      renderClusterGrids(); log(`[${env}] Simulated failure on ${candidates[idx].name}.`);
+    }
+
+    // Wire up controls
+    function wireRollout(){
+      // wave selectors
+      document.getElementById('devWave').addEventListener('change',e=>rollout.dev.wave=+e.target.value);
+      document.getElementById('stgWave').addEventListener('change',e=>rollout.stg.wave=+e.target.value);
+      document.getElementById('prdWave').addEventListener('change',e=>rollout.prd.wave=+e.target.value);
+      // buttons
+      document.getElementById('devStart').addEventListener('click',()=>startRollout('dev'));
+      document.getElementById('stgStart').addEventListener('click',()=>startRollout('stg'));
+      document.getElementById('prdStart').addEventListener('click',()=>startRollout('prd'));
+
+      document.getElementById('devPause').addEventListener('click',()=>pauseRollout('dev'));
+      document.getElementById('stgPause').addEventListener('click',()=>pauseRollout('stg'));
+      document.getElementById('prdPause').addEventListener('click',()=>pauseRollout('prd'));
+
+      document.getElementById('devReset').addEventListener('click',()=>resetEnv('dev'));
+      document.getElementById('stgReset').addEventListener('click',()=>resetEnv('stg'));
+      document.getElementById('prdReset').addEventListener('click',()=>resetEnv('prd'));
+
+      document.getElementById('devFail').addEventListener('click',()=>failRandom('dev'));
+      document.getElementById('stgFail').addEventListener('click',()=>failRandom('stg'));
+      document.getElementById('prdFail').addEventListener('click',()=>failRandom('prd'));
+    }
+
+    // Kickoff when base app renders
+    initClusters();
+    wireRollout();
+  </script>
+  <script>
+    // Final safety net: ensure buttons are wired after the page fully loads.
+    (function(){
+      function ready(fn){ if(document.readyState!=='loading'){ fn(); } else { document.addEventListener('DOMContentLoaded', fn); } }
+      ready(function(){
+        // Helper fallbacks if original functions aren't found
+        function has(fnName){ return typeof window[fnName] === 'function'; }
+
+        // Minimal fallback rollout wave (in case earlier wiring didn't attach)
+        function fallbackStart(env){
+          try{
+            // Use shared objects from the main demo if available
+            const cfg = (window.rollout && window.rollout[env]);
+            const st  = (window.state   && window.state);
+            const log = (window.log     || function(){});
+            if(!cfg || !st){ return; }
+            const target = env==='prd' ? st.envs.prd.selected : st.envs[env].selected;
+            if(!target){ log(`[${env}] No compatible tag selected; nothing to roll out.`); return; }
+            cfg.paused=false;
+            cfg.clusters.forEach(c=>{ if(c.version!==target) c.status='Pending'; else c.status='Healthy'; });
+            if(window.renderClusterGrids) window.renderClusterGrids();
+            (function wave(){
+              if(cfg.paused) return;
+              const pending = cfg.clusters.filter(c=>c.status==='Pending');
+              if(!pending.length){ log(`[${env}] Rollout complete at v${target}.`); if(window.renderClusterGrids) window.renderClusterGrids(); return; }
+              const batch = pending.slice(0, cfg.wave||1);
+              batch.forEach(c=>c.status='Deploying'); if(window.renderClusterGrids) window.renderClusterGrids();
+              setTimeout(()=>{ batch.forEach(c=>{ if(c.status==='Deploying'){ c.version=target; c.status='Healthy'; }}); if(window.renderClusterGrids) window.renderClusterGrids(); setTimeout(wave,700); },900);
+            })();
+            log(`[${env}] (Fallback) Started progressive rollout in waves of ${cfg.wave||1}.`);
+          }catch(e){ /* ignore */ }
+        }
+
+        function bind(id, fn){ var el=document.getElementById(id); if(el){ el.addEventListener('click', fn, {once:false}); } }
+        function setWave(id, env){ var el=document.getElementById(id); if(el && window.rollout){ el.addEventListener('change', e=> window.rollout[env].wave=+e.target.value); } }
+
+        // Try to bind to original functions if present, else use fallbacks
+        bind('devStart', ()=> has('startRollout') ? window.startRollout('dev') : fallbackStart('dev'));
+        bind('stgStart', ()=> has('startRollout') ? window.startRollout('stg') : fallbackStart('stg'));
+        bind('prdStart', ()=> has('startRollout') ? window.startRollout('prd') : fallbackStart('prd'));
+
+        bind('devPause', ()=> { if(window.rollout){ window.rollout.dev.paused=true; } });
+        bind('stgPause', ()=> { if(window.rollout){ window.rollout.stg.paused=true; } });
+        bind('prdPause', ()=> { if(window.rollout){ window.rollout.prd.paused=true; } });
+
+        bind('devReset', ()=> { if(window.rollout && window.state){ window.rollout.dev.clusters.forEach(c=>{ c.version=window.state.envs.dev.selected||c.version; c.status='Healthy'; }); if(window.renderClusterGrids) window.renderClusterGrids(); } });
+        bind('stgReset', ()=> { if(window.rollout && window.state){ window.rollout.stg.clusters.forEach(c=>{ c.version=window.state.envs.stg.selected||c.version; c.status='Healthy'; }); if(window.renderClusterGrids) window.renderClusterGrids(); } });
+        bind('prdReset', ()=> { if(window.rollout && window.state){ window.rollout.prd.clusters.forEach(c=>{ c.version=window.state.envs.prd.selected||c.version; c.status='Healthy'; }); if(window.renderClusterGrids) window.renderClusterGrids(); } });
+
+        bind('devFail', ()=> { if(window.rollout){ const a=window.rollout.dev.clusters; if(a.length){ a[Math.floor(Math.random()*a.length)].status='Failed'; if(window.renderClusterGrids) window.renderClusterGrids(); } } });
+        bind('stgFail', ()=> { if(window.rollout){ const a=window.rollout.stg.clusters; if(a.length){ a[Math.floor(Math.random()*a.length)].status='Failed'; if(window.renderClusterGrids) window.renderClusterGrids(); } } });
+        bind('prdFail', ()=> { if(window.rollout){ const a=window.rollout.prd.clusters; if(a.length){ a[Math.floor(Math.random()*a.length)].status='Failed'; if(window.renderClusterGrids) window.renderClusterGrids(); } } });
+
+        setWave('devWave','dev'); setWave('stgWave','stg'); setWave('prdWave','prd');
+      });
+    })();
+  </script>
+  <script>
+    // Export globals for safety so buttons always find handlers/state
+    document.addEventListener('DOMContentLoaded', () => {
+      try { window.state = window.state || state; } catch(e) {}
+      try { window.rollout = window.rollout || rollout; } catch(e) {}
+      try { window.renderClusterGrids = window.renderClusterGrids || renderClusterGrids; } catch(e) {}
+      try { window.startRollout = window.startRollout || startRollout; } catch(e) {}
+      try { window.log = window.log || log; } catch(e) {}
+    });
+  </script>
+</body>
+</html>

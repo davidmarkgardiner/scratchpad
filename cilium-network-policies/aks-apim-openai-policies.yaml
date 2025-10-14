@@ -1,0 +1,359 @@
+---
+# 1. Default Deny All Policy
+# This is the foundation - deny all traffic by default, then selectively allow
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: default
+spec:
+  endpointSelector: {}
+  ingress:
+  - {}
+  egress:
+  - {}
+
+---
+# 2. Allow DNS Resolution
+# Essential for all pods to resolve domain names
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: default
+spec:
+  endpointSelector: {}
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: kube-system
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+
+---
+# 3. Allow Azure AKS System Traffic
+# Required for AKS node health and management
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-aks-system
+  namespace: kube-system
+spec:
+  endpointSelector:
+    matchLabels:
+      component: kube-apiserver
+  ingress:
+  - fromEntities:
+    - cluster
+    - host
+  egress:
+  - toEntities:
+    - cluster
+    - host
+
+---
+# 4. Application to APIM Gateway Policy
+# Allow specific applications to communicate with Azure APIM
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: app-to-apim
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: backend-service
+      tier: api-client
+  egress:
+  - toFQDNs:
+    - matchPattern: "*.azure-api.net"
+    - matchPattern: "*.management.azure.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          headers:
+          - "Ocp-Apim-Subscription-Key"
+        - method: "POST"
+          headers:
+          - "Ocp-Apim-Subscription-Key"
+        - method: "PUT"
+          headers:
+          - "Ocp-Apim-Subscription-Key"
+        - method: "DELETE"
+          headers:
+          - "Ocp-Apim-Subscription-Key"
+
+---
+# 5. Application to OpenAI Endpoint Policy
+# Strict policy for OpenAI API access with rate limiting considerations
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: app-to-openai
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: ai-service
+      tier: ml-client
+  egress:
+  - toFQDNs:
+    - matchPattern: "*.openai.azure.com"
+    - matchName: "api.openai.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      rules:
+        http:
+        - method: "POST"
+          path: "/v1/chat/completions"
+        - method: "POST"
+          path: "/v1/completions"
+        - method: "POST"
+          path: "/v1/embeddings"
+        - method: "GET"
+          path: "/v1/models"
+
+---
+# 6. APIM Gateway Ingress Policy
+# Control what can reach your APIM endpoints
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: apim-ingress-control
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: apim-gateway
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: frontend-service
+    - matchLabels:
+        app: backend-service
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      - port: "8080"
+        protocol: TCP
+
+---
+# 7. Block Egress to Known Malicious IPs
+# Security policy to block traffic to threat intelligence feeds
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: block-malicious-egress
+  namespace: default
+spec:
+  endpointSelector: {}
+  egressDeny:
+  - toCIDR:
+    - 0.0.0.0/0  # This will be overridden by more specific rules
+  egress:
+  - toEntities:
+    - world
+
+---
+# 8. Rate Limiting and DDoS Protection
+# Cilium Network Policy with bandwidth limits
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: rate-limit-external
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: public-facing
+  ingress:
+  - fromEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      rules:
+        http:
+        - {}
+    # Note: Actual rate limiting requires Cilium 1.13+ and additional configuration
+
+---
+# 9. Inter-Service Communication Policy
+# Allow communication between trusted services
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-inter-service
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      tier: backend
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        tier: frontend
+    - matchLabels:
+        tier: backend
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      - port: "9090"
+        protocol: TCP
+
+---
+# 10. Azure Services Access (Storage, Key Vault, etc.)
+# Allow pods to access Azure PaaS services
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-azure-services
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      azure-identity: enabled
+  egress:
+  - toFQDNs:
+    - matchPattern: "*.vault.azure.net"
+    - matchPattern: "*.blob.core.windows.net"
+    - matchPattern: "*.queue.core.windows.net"
+    - matchPattern: "*.table.core.windows.net"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+
+---
+# 11. Monitoring and Observability Access
+# Allow Prometheus/Grafana to scrape metrics
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-monitoring
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      metrics: enabled
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: prometheus
+        io.kubernetes.pod.namespace: monitoring
+    toPorts:
+    - ports:
+      - port: "9090"
+        protocol: TCP
+      - port: "8080"
+        protocol: TCP
+
+---
+# 12. Block Lateral Movement
+# Prevent compromised pods from scanning internal network
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: prevent-lateral-movement
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      security-tier: isolated
+  egressDeny:
+  - toCIDR:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    toPorts:
+    - ports:
+      - port: "22"
+        protocol: TCP
+      - port: "3389"
+        protocol: TCP
+      - port: "445"
+        protocol: TCP
+
+---
+# 13. Egress Gateway Policy (for source IP preservation)
+# Useful for APIM IP whitelisting
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: apim-egress-gateway
+  namespace: default
+spec:
+  selectors:
+  - podSelector:
+      matchLabels:
+        app: backend-service
+  destinationCIDRs:
+  - 0.0.0.0/0  # Replace with your APIM public IP range
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        egress-gateway: "true"
+
+---
+# 14. Cluster-Wide Security Policy
+# Apply security controls across all namespaces
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: cluster-security-baseline
+spec:
+  endpointSelector: {}
+  egress:
+  - toEntities:
+    - kube-apiserver
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: kube-system
+  egressDeny:
+  - toFQDNs:
+    - matchPattern: "*.onion"
+    - matchPattern: "*malware*"
+
+---
+# 15. OpenAI Request Logging Policy
+# Enhanced visibility for AI API calls
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openai-audit-logging
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: ai-service
+  egress:
+  - toFQDNs:
+    - matchPattern: "*.openai.azure.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      rules:
+        http:
+        - method: "POST"
+          headerMatches:
+          - name: api-key
+            secret:
+              name: openai-secret
+              namespace: default
+  # Enable Hubble for L7 visibility
+  enableDefaultDeny: true
